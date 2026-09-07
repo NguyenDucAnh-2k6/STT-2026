@@ -15,6 +15,7 @@
  *  - ArduinoJson by Benoit Blanchon (phiên bản 6.x hoặc 7.x)
  */
 
+#include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>

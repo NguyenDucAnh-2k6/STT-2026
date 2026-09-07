@@ -1,0 +1,5 @@
+-xc++
+-std=c++17
+-w
+-ferror-limit=0
+-DIRAM_ATTR=
