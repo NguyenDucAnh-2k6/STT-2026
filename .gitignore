@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C / C++ compiled
+*.o
+*.bin
+*.elf
+.pio/
+
+# Virtual environment
+venv/
+env/
+.env
+
+# Mosquitto broker persistence data
+broker/data/
+broker/log/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
