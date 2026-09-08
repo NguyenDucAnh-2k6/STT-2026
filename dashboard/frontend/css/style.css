@@ -3,7 +3,7 @@
    Design: Cyberpunk Glassmorphism / Dark Modern SOC (Security Operations Center)
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap");
 
 :root {
   /* Color Palette */
@@ -34,8 +34,8 @@
   --text-muted: #64748b;
 
   /* Typography */
-  --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-main: "Outfit", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 
   /* Transitions */
   --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -54,12 +54,24 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   position: relative;
-  background-image: 
-    radial-gradient(circle at 10% 20%, rgba(0, 240, 255, 0.04) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(255, 0, 85, 0.04) 0%, transparent 45%),
+  background-image:
+    radial-gradient(
+      circle at 10% 20%,
+      rgba(0, 240, 255, 0.04) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 90% 80%,
+      rgba(255, 0, 85, 0.04) 0%,
+      transparent 45%
+    ),
     linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+  background-size:
+    100% 100%,
+    100% 100%,
+    40px 40px,
+    40px 40px;
 }
 
 /* Glassmorphism Container */
@@ -170,9 +182,18 @@ header.app-header {
 }
 
 @keyframes pulse-dot {
-  0% { transform: scale(0.95); opacity: 0.8; }
-  50% { transform: scale(1.15); opacity: 1; }
-  100% { transform: scale(0.95); opacity: 0.8; }
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
 }
 
 /* Main Layout */
@@ -202,7 +223,7 @@ main.dashboard-container {
 }
 
 .kpi-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -274,7 +295,8 @@ main.dashboard-container {
   border: 1px solid rgba(0, 255, 157, 0.3);
 }
 
-.threat-HIGH, .threat-CRITICAL {
+.threat-HIGH,
+.threat-CRITICAL {
   background: rgba(255, 0, 85, 0.18);
   color: var(--crimson-danger);
   border: 1px solid rgba(255, 0, 85, 0.4);
@@ -283,8 +305,12 @@ main.dashboard-container {
 }
 
 @keyframes glow-threat {
-  from { box-shadow: 0 0 10px rgba(255, 0, 85, 0.2); }
-  to { box-shadow: 0 0 20px rgba(255, 0, 85, 0.5); }
+  from {
+    box-shadow: 0 0 10px rgba(255, 0, 85, 0.2);
+  }
+  to {
+    box-shadow: 0 0 20px rgba(255, 0, 85, 0.5);
+  }
 }
 
 /* Control & Simulation Bar */
@@ -558,5 +584,320 @@ table.alert-table tr:hover {
   }
   .sub-analytics-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ========================================================================
+   EDGEGUARD / editorial glass pass
+   The dashboard should feel like a calm operations room, not a game HUD.
+   ======================================================================== */
+
+:root {
+  --bg-primary: #091017;
+  --bg-secondary: #101b24;
+  --bg-card: rgba(20, 32, 41, 0.68);
+  --bg-card-hover: rgba(27, 43, 52, 0.78);
+  --bg-glass: rgba(232, 242, 238, 0.045);
+  --border-subtle: rgba(205, 225, 216, 0.13);
+  --border-focus: rgba(143, 211, 185, 0.5);
+  --cyan-neon: #8fd3b9;
+  --cyan-glow: rgba(143, 211, 185, 0.2);
+  --emerald-safe: #a8d8b5;
+  --emerald-glow: rgba(168, 216, 181, 0.2);
+  --crimson-danger: #ff7f72;
+  --crimson-glow: rgba(255, 127, 114, 0.22);
+  --amber-warning: #e9bd76;
+  --amber-glow: rgba(233, 189, 118, 0.2);
+  --purple-accent: #b9a7db;
+  --text-primary: #e7eee9;
+  --text-secondary: #a8b8b3;
+  --text-muted: #71827f;
+  --font-main: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+  --transition-smooth: all 0.22s ease;
+}
+
+body {
+  background-color: var(--bg-primary);
+  background-image:
+    radial-gradient(
+      circle at 8% 0%,
+      rgba(143, 211, 185, 0.12),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 94% 22%,
+      rgba(185, 167, 219, 0.08),
+      transparent 26%
+    ),
+    linear-gradient(125deg, rgba(255, 255, 255, 0.025) 0, transparent 35%),
+    linear-gradient(rgba(214, 236, 224, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(214, 236, 224, 0.018) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    44px 44px,
+    44px 44px;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 0 48%,
+    rgba(255, 255, 255, 0.018) 50%,
+    transparent 52%
+  );
+  opacity: 0.45;
+  z-index: -1;
+}
+
+.glass-panel {
+  position: relative;
+  background: linear-gradient(
+    135deg,
+    rgba(31, 48, 55, 0.72),
+    rgba(13, 24, 32, 0.68)
+  );
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  box-shadow:
+    0 18px 45px rgba(0, 0, 0, 0.22),
+    inset 0 1px rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(22px) saturate(125%);
+  -webkit-backdrop-filter: blur(22px) saturate(125%);
+}
+
+.glass-panel:hover {
+  border-color: rgba(143, 211, 185, 0.28);
+  transform: translateY(-1px);
+}
+
+header.app-header {
+  padding: 18px clamp(20px, 4vw, 56px);
+  background: rgba(8, 16, 22, 0.72);
+  border-bottom: 1px solid rgba(205, 225, 216, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+.brand-section {
+  gap: 12px;
+}
+
+.brand-logo-glow {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  color: #10231f;
+  background: linear-gradient(145deg, #b8e2cb, #6eb99f);
+  box-shadow: 0 8px 22px rgba(111, 185, 159, 0.24);
+}
+
+.brand-title h1 {
+  font-size: 19px;
+  letter-spacing: 0;
+}
+
+.brand-title .badge-edge {
+  color: var(--cyan-neon);
+  border-color: rgba(143, 211, 185, 0.35);
+  background: rgba(143, 211, 185, 0.08);
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+}
+
+.brand-subtitle {
+  color: #81928d;
+}
+
+.system-status-indicator {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(205, 225, 216, 0.12);
+  border-radius: 9px;
+  color: var(--text-secondary);
+}
+
+main.dashboard-container {
+  max-width: 1480px;
+  padding: 34px clamp(20px, 4vw, 56px) 60px;
+  gap: 22px;
+}
+
+.kpi-grid,
+.analytics-grid,
+.sub-analytics-grid {
+  gap: 16px;
+}
+
+.kpi-card {
+  min-height: 142px;
+  padding: 21px 22px 18px;
+}
+
+.kpi-card::before {
+  width: 3px;
+  opacity: 0.9;
+}
+.kpi-header {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+.kpi-value {
+  font-size: 31px;
+  letter-spacing: -0.03em;
+}
+.kpi-footer {
+  color: #81928d;
+}
+
+.threat-status-tag {
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.control-bar {
+  padding: 16px 20px;
+  background: rgba(18, 31, 38, 0.68);
+  border-left: 0;
+  border-top: 2px solid rgba(185, 167, 219, 0.55);
+}
+
+.control-title {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.control-buttons-group {
+  gap: 8px;
+}
+
+.btn-cyber {
+  padding: 9px 13px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #d8e3de;
+  border-color: rgba(205, 225, 216, 0.14);
+  font-family: var(--font-main);
+  font-size: 12px;
+}
+
+.btn-cyber:hover {
+  background: rgba(255, 255, 255, 0.09);
+  transform: translateY(-2px);
+}
+.btn-cyber.active-scenario {
+  background: rgba(143, 211, 185, 0.14);
+  border-color: rgba(143, 211, 185, 0.6);
+  box-shadow: 0 5px 18px rgba(143, 211, 185, 0.1);
+}
+
+.chart-card,
+.architecture-card,
+.alert-feed-card {
+  padding: 22px;
+}
+.chart-card {
+  min-height: 360px;
+}
+.chart-header {
+  margin-bottom: 18px;
+}
+.chart-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+.chart-legend-badge {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(205, 225, 216, 0.09);
+  border-radius: 7px;
+}
+
+.score-number {
+  font-size: 54px;
+  letter-spacing: -0.05em;
+  text-shadow: 0 8px 28px var(--emerald-glow);
+}
+
+.pipeline-nodes-flow {
+  gap: 8px;
+  padding: 14px;
+  background: rgba(5, 13, 18, 0.28);
+  border-radius: 12px;
+}
+
+.node-box {
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.045);
+  font-size: 11px;
+}
+
+table.alert-table th {
+  text-transform: none;
+  letter-spacing: 0.03em;
+}
+table.alert-table td {
+  padding: 13px 16px;
+}
+table.alert-table tr:hover {
+  background: rgba(143, 211, 185, 0.045);
+}
+.badge-threat {
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 720px) {
+  header.app-header {
+    align-items: flex-start;
+    gap: 16px;
+    flex-direction: column;
+  }
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .system-status-indicator {
+    font-size: 11px;
+    padding: 6px 9px;
+  }
+  main.dashboard-container {
+    padding-top: 22px;
+  }
+  .control-bar {
+    align-items: flex-start;
+  }
+  .control-buttons-group {
+    width: 100%;
+  }
+  .btn-cyber {
+    flex: 1 1 calc(50% - 8px);
+    justify-content: center;
+  }
+  .chart-header,
+  .feed-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .chart-card {
+    min-height: 330px;
+  }
+  .pipeline-nodes-flow {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+  .flow-node {
+    flex: 0 0 auto;
+  }
+  .flow-arrow {
+    flex: 0 0 auto;
   }
 }
