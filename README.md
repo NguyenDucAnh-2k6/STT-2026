@@ -48,11 +48,33 @@ pip install -r requirements.txt
 ```
 
 ### 2. Khởi chạy toàn bộ hệ thống bằng 1 lệnh duy nhất!
-Chỉ cần chạy lệnh sau, hệ thống sẽ tự động khởi động MQTT Broker, nạp mô hình ML, chạy service suy luận, bật Web Dashboard và chạy Simulator phát dữ liệu mẫu:
+### 2. Khởi chạy toàn bộ hệ thống bằng 1 lệnh duy nhất!
 
-```bash
-python run_system.py
-```
+Hệ thống hỗ trợ cả 3 Entry Points tùy thuộc vào môi trường phát triển của bạn:
+
+- **Trên Windows (Command Prompt / PowerShell)**:
+  ```cmd
+  run_system.bat
+  ```
+  *Hoặc chọn mô hình khác:*
+  ```cmd
+  run_system.bat --classifier random_forest
+  ```
+
+- **Trên Linux / macOS / WSL / Git Bash**:
+  ```bash
+  chmod +x run_system.sh
+  ./run_system.sh --classifier random_forest
+  ```
+
+- **Hoặc chạy trực tiếp qua Python**:
+  ```bash
+  # Mặc định (Decision Tree + TinyML + Isolation Forest):
+  python run_system.py
+
+  # Tùy chọn mô hình khác & ngưỡng cảnh báo:
+  python run_system.py --classifier gradient_boosting --anomaly-model isolation_forest --threshold 0.60
+  ```
 
 Trình duyệt sẽ tự động mở trang Dashboard tại: **`http://localhost:8000`**
 
@@ -73,14 +95,25 @@ Nếu bạn muốn mở từng terminal riêng biệt để quan sát chi tiết
   ```
 
 ### Bước 2: Huấn luyện và xuất mô hình ML & TinyML
+Hệ thống hỗ trợ nhiều thuật toán phân loại và phát hiện bất thường:
 ```bash
-python ml_engine/train.py
-python ml_engine/export_tinyml.py
+# Xem danh sách tất cả các thuật toán hỗ trợ:
+python ml_engine/train.py --list-models
+
+# Huấn luyện Decision Tree và xuất C code cho ESP32:
+python ml_engine/train.py --classifier decision_tree --export-tinyml
+
+# Huấn luyện Random Forest hoặc Gradient Boosting:
+python ml_engine/train.py --classifier random_forest
+python ml_engine/train.py --classifier gradient_boosting
+
+# So sánh benchmark đối chứng toàn bộ các bộ phân loại:
+python ml_engine/train.py --classifier all_compare
 ```
 
 ### Bước 3: Chạy Service suy luận thời gian thực
 ```bash
-python ml_engine/inference_service.py
+python ml_engine/inference_service.py --threshold 0.55
 ```
 
 ### Bước 4: Khởi động Web Dashboard
@@ -103,7 +136,7 @@ Truy cập: `http://localhost:8000`
 
 ---
 
-## 📂 Cấu Trúc Thư Mục Dự Án
+## 📂 Cấu Trúc Thư Mục Dự Án (Modular Architecture)
 
 ```
 d:\STT 2026\
@@ -119,11 +152,22 @@ d:\STT 2026\
 │   ├── docker-compose.yml             # Chạy Mosquitto nhanh bằng Docker
 │   └── embedded_broker.py             # Embedded pure Python MQTT broker dự phòng
 ├── ml_engine\
+│   ├── config\
+│   │   └── schema.py                  # Định nghĩa Feature Vector, Label Map, hằng số
+│   ├── preprocessing\
+│   │   ├── dataset_generator.py       # Bộ sinh dữ liệu synthetic traffic đa kịch bản
+│   │   └── feature_preprocessor.py    # Chuẩn hóa dữ liệu (StandardScaler) & trích xuất vector
+│   ├── algorithms\
+│   │   ├── base.py                    # Base protocol cho Classifier & Anomaly Detector
+│   │   ├── classifiers.py             # DecisionTree, RandomForest, ExtraTrees, GradientBoosting, MLP
+│   │   └── anomaly_detectors.py       # IsolationForest, OneClassSVM, EllipticEnvelope, LOF
+│   ├── exporter\
+│   │   └── tinyml_exporter.py         # Chuyển đổi mô hình sang C Header (ESP32 TinyML)
 │   ├── datasets\                      # Dữ liệu huấn luyện lưu lượng mạng mẫu
 │   ├── models\                        # Trọng số mô hình (.joblib, .json, .h)
-│   ├── train.py                       # Huấn luyện Isolation Forest & Decision Classifier
-│   ├── inference_service.py           # Service suy luận thời gian thực lắng nghe MQTT
-│   └── export_tinyml.py               # Công cụ xuất mô hình sang C Header cho vi điều khiển
+│   ├── train.py                       # CLI huấn luyện mô hình đa cờ (--classifier, --anomaly-model)
+│   ├── inference_service.py           # Service suy luận thời gian thực MQTT
+│   └── export_tinyml.py               # Wrapper CLI xuất mã C TinyML
 ├── dashboard\
 │   ├── backend\
 │   │   └── app.py                     # FastAPI server, WebSocket broadcaster & REST APIs
@@ -131,11 +175,11 @@ d:\STT 2026\
 │       ├── index.html                 # Giao diện SOC Dashboard Cyberpunk Dark Mode
 │       ├── css\style.css              # Glassmorphism styling, animations & theme
 │       └── js\app.js                  # WebSocket client, Chart.js visualizations
-├── docs\
-│   ├── ARCHITECTURE.md                # Tài liệu thiết kế kiến trúc chi tiết
-│   ├── ESP32_FLASHING_GUIDE.md        # Hướng dẫn nạp code cho ESP32 bằng Arduino/PlatformIO
-│   └── MQTT_API_SPEC.md               # Đặc tả các MQTT topic và JSON schema
-├── run_system.py                      # One-click Master Launcher
+├── docs\                              # Tài liệu kỹ thuật kiến trúc, API và ESP32
+├── run_system.py                      # Master Launcher đa nền tảng (hỗ trợ flags)
+├── run_system.bat                     # Entry point Windows Command Prompt / Batch
+├── run_system.sh                      # Entry point Linux / macOS / WSL Shell Script
+├── test_pipeline.py                   # Automated Integration Pipeline Test
 ├── requirements.txt                   # Danh sách thư viện Python
 └── README.md                          # Tài liệu dự án
 ```

@@ -5,14 +5,14 @@
  * ====================================================================
  * 
  * Features vector index:
- *   [0] packet_rate      (packets/sec)
- *   [1] byte_rate        (bytes/sec)
- *   [2] avg_packet_size  (bytes)
- *   [3] syn_ratio        (0.0 - 1.0)
- *   [4] ack_ratio        (0.0 - 1.0)
- *   [5] udp_ratio        (0.0 - 1.0)
- *   [6] icmp_ratio       (0.0 - 1.0)
- *   [7] unique_dst_ports (integer count)
+ *   [0] packet_rate
+ *   [1] byte_rate
+ *   [2] avg_packet_size
+ *   [3] syn_ratio
+ *   [4] ack_ratio
+ *   [5] udp_ratio
+ *   [6] icmp_ratio
+ *   [7] unique_dst_ports
  */
 
 #ifndef TINYML_MODEL_H
@@ -84,7 +84,7 @@ static inline int tinyml_predict_anomaly(
  * @brief Lay ten chuoi mo ta tan cong tu chi so lop
  */
 static inline const char* tinyml_get_threat_name(int class_idx) {
-    if (class_idx >= 0 && class_idx <= 4) {
+    if (class_idx >= 0 && class_idx < 5) {
         return TINYML_LABEL_NAMES[class_idx];
     }
     return "Unknown";

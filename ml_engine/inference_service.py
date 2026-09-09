@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
 """
-Edge AI Network Anomaly Detection - Real-time Inference Engine
+Edge AI Network Anomaly Detection - Real-time Inference Service
 ==============================================================
-Lắng nghe luồng telemetry từ thiết bị biên (ESP32 hoặc Simulator) qua MQTT.
-Chạy suy luận mô hình học máy (Isolation Forest + Decision Classifier) theo thời gian thực
-với độ trễ cực thấp (< 2ms).
-Gửi cảnh báo tức thì khi phát hiện tấn công mạng.
+Chỉ dẫn module:
+- Module này thực hiện suy luận thời gian thực cho luồng lưu lượng mạng:
+  1. Kết nối đến MQTT Broker (Mosquitto hoặc Embedded Broker), lắng nghe topic:
+     'edge/telemetry/traffic' từ thiết bị biên (ESP32) hoặc Simulator.
+  2. Trích xuất vector đặc trưng bằng TrafficFeaturePreprocessor.
+  3. Suy luận song song 2 tầng:
+     - Tầng 1: Bộ phát hiện bất thường Unsupervised (Anomaly Score [0.0 - 1.0]).
+     - Tầng 2: Bộ phân loại đa lớp (Attack Classifier xác định cụ thể loại tấn công).
+  4. Đánh giá mức độ nguy hiểm (Severity: NORMAL, MEDIUM, HIGH, CRITICAL).
+  5. Đẩy kết quả suy luận lên topic 'edge/telemetry/prediction' và
+     phát cảnh báo khẩn cấp lên 'edge/alerts/high_priority'.
+- Thời gian trích xuất & suy luận: < 1.5ms mỗi gói tin.
+
+Cú pháp sử dụng dòng lệnh:
+    python ml_engine/inference_service.py --broker 127.0.0.1 --port 1883 --threshold 0.55
 """
 
 import os
@@ -13,95 +24,148 @@ import sys
 import time
 import json
 import argparse
+from typing import Dict, Any, Optional
+
+# Đảm bảo thư mục gốc dự án luôn nằm trong sys.path khi gọi trực tiếp
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
+# Đảm bảo UTF-8 hoặc an toàn mã hóa trên Windows console
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 import numpy as np
 import joblib
 import paho.mqtt.client as mqtt
 
-FEATURE_NAMES = [
-    "packet_rate",
-    "byte_rate",
-    "avg_packet_size",
-    "syn_ratio",
-    "ack_ratio",
-    "udp_ratio",
-    "icmp_ratio",
-    "unique_dst_ports"
-]
+from ml_engine.config.schema import (
+    FEATURE_NAMES,
+    LABEL_NAMES,
+    DEFAULT_ANOMALY_THRESHOLD
+)
+from ml_engine.preprocessing.feature_preprocessor import TrafficFeaturePreprocessor
 
-LABEL_NAMES = ["Normal", "SYN_Flood", "Port_Scan", "Volumetric_DDoS", "Data_Exfiltration"]
 
 class AnomalyInferenceEngine:
-    def __init__(self, models_dir: str, anomaly_threshold: float = 0.55):
-        self.models_dir = models_dir
-        self.anomaly_threshold = anomaly_threshold
-        self.scaler = None
-        self.iso_forest = None
-        self.classifier = None
-        self.metadata = {}
+    """
+    Bộ động cơ suy luận học máy nhận diện mối đe dọa mạng thời gian thực.
+    """
+
+    def __init__(
+        self,
+        models_dir: Optional[str] = None,
+        anomaly_threshold: float = DEFAULT_ANOMALY_THRESHOLD
+    ):
+        if models_dir is None:
+            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            models_dir = os.path.join(root_dir, "ml_engine", "models")
+
+        self.models_dir: str = models_dir
+        self.anomaly_threshold: float = anomaly_threshold
+        self.preprocessor: Optional[TrafficFeaturePreprocessor] = None
+        self.anomaly_detector: Any = None
+        self.classifier: Any = None
+        self.metadata: Dict[str, Any] = {}
+
         self.load_models()
 
     def load_models(self):
+        """Nạp các mô hình học máy và preprocessor từ đĩa."""
         scaler_path = os.path.join(self.models_dir, "scaler.joblib")
         iso_path = os.path.join(self.models_dir, "isolation_forest.joblib")
         clf_path = os.path.join(self.models_dir, "attack_classifier.joblib")
         meta_path = os.path.join(self.models_dir, "model_metadata.json")
 
         if not (os.path.exists(scaler_path) and os.path.exists(iso_path) and os.path.exists(clf_path)):
-            print(f"[InferenceEngine] Khong tim thay models tai {self.models_dir}!")
-            print("  -> Vui long chay: python ml_engine/train.py truoc.")
+            print(f"[InferenceEngine] [Loi] Khong tim thay du cac file models tai: {self.models_dir}")
+            print("  -> Vui long chay huan luyen truoc: python ml_engine/train.py")
             sys.exit(1)
 
-        self.scaler = joblib.load(scaler_path)
-        self.iso_forest = joblib.load(iso_path)
+        # Nạp scaler / preprocessor
+        raw_scaler = joblib.load(scaler_path)
+        if isinstance(raw_scaler, TrafficFeaturePreprocessor):
+            self.preprocessor = raw_scaler
+        else:
+            self.preprocessor = TrafficFeaturePreprocessor(scaler=raw_scaler)
+
+        self.anomaly_detector = joblib.load(iso_path)
         self.classifier = joblib.load(clf_path)
 
         if os.path.exists(meta_path):
-            with open(meta_path, "r", encoding="utf-8") as f:
-                self.metadata = json.load(f)
+            try:
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    self.metadata = json.load(f)
+            except Exception as e:
+                print(f"[InferenceEngine] Canh bao doc metadata: {e}")
 
-        print("[InferenceEngine] Da load thanh cong Isolation Forest & Decision Classifier!")
+        clf_type = self.metadata.get("classifier_type", type(self.classifier).__name__)
+        det_type = self.metadata.get("anomaly_detector_type", type(self.anomaly_detector).__name__)
+        print(f"[InferenceEngine] Da load thanh cong: [{clf_type}] + [{det_type}]!")
 
-    def predict(self, telemetry: dict) -> dict:
+    def predict(self, telemetry: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Dự đoán bất thường từ gói dữ liệu telemetry
+        Dự đoán trạng thái an toàn / bất thường từ gói dữ liệu telemetry.
+
+        Parameters:
+        -----------
+        telemetry : dict
+            Dữ liệu gói tin mạng với các chỉ số trích xuất.
+
+        Returns:
+        --------
+        dict:
+            Chi tiết kết quả suy luận kèm nhãn tấn công và độ trễ tính toán.
         """
         start_time = time.perf_counter()
 
-        # Trích xuất vector đặc trưng
+        # 1. Trích xuất đặc trưng
         try:
-            raw_features = np.array([[
-                float(telemetry.get("packet_rate", 0.0)),
-                float(telemetry.get("byte_rate", 0.0)),
-                float(telemetry.get("avg_packet_size", 0.0)),
-                float(telemetry.get("syn_ratio", 0.0)),
-                float(telemetry.get("ack_ratio", 0.0)),
-                float(telemetry.get("udp_ratio", 0.0)),
-                float(telemetry.get("icmp_ratio", 0.0)),
-                float(telemetry.get("unique_dst_ports", 0.0))
-            ]], dtype=np.float32)
+            raw_features = self.preprocessor.extract_features(telemetry)
         except Exception as e:
-            return {"error": f"Invalid telemetry format: {e}"}
+            return {
+                "error": f"Invalid telemetry format: {e}",
+                "raw_telemetry": telemetry
+            }
 
-        # 1. Dự đoán bất thường bằng Isolation Forest
-        scaled_features = self.scaler.transform(raw_features)
-        score_sample = self.iso_forest.score_samples(scaled_features)[0]
+        # 2. Suy luận Anomaly Detector (Tầng 1)
+        scaled_features = self.preprocessor.transform(raw_features)
         
+        # Lấy hàm score_samples
+        if hasattr(self.anomaly_detector, "score_samples"):
+            score_sample = float(self.anomaly_detector.score_samples(scaled_features)[0])
+        elif hasattr(self.anomaly_detector, "underlying_estimator") and hasattr(self.anomaly_detector.underlying_estimator, "score_samples"):
+            score_sample = float(self.anomaly_detector.underlying_estimator.score_samples(scaled_features)[0])
+        else:
+            score_sample = 0.0
+
         # Chuẩn hóa anomaly score trong khoảng [0.0, 1.0] (Càng cao càng nguy hiểm)
         score_min = self.metadata.get("isolation_score_min", -0.75)
         score_max = self.metadata.get("isolation_score_max", -0.35)
-        # Điểm score_samples: âm hơn = bất thường hơn
+        if score_max == score_min:
+            score_max = score_min + 1.0
+
         normalized_score = 1.0 - (score_sample - score_min) / (score_max - score_min + 1e-8)
         normalized_score = float(np.clip(normalized_score, 0.0, 1.0))
 
-        # 2. Phân loại loại hình lưu lượng bằng Decision Tree
+        # 3. Phân loại dạng tấn công (Tầng 2)
+        # Sử dụng raw_features hoặc scaled_features tùy mô hình, ở đây raw_features an toàn cho cây
         class_idx = int(self.classifier.predict(raw_features)[0])
-        class_proba = self.classifier.predict_proba(raw_features)[0]
-        attack_type = LABEL_NAMES[class_idx]
-        confidence = float(class_proba[class_idx])
+        
+        # Tính confidence xác suất
+        if hasattr(self.classifier, "predict_proba"):
+            proba = self.classifier.predict_proba(raw_features)[0]
+            confidence = float(proba[class_idx])
+        else:
+            confidence = 1.0
+
+        attack_type = LABEL_NAMES[class_idx] if 0 <= class_idx < len(LABEL_NAMES) else "Unknown"
 
         # Đánh giá xem có phải Anomaly hay không
         is_anomaly = bool(normalized_score >= self.anomaly_threshold or attack_type != "Normal")
-        
         latency_ms = (time.perf_counter() - start_time) * 1000.0
 
         # Xác định mức độ nghiêm trọng (Severity)
@@ -126,21 +190,20 @@ class AnomalyInferenceEngine:
             "raw_telemetry": telemetry
         }
 
-def main():
-    parser = argparse.ArgumentParser(description="Edge AI Real-time Anomaly Inference Service")
-    parser.add_argument("--broker", default="127.0.0.1", help="MQTT Broker IP (default: 127.0.0.1)")
-    parser.add_argument("--port", type=int, default=1883, help="MQTT Broker Port (default: 1883)")
-    parser.add_argument("--threshold", type=float, default=0.55, help="Anomaly Score Threshold (default: 0.55)")
-    args = parser.parse_args()
 
-    models_dir = os.path.join(os.path.dirname(__file__), "models")
-    engine = AnomalyInferenceEngine(models_dir=models_dir, anomaly_threshold=args.threshold)
-
+def start_mqtt_inference_service(
+    broker_host: str = "127.0.0.1",
+    broker_port: int = 1883,
+    threshold: float = DEFAULT_ANOMALY_THRESHOLD,
+    models_dir: Optional[str] = None
+):
+    """Khởi động MQTT listener và xử lý suy luận thời gian thực."""
+    engine = AnomalyInferenceEngine(models_dir=models_dir, anomaly_threshold=threshold)
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="EdgeAI-Host-Inference-Engine")
 
     def on_connect(c, userdata, flags, rc, properties=None):
         if rc == 0:
-            print(f"[InferenceService] Da ket noi den MQTT Broker {args.broker}:{args.port}")
+            print(f"[InferenceService] Da ket noi den MQTT Broker {broker_host}:{broker_port}")
             client.subscribe("edge/telemetry/traffic")
             print("[InferenceService] Da subscribe topic: 'edge/telemetry/traffic'")
         else:
@@ -172,17 +235,34 @@ def main():
     client.on_message = on_message
 
     try:
-        client.connect(args.broker, args.port, keepalive=60)
-        print("==================================================")
-        print(f"  EDGE AI INFERENCE SERVICE DANG CHAY...")
-        print(f"  - Broker: {args.broker}:{args.port}")
-        print(f"  - Nguong canh bao Anomaly: {args.threshold}")
-        print("==================================================")
+        client.connect(broker_host, broker_port, keepalive=60)
+        print("=" * 60)
+        print("  EDGE AI REAL-TIME INFERENCE SERVICE DANG CHAY...")
+        print(f"  - Broker: {broker_host}:{broker_port}")
+        print(f"  - Nguong canh bao Anomaly: {threshold}")
+        print("=" * 60)
         client.loop_forever()
     except KeyboardInterrupt:
         print("\n[InferenceService] Dang dung dich vu...")
     finally:
         client.disconnect()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Edge AI Real-time Anomaly Inference Service")
+    parser.add_argument("--broker", default="127.0.0.1", help="MQTT Broker IP (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=1883, help="MQTT Broker Port (default: 1883)")
+    parser.add_argument("--threshold", type=float, default=DEFAULT_ANOMALY_THRESHOLD, help="Anomaly Score Threshold (default: 0.55)")
+    parser.add_argument("--models-dir", default=None, help="Thu muc chua cac file mo hinh .joblib")
+    args = parser.parse_args()
+
+    start_mqtt_inference_service(
+        broker_host=args.broker,
+        broker_port=args.port,
+        threshold=args.threshold,
+        models_dir=args.models_dir
+    )
+
 
 if __name__ == "__main__":
     main()
