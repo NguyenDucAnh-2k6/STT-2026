@@ -1,300 +1,459 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EdgeGuard AI - Giám Sát & Phát Hiện Bất Thường Mạng Trên Thiết Bị Biên</title>
-    <meta name="description" content="Hệ thống Edge AI phát hiện bất thường lưu lượng mạng thời gian thực sử dụng ESP32 Promiscuous Sniffer, Mosquitto MQTT, Isolation Forest và TinyML.">
-    
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EdgeGuard | Network observability</title>
+    <meta
+      name="description"
+      content="Hệ thống Edge AI phát hiện bất thường lưu lượng mạng thời gian thực sử dụng ESP32 Promiscuous Sniffer, Mosquitto MQTT, Isolation Forest và TinyML."
+    />
+
     <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
 
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
     <!-- Header Navigation -->
     <header class="app-header">
-        <div class="brand-section">
-            <div class="brand-logo-glow">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                    <path d="m9 12 2 2 4-4"/>
-                </svg>
-            </div>
-            <div class="brand-title">
-                <h1>
-                    EdgeGuard AI 
-                    <span class="badge-edge">ESP32 &bull; TinyML</span>
-                </h1>
-                <p class="brand-subtitle">Hệ thống Edge AI Phát Hiện Bất Thường Lưu Lượng Mạng Thời Gian Thực</p>
-            </div>
+      <div class="brand-section">
+        <div class="brand-logo-glow">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
         </div>
+        <div class="brand-title">
+          <h1>
+            EdgeGuard AI
+            <span class="badge-edge">ESP32 &bull; TinyML</span>
+          </h1>
+          <p class="brand-subtitle">
+            Hệ thống Edge AI Phát Hiện Bất Thường Lưu Lượng Mạng Thời Gian Thực
+          </p>
+        </div>
+      </div>
 
-        <div class="header-actions">
-            <div class="system-status-indicator">
-                <span class="status-dot" id="status-dot"></span>
-                <span id="connection-status">DANG KET NOI...</span>
-            </div>
-            <div class="system-status-indicator">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cyan-neon)" stroke-width="2">
-                    <rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/>
-                </svg>
-                <span id="active-nodes-badge" style="color: var(--cyan-neon);">0 Node Online</span>
-            </div>
+      <div class="header-actions">
+        <div class="system-status-indicator">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="connection-status">DANG KET NOI...</span>
         </div>
+        <div class="system-status-indicator">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--cyan-neon)"
+            stroke-width="2"
+          >
+            <rect width="18" height="18" x="3" y="3" rx="2" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
+          <span id="active-nodes-badge" style="color: var(--cyan-neon)"
+            >0 Node Online</span
+          >
+        </div>
+      </div>
     </header>
 
     <!-- Main Dashboard Body -->
     <main class="dashboard-container">
+      <!-- Top KPI Grid -->
+      <section class="kpi-grid">
+        <!-- Packet Rate -->
+        <div class="glass-panel kpi-card">
+          <div class="kpi-header">
+            <span>Tốc Độ Gói Tin</span>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+          </div>
+          <div class="kpi-value">
+            <span id="kpi-packet-rate">0</span>
+            <span class="kpi-unit">pkts / s</span>
+          </div>
+          <div class="kpi-footer">
+            <span>Chu kỳ lấy mẫu: 2.0s</span>
+          </div>
+        </div>
 
-        <!-- Top KPI Grid -->
-        <section class="kpi-grid">
-            <!-- Packet Rate -->
-            <div class="glass-panel kpi-card">
-                <div class="kpi-header">
-                    <span>Tốc Độ Gói Tin</span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                    </svg>
-                </div>
-                <div class="kpi-value">
-                    <span id="kpi-packet-rate">0</span>
-                    <span class="kpi-unit">pkts / s</span>
-                </div>
-                <div class="kpi-footer">
-                    <span>Chu kỳ lấy mẫu: 2.0s</span>
-                </div>
+        <!-- Byte Rate -->
+        <div class="glass-panel kpi-card">
+          <div class="kpi-header">
+            <span>Băng Thông Mạng</span>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" x2="12" y1="15" y2="3" />
+            </svg>
+          </div>
+          <div class="kpi-value">
+            <span id="kpi-byte-rate">0 KB</span>
+            <span class="kpi-unit">/ s</span>
+          </div>
+          <div class="kpi-footer">
+            <span>Lưu lượng trung bình</span>
+          </div>
+        </div>
+
+        <!-- Anomaly Score -->
+        <div class="glass-panel kpi-card threat-card">
+          <div class="kpi-header">
+            <span>Chỉ Số Bất Thường (ML)</span>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--crimson-danger)"
+              stroke-width="2"
+            >
+              <path
+                d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"
+              />
+              <line x1="12" x2="12" y1="9" y2="13" />
+              <line x1="12" x2="12.01" y1="17" y2="17" />
+            </svg>
+          </div>
+          <div class="kpi-value">
+            <span id="kpi-anomaly-score">0.00</span>
+            <span class="kpi-unit">/ 1.00</span>
+          </div>
+          <div class="kpi-footer">
+            <span id="threat-status-tag" class="threat-status-tag threat-NORMAL"
+              >NORMAL</span
+            >
+          </div>
+        </div>
+
+        <!-- Total Threat Events -->
+        <div class="glass-panel kpi-card safe-card">
+          <div class="kpi-header">
+            <span>Cảnh Báo Đã Phát Hiện</span>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--emerald-safe)"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+          </div>
+          <div class="kpi-value">
+            <span id="kpi-total-threats">0</span>
+            <span class="kpi-unit">events</span>
+          </div>
+          <div class="kpi-footer">
+            <span
+              id="active-node-name"
+              class="mono-text"
+              style="color: var(--cyan-neon)"
+              >ESP32-Probe-01</span
+            >
+          </div>
+        </div>
+      </section>
+
+      <!-- Interactive Attack Injection & Scenario Simulator Control Bar -->
+      <section class="glass-panel control-bar">
+        <div class="control-title">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--purple-accent)"
+            stroke-width="2"
+          >
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          <span>Giả Lập Kịch Bản Tấn Công (Interactive Attack Simulator):</span>
+        </div>
+        <div class="control-buttons-group">
+          <button
+            class="btn-cyber btn-attack btn-safe-mode active-scenario"
+            data-attack="NORMAL"
+          >
+            &#x25CF; Normal Traffic
+          </button>
+          <button
+            class="btn-cyber btn-attack btn-attack-danger"
+            data-attack="SYN_FLOOD"
+          >
+            &#x26A0; SYN Flood
+          </button>
+          <button
+            class="btn-cyber btn-attack btn-attack-danger"
+            data-attack="PORT_SCAN"
+          >
+            &#x26A0; Port Scan
+          </button>
+          <button
+            class="btn-cyber btn-attack btn-attack-danger"
+            data-attack="VOLUMETRIC_DDOS"
+          >
+            &#x26A0; Volumetric DDoS
+          </button>
+          <button
+            class="btn-cyber btn-attack btn-attack-danger"
+            data-attack="DATA_EXFILTRATION"
+          >
+            &#x26A0; Data Exfiltration
+          </button>
+        </div>
+      </section>
+
+      <!-- Charts Grid -->
+      <section class="analytics-grid">
+        <!-- Real-time Throughput Chart -->
+        <div class="glass-panel chart-card">
+          <div class="chart-header">
+            <h3>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--cyan-neon)"
+                stroke-width="2"
+              >
+                <line x1="18" x2="18" y1="20" y2="10" />
+                <line x1="12" x2="12" y1="20" y2="4" />
+                <line x1="6" x2="6" y1="20" y2="14" />
+              </svg>
+              Lưu Lượng Gói Tin & Băng Thông Thời Gian Thực
+            </h3>
+            <span class="chart-legend-badge">ESP32 Promiscuous Stream</span>
+          </div>
+          <div class="chart-canvas-wrapper">
+            <canvas id="trafficRateChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Protocol Doughnut Chart -->
+        <div class="glass-panel chart-card">
+          <div class="chart-header">
+            <h3>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--purple-accent)"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 2a10 10 0 0 1 10 10" />
+              </svg>
+              Phân Bố Giao Thức Mạng
+            </h3>
+            <span class="chart-legend-badge">TCP / UDP / ICMP</span>
+          </div>
+          <div class="chart-canvas-wrapper">
+            <canvas id="protocolChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sub Analytics: Anomaly Score Evolution & Model Architecture -->
+      <section class="sub-analytics-grid">
+        <!-- Anomaly History Chart -->
+        <div class="glass-panel chart-card">
+          <div class="chart-header">
+            <h3>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--crimson-danger)"
+                stroke-width="2"
+              >
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+              </svg>
+              Biến Thiên Chỉ Số Anomaly Score (Isolation Forest)
+            </h3>
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="font-size: 11px; color: var(--text-muted)"
+                >Ngưỡng:</span
+              >
+              <input
+                type="range"
+                id="threshold-slider"
+                min="0.30"
+                max="0.90"
+                step="0.05"
+                value="0.55"
+                style="width: 70px; accent-color: var(--cyan-neon)"
+              />
+              <span
+                id="threshold-value"
+                class="mono-text"
+                style="font-size: 11px; color: var(--cyan-neon)"
+                >0.55</span
+              >
             </div>
+          </div>
+          <div class="chart-canvas-wrapper">
+            <canvas id="anomalyScoreChart"></canvas>
+          </div>
+        </div>
 
-            <!-- Byte Rate -->
-            <div class="glass-panel kpi-card">
-                <div class="kpi-header">
-                    <span>Băng Thông Mạng</span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" x2="12" y1="15" y2="3"/>
-                    </svg>
-                </div>
-                <div class="kpi-value">
-                    <span id="kpi-byte-rate">0 KB</span>
-                    <span class="kpi-unit">/ s</span>
-                </div>
-                <div class="kpi-footer">
-                    <span>Lưu lượng trung bình</span>
-                </div>
+        <!-- Threat Assessment Gauge & Architecture Flow -->
+        <div class="glass-panel architecture-card">
+          <div class="chart-header">
+            <h3>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--emerald-safe)"
+                stroke-width="2"
+              >
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+                <line x1="6" y1="6" x2="6.01" y2="6" />
+                <line x1="6" y1="18" x2="6.01" y2="18" />
+              </svg>
+              Đánh Giá Rủi Ro & Pipeline Edge AI
+            </h3>
+            <span class="chart-legend-badge">End-to-End Pipeline</span>
+          </div>
+
+          <div class="score-display">
+            <div id="gauge-score-number" class="score-number">0.00</div>
+            <p
+              id="gauge-threat-desc"
+              style="
+                color: var(--text-secondary);
+                font-size: 13px;
+                text-align: center;
+              "
+            >
+              Lưu lượng mạng bình thường. Không phát hiện rủi ro.
+            </p>
+          </div>
+
+          <!-- Pipeline Visualization -->
+          <div class="pipeline-nodes-flow">
+            <div class="flow-node">
+              <div class="node-box">ESP32 Probe</div>
+              <span>WiFi Sniffer</span>
             </div>
-
-            <!-- Anomaly Score -->
-            <div class="glass-panel kpi-card threat-card">
-                <div class="kpi-header">
-                    <span>Chỉ Số Bất Thường (ML)</span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--crimson-danger)" stroke-width="2">
-                        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-                        <line x1="12" x2="12" y1="9" y2="13"/>
-                        <line x1="12" x2="12.01" y1="17" y2="17"/>
-                    </svg>
-                </div>
-                <div class="kpi-value">
-                    <span id="kpi-anomaly-score">0.00</span>
-                    <span class="kpi-unit">/ 1.00</span>
-                </div>
-                <div class="kpi-footer">
-                    <span id="threat-status-tag" class="threat-status-tag threat-NORMAL">NORMAL</span>
-                </div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-node">
+              <div class="node-box">MQTT Mosquitto</div>
+              <span>Port 1883</span>
             </div>
-
-            <!-- Total Threat Events -->
-            <div class="glass-panel kpi-card safe-card">
-                <div class="kpi-header">
-                    <span>Cảnh Báo Đã Phát Hiện</span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--emerald-safe)" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="m9 12 2 2 4-4"/>
-                    </svg>
-                </div>
-                <div class="kpi-value">
-                    <span id="kpi-total-threats">0</span>
-                    <span class="kpi-unit">events</span>
-                </div>
-                <div class="kpi-footer">
-                    <span id="active-node-name" class="mono-text" style="color: var(--cyan-neon);">ESP32-Probe-01</span>
-                </div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-node">
+              <div class="node-box" style="color: var(--purple-accent)">
+                ML Engine
+              </div>
+              <span>IsoForest &bull; TinyML</span>
             </div>
-        </section>
-
-        <!-- Interactive Attack Injection & Scenario Simulator Control Bar -->
-        <section class="glass-panel control-bar">
-            <div class="control-title">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple-accent)" stroke-width="2">
-                    <polygon points="5 3 19 12 5 21 5 3"/>
-                </svg>
-                <span>Giả Lập Kịch Bản Tấn Công (Interactive Attack Simulator):</span>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-node">
+              <div class="node-box" style="color: var(--emerald-safe)">
+                SOC Dashboard
+              </div>
+              <span>WebSocket Realtime</span>
             </div>
-            <div class="control-buttons-group">
-                <button class="btn-cyber btn-attack btn-safe-mode active-scenario" data-attack="NORMAL">
-                    &#x25CF; Normal Traffic
-                </button>
-                <button class="btn-cyber btn-attack btn-attack-danger" data-attack="SYN_FLOOD">
-                    &#x26A0; SYN Flood
-                </button>
-                <button class="btn-cyber btn-attack btn-attack-danger" data-attack="PORT_SCAN">
-                    &#x26A0; Port Scan
-                </button>
-                <button class="btn-cyber btn-attack btn-attack-danger" data-attack="VOLUMETRIC_DDOS">
-                    &#x26A0; Volumetric DDoS
-                </button>
-                <button class="btn-cyber btn-attack btn-attack-danger" data-attack="DATA_EXFILTRATION">
-                    &#x26A0; Data Exfiltration
-                </button>
-            </div>
-        </section>
+          </div>
+        </div>
+      </section>
 
-        <!-- Charts Grid -->
-        <section class="analytics-grid">
-            <!-- Real-time Throughput Chart -->
-            <div class="glass-panel chart-card">
-                <div class="chart-header">
-                    <h3>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan-neon)" stroke-width="2">
-                            <line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>
-                        </svg>
-                        Lưu Lượng Gói Tin & Băng Thông Thời Gian Thực
-                    </h3>
-                    <span class="chart-legend-badge">ESP32 Promiscuous Stream</span>
-                </div>
-                <div class="chart-canvas-wrapper">
-                    <canvas id="trafficRateChart"></canvas>
-                </div>
-            </div>
+      <!-- Live Security Events Feed Table -->
+      <section class="glass-panel alert-feed-card">
+        <div class="feed-header">
+          <h3
+            style="
+              font-size: 16px;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            "
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--crimson-danger)"
+              stroke-width="2"
+            >
+              <path
+                d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+              />
+              <line x1="12" x2="12" y1="9" y2="13" />
+              <line x1="12" x2="12.01" y1="17" y2="17" />
+            </svg>
+            Nhật Ký Cảnh Báo An Ninh Mạng Thời Gian Thực (Live Alert Stream)
+          </h3>
+          <span class="chart-legend-badge"
+            >Auto-Refresh via MQTT / WebSocket</span
+          >
+        </div>
 
-            <!-- Protocol Doughnut Chart -->
-            <div class="glass-panel chart-card">
-                <div class="chart-header">
-                    <h3>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple-accent)" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/>
-                        </svg>
-                        Phân Bố Giao Thức Mạng
-                    </h3>
-                    <span class="chart-legend-badge">TCP / UDP / ICMP</span>
-                </div>
-                <div class="chart-canvas-wrapper">
-                    <canvas id="protocolChart"></canvas>
-                </div>
-            </div>
-        </section>
-
-        <!-- Sub Analytics: Anomaly Score Evolution & Model Architecture -->
-        <section class="sub-analytics-grid">
-            <!-- Anomaly History Chart -->
-            <div class="glass-panel chart-card">
-                <div class="chart-header">
-                    <h3>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--crimson-danger)" stroke-width="2">
-                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                        </svg>
-                        Biến Thiên Chỉ Số Anomaly Score (Isolation Forest)
-                    </h3>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 11px; color: var(--text-muted);">Ngưỡng:</span>
-                        <input type="range" id="threshold-slider" min="0.30" max="0.90" step="0.05" value="0.55" style="width: 70px; accent-color: var(--cyan-neon);">
-                        <span id="threshold-value" class="mono-text" style="font-size: 11px; color: var(--cyan-neon);">0.55</span>
-                    </div>
-                </div>
-                <div class="chart-canvas-wrapper">
-                    <canvas id="anomalyScoreChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Threat Assessment Gauge & Architecture Flow -->
-            <div class="glass-panel architecture-card">
-                <div class="chart-header">
-                    <h3>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--emerald-safe)" stroke-width="2">
-                            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
-                            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-                            <line x1="6" y1="6" x2="6.01" y2="6"/>
-                            <line x1="6" y1="18" x2="6.01" y2="18"/>
-                        </svg>
-                        Đánh Giá Rủi Ro & Pipeline Edge AI
-                    </h3>
-                    <span class="chart-legend-badge">End-to-End Pipeline</span>
-                </div>
-
-                <div class="score-display">
-                    <div id="gauge-score-number" class="score-number">0.00</div>
-                    <p id="gauge-threat-desc" style="color: var(--text-secondary); font-size: 13px; text-align: center;">
-                        Lưu lượng mạng bình thường. Không phát hiện rủi ro.
-                    </p>
-                </div>
-
-                <!-- Pipeline Visualization -->
-                <div class="pipeline-nodes-flow">
-                    <div class="flow-node">
-                        <div class="node-box">ESP32 Probe</div>
-                        <span>WiFi Sniffer</span>
-                    </div>
-                    <span class="flow-arrow">&rarr;</span>
-                    <div class="flow-node">
-                        <div class="node-box">MQTT Mosquitto</div>
-                        <span>Port 1883</span>
-                    </div>
-                    <span class="flow-arrow">&rarr;</span>
-                    <div class="flow-node">
-                        <div class="node-box" style="color: var(--purple-accent);">ML Engine</div>
-                        <span>IsoForest &bull; TinyML</span>
-                    </div>
-                    <span class="flow-arrow">&rarr;</span>
-                    <div class="flow-node">
-                        <div class="node-box" style="color: var(--emerald-safe);">SOC Dashboard</div>
-                        <span>WebSocket Realtime</span>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Live Security Events Feed Table -->
-        <section class="glass-panel alert-feed-card">
-            <div class="feed-header">
-                <h3 style="font-size: 16px; display: flex; align-items: center; gap: 8px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--crimson-danger)" stroke-width="2">
-                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                        <line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>
-                    </svg>
-                    Nhật Ký Cảnh Báo An Ninh Mạng Thời Gian Thực (Live Alert Stream)
-                </h3>
-                <span class="chart-legend-badge">Auto-Refresh via MQTT / WebSocket</span>
-            </div>
-
-            <div class="alert-table-wrapper">
-                <table class="alert-table">
-                    <thead>
-                        <tr>
-                            <th>Thời Gian</th>
-                            <th>Nguồn / Node ID</th>
-                            <th>Loại Tấn Công (Threat Type)</th>
-                            <th>Anomaly Score</th>
-                            <th>Chi Tiết Đặc Trưng (Telemetry Summary)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="alerts-table-body">
-                        <!-- Alert rows inserted dynamically -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
+        <div class="alert-table-wrapper">
+          <table class="alert-table">
+            <thead>
+              <tr>
+                <th>Thời Gian</th>
+                <th>Nguồn / Node ID</th>
+                <th>Loại Tấn Công (Threat Type)</th>
+                <th>Anomaly Score</th>
+                <th>Chi Tiết Đặc Trưng (Telemetry Summary)</th>
+              </tr>
+            </thead>
+            <tbody id="alerts-table-body">
+              <!-- Alert rows inserted dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
 
     <!-- Custom JS -->
     <script src="/static/js/app.js"></script>
-</body>
+  </body>
 </html>
