@@ -8,10 +8,8 @@ trước Mosquitto hay Docker. Hỗ trợ MQTT 3.1.1 cơ bản (CONNECT, PUBLISH
 
 import asyncio
 import logging
-import re
 import socket
-import sys
-
+import os
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -262,23 +260,27 @@ def check_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex((host, port)) == 0
 
-def main():
-    import argparse
-    parser = argparse.ArgumentParser(description="Pure-Python Embedded MQTT Broker")
-    parser.add_argument("--host", default="0.0.0.0", help="Host to bind (default: 0.0.0.0)")
-    parser.add_argument("--port", type=int, default=1883, help="Port to bind (default: 1883)")
-    args = parser.parse_args()
+def start_embedded_broker(host: str = "0.0.0.0", port: int = 1883):
+    """
+    Khởi động Embedded MQTT Broker trên host & port chỉ định.
+    Có thể gọi trực tiếp từ run_system.py hoặc chạy standalone.
+    """
+    if check_port_in_use(port):
+        logger.warning(f"Port {port} da co tien trinh su dung (Mosquitto hoac Broker khac dang chay).")
+        return
 
-    if check_port_in_use(args.port):
-        logger.warning(f"Port {args.port} da co tien trinh su dung (Mosquitto hoac Broker khac dang chay).")
-        logger.warning("Ban co the su dung luon Broker hien tai hoac doi port!")
-        sys.exit(0)
-
-    broker = EmbeddedMQTTBroker(host=args.host, port=args.port)
+    broker = EmbeddedMQTTBroker(host=host, port=port)
     try:
         asyncio.run(broker.start())
     except KeyboardInterrupt:
         logger.info("Dung Embedded MQTT Broker.")
+
+
+def main():
+    host = os.getenv("MQTT_HOST", "0.0.0.0")
+    port = int(os.getenv("MQTT_PORT", 1883))
+    start_embedded_broker(host=host, port=port)
+
 
 if __name__ == "__main__":
     main()

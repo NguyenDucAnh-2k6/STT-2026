@@ -14,7 +14,7 @@ Chỉ dẫn module:
 
 import os
 from typing import List, Optional, Any
-from sklearn.tree import _tree, DecisionTreeClassifier
+from sklearn.tree import _tree
 
 from ..config.schema import FEATURE_NAMES, LABEL_NAMES
 

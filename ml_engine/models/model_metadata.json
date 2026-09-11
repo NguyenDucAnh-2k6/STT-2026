@@ -1,5 +1,5 @@
 {
-  "timestamp": 1789056774,
+  "timestamp": 1789089323,
   "features_count": 61,
   "features": [
     "frame.time",
@@ -87,8 +87,8 @@
   "classifier_accuracy": 1.0,
   "classifier_macro_f1": 0.9901632430779653,
   "anomaly_f1_score": 0.85,
-  "isolation_score_min": -0.7270801454557543,
-  "isolation_score_max": -0.43620449075162976,
+  "isolation_score_min": -0.7579530870138057,
+  "isolation_score_max": -0.40041137724097836,
   "best_params": {
     "criterion": "entropy",
     "max_depth": 16,

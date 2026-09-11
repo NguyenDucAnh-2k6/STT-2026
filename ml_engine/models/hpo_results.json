@@ -7,9 +7,10 @@
     "min_samples_split": 6,
     "min_samples_leaf": 2
   },
-  "n_trials": 6,
+  "n_trials": 2,
   "cv_folds": 3,
+  "pruner_type": "median",
   "sqlite_db": "D:\\STT 2026\\ml_engine\\models\\optuna_study.db",
-  "timestamp": 1789056774,
+  "timestamp": 1789089323,
   "features_count": 61
 }

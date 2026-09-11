@@ -27,7 +27,6 @@ import time
 import json
 import socket
 import struct
-import argparse
 import threading
 from typing import Dict, Any, Tuple, Set, Optional
 
@@ -457,21 +456,23 @@ def run_host_sniffer(
         print("[HostSniffer] Da tat probe an toan.")
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Host PC Live Network Sniffer Probe")
-    parser.add_argument("--broker", default="127.0.0.1", help="MQTT Broker Host (default: 127.0.0.1)")
-    parser.add_argument("--port", type=int, default=1883, help="MQTT Broker Port (default: 1883)")
-    parser.add_argument("--window", type=float, default=1.0, help="Sliding window duration in seconds (default: 1.0)")
-    parser.add_argument("--test-window", type=int, default=None, help="Chay thu N cua so roi thoat (khong can MQTT)")
-    args = parser.parse_args()
+start_host_sniffer = run_host_sniffer
 
-    run_host_sniffer(
-        broker_host=args.broker,
-        broker_port=args.port,
-        window_sec=args.window,
-        test_windows=args.test_window
+
+def main():
+    broker = os.getenv("MQTT_HOST", "127.0.0.1")
+    port = int(os.getenv("MQTT_PORT", 1883))
+    window = float(os.getenv("SNIFFER_WINDOW", 1.0))
+    test_window = int(os.getenv("TEST_WINDOW")) if os.getenv("TEST_WINDOW") else None
+
+    start_host_sniffer(
+        broker_host=broker,
+        broker_port=port,
+        window_sec=window,
+        test_windows=test_window
     )
 
 
 if __name__ == "__main__":
     main()
+

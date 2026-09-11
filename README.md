@@ -32,39 +32,55 @@ Hệ thống sử dụng bộ dữ liệu an ninh mạng công nghiệp chuẩn 
 ## 🏗️ Kiến Trúc Hệ Thống
 
 ```
-┌───────────────────────────────────────────────────────────────┐
-│                    NGUỒN DỮ LIỆU TELEMETRY                    │
-│  [ESP32 WiFi Sniffer]  │  [Host PC Sniffer]  │  [Simulator]  │
-└───────────────────────────────┬───────────────────────────────┘
-                                │ MQTT: edge/telemetry/traffic
-                                ▼
-               ┌─────────────────────────────────┐
-               │ Mosquitto MQTT Broker (Port 1883)│
-               └────────────────┬────────────────┘
-                                │
-        ┌───────────────────────┴───────────────────────┐
-        ▼                                               ▼
-┌───────────────────────────────┐       ┌───────────────────────────────┐
-│   ML REAL-TIME INFERENCE      │       │   FASTAPI & WEBSOCKET BACKEND │
-│  (Loads Pre-trained Artifacts)│       │          (Port 8000)          │
-│ ┌───────────────────────────┐ │       └───────────────┬───────────────┘
-│ │ Preprocessor (Standardize)│ │                       │
-│ └─────────────┬─────────────┘ │                       │
-│ ┌─────────────▼─────────────┐ │                       │
-│ │ Tier 1: Isolation Forest  │ │                       │
-│ └─────────────┬─────────────┘ │                       │
-│ ┌─────────────▼─────────────┐ │                       │
-│ │ Tier 2: Attack Classifier │ │                       │
-│ └───────────────────────────┘ │                       │
-└───────────────┬───────────────┘                       │
-                │ MQTT: edge/telemetry/prediction       │
-                └───────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       NGUỒN DỮ LIỆU TELEMETRY (PROBES)                      │
+│   [ESP32 WiFi Sniffer]   │   [Host PC Sniffer]   │   [ESP32 Simulator]      │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │ MQTT: edge/telemetry/traffic
+                                       ▼
+                      ┌─────────────────────────────────┐
+                      │ Mosquitto MQTT Broker (Port 1883)│
+                      └────────────────┬────────────────┘
+                                       │
+         ┌─────────────────────────────┴─────────────────────────────┐
+         ▼                                                           ▼
+┌───────────────────────────────┐       ┌────────────────────────────────────────────────┐
+│   ML REAL-TIME INFERENCE      │       │   MODULAR FASTAPI & WEBSOCKET BACKEND (8000)   │
+│  (Loads Pre-trained Artifacts)│       │ ┌────────────────────────────────────────────┐ │
+│ ┌───────────────────────────┐ │       │ │ MQTT Bridge -> WebSocket ConnectionManager │ │ │
+│ │ Preprocessor (Standardize)│ │       │ └─────────────────────┬──────────────────────┘ │
+│ └─────────────┬─────────────┘ │       │ ┌─────────────────────▼──────────────────────┐ │
+│ ┌─────────────▼─────────────┐ │       │ │ Routers: REST APIs (/api/*) & WS (/ws/*)   │ │
+│ │ Tier 1: Isolation Forest  │ │       │ └────────────────────────────────────────────┘ │
+│ └─────────────┬─────────────┘ │       └───────────────────────┬────────────────────────┘
+│ ┌─────────────▼─────────────┐ │                               │
+│ │ Tier 2: Attack Classifier │ │                               │
+│ └───────────────────────────┘ │                               │
+└───────────────┬───────────────┘                               │
+                │ MQTT: edge/telemetry/prediction               │
+                └───────────────────────────────────────────────┘
                                 │ WebSocket: /ws/telemetry
                                 ▼
-               ┌─────────────────────────────────┐
-               │ SOC Web Dashboard (Cyberpunk UI)│
-               └─────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────┐
+│            SOC WEB DASHBOARD (MODULAR COMPONENT-BASED FRONTEND)                │
+│ ┌───────────────────┐ ┌───────────────────┐ ┌────────────────────────────────┐ │
+│ │ Header & Audio    │ │ KPI Grid Cards    │ │ Interactive Control Bar        │ │
+│ └───────────────────┘ └───────────────────┘ └────────────────────────────────┘ │
+│ ┌───────────────────┐ ┌───────────────────┐ ┌────────────────────────────────┐ │
+│ │ Chart.js Analytics│ │ Dual AI Assessment│ │ Live Wireshark Flow Inspector  │ │
+│ └───────────────────┘ └───────────────────┘ └────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### 🧩 Phân Tầng Kiến Trúc Decoupled (Decoupled Layering):
+1. **Telemetry Probes**: Tách biệt hoàn toàn phần cứng/giả lập khỏi hệ thống phân tích. Tất cả các probe (`esp32_simulator.py`, `host_sniffer.py`) là các module độc lập, được nạp trực tiếp qua `run_system.py`.
+2. **AI Inference & Offline Training**:
+   - `ml_engine/train.py` là **Entrypoint Offline duy nhất**: Tiền xử lý full 61 features, Optuna HPO, fit 100% dữ liệu và xuất TinyML C Header (`--export-tinyml-only`).
+   - `ml_engine/inference_service.py` là **Runtime Daemon**: Tự động nhận biến môi trường, suy luận 2 tầng trong $< 1.5\,\text{ms}$.
+3. **Modular Backend**:
+   - `dashboard/backend/`: Không còn file monolithic. Được module hóa thành `config.py`, `models.py`, `state.py`, `websocket_manager.py`, `mqtt_bridge.py` và `routers/` (`api.py`, `ws.py`).
+4. **Component-Based Frontend**:
+   - `dashboard/frontend/js/`: Sử dụng kiến trúc **Native ES Modules** (không cần bundle/build step). State được quản lý tập trung qua `state.js` (Event Bus), tách bạch các `services/` (WebSocket, Audio API, REST API) và 6 `components/` UI độc lập.
 
 ---
 
@@ -105,58 +121,67 @@ Trình duyệt sẽ tự động mở trang SOC Dashboard tại: **`http://local
 
 ---
 
-## 🔬 PHẦN 1: Tối Ưu Siêu Tham Số (HPO) & Huấn Luyện Offline
+## 🔬 PHẦN 1: Tối Ưu Siêu Tham Số (HPO) & Huấn Luyện Offline (`train.py`)
 
-Module huấn luyện được tách biệt hoàn toàn khỏi phiên vận hành, chịu trách nhiệm nạp dữ liệu chuẩn hóa, tìm kiếm siêu tham số tốt nhất, huấn luyện mô hình cuối cùng và xuất toàn bộ artifacts vào thư mục `ml_engine/models/`.
+Kể từ phiên bản này, **`ml_engine/train.py` là Entrypoint Duy Nhất** cho toàn bộ quy trình thí nghiệm, tối ưu hóa siêu tham số (HPO) và huấn luyện mô hình offline. 
 
-### Cách 1: Tối ưu siêu tham số bằng Optuna (`optuna_tuner.py`)
+Module **`ml_engine/tuning/optuna_tuner.py`** thuần túy đóng vai trò là **thư viện thuật toán** (định nghĩa Search Space, cấu hình Pruners, hàm mục tiêu Stratified $K$-Fold CV và quản lý lưu trữ SQLite), được `train.py` import tự động khi kích hoạt cờ `--optuna`.
 
-Module `optuna_tuner.py` sử dụng thuật toán Bayesian Optimization (TPE Sampler) để tối đa hóa chỉ số Macro F1-Score trên toàn bộ các lớp tấn công.
-
-#### Điểm đặc biệt:
-1. **Log chuẩn Optuna**: Hiển thị log chi tiết `[I ...]` trực tiếp trên terminal với thông tin từng trial và tham số tốt nhất.
-2. **Stratified K-Fold CV qua cờ `--cv [N]`**: Đánh giá khách quan qua phân tầng $K$-Fold (mặc định: 5) mà không cần chia tách riêng một tập holdout test.
-3. **Sao lưu SQLite (`optuna_study.db`)**: Toàn bộ lịch sử các trial được lưu tự động vào database SQLite tại `ml_engine/models/optuna_study.db`, cho phép dừng, tiếp tục hoặc sao lưu kết quả dễ dàng.
-4. **Tự động huấn luyện Final Model & Xuất Artifacts**: Sau khi hoàn thành các trial, Optuna tự động lấy `best_params` để huấn luyện Final Model trên **toàn bộ dữ liệu**, fit mô hình Isolation Forest trên các mẫu `Normal` và xuất trọn bộ artifacts cho `run_system.py`.
-
-#### Cú pháp sử dụng:
-```bash
-# Tối ưu Decision Tree với 15 trials và 5-Fold CV:
-python ml_engine/tuning/optuna_tuner.py --model decision_tree --n-trials 15 --cv 5
-
-# Tối ưu Random Forest trên toàn bộ 157,800 mẫu:
-python ml_engine/tuning/optuna_tuner.py --model random_forest --n-trials 20 --cv 5
-
-# Tối ưu nhanh với mẫu 30,000 dòng dữ liệu:
-python ml_engine/tuning/optuna_tuner.py --model decision_tree --sample-size 30000 --cv 5
-
-# Tối ưu mô hình mạng nơ-ron đa tầng MLP hoặc Gradient Boosting:
-python ml_engine/tuning/optuna_tuner.py --model mlp --n-trials 10 --cv 3
-python ml_engine/tuning/optuna_tuner.py --model gradient_boosting --n-trials 15 --cv 5
-```
+### Kiến trúc Pipeline Huấn luyện End-to-End (`train.py`):
+1. **Nạp & Chuẩn hóa Toàn bộ Dữ liệu**: Nạp trọn vẹn 61 đặc trưng lưu lượng mạng Edge-IIoTset từ `ml_engine/preprocessing/`. Không chia tách riêng tập test split: toàn bộ dữ liệu được tận dụng tối đa cho Cross-Validation và huấn luyện mô hình biên.
+2. **Tối ưu hóa Siêu Tham số (Optuna HPO)** *(tùy chọn với `--optuna`)*:
+   - Thuật toán Bayesian Optimization (TPE Sampler) tìm kiếm bộ tham số tối đa hóa Macro F1-Score.
+   - Đánh giá khách quan qua Stratified $K$-Fold Cross-Validation (`--cv [N]`, mặc định: 5).
+   - Log chuẩn Optuna trực quan (`[I 2026-...] Trial {n} finished with value...`) hiển thị trực tiếp trên console.
+   - Tự động sao lưu persistent state vào SQLite database (`ml_engine/models/optuna_study.db`).
+   - Tùy biến thuật toán cắt tỉa sớm (`--pruner median|percentile|hyperband|none`).
+3. **Huấn luyện Final Model**: Fit lại mô hình Classifier trên **100% dữ liệu** với bộ tham số tốt nhất (Best Hyperparameters) vừa tìm được.
+4. **Huấn luyện Anomaly Detector**: Fit mô hình Unsupervised (Isolation Forest) trên toàn bộ mẫu lưu lượng an toàn (`Normal`).
+5. **Xuất Trọn Bộ Artifacts & TinyML Header**: Tự động lưu các file joblib, metadata JSON, và sinh mã nguồn C Header (`tinyml_model.h`) cho firmware ESP32.
 
 ---
 
-### Cách 2: Huấn luyện offline trực tiếp qua `train.py`
+### Các Kịch Bản Sử Dụng `train.py`:
 
-Script `train.py` là pipeline huấn luyện chính, hỗ trợ cả huấn luyện nhanh với tham số mặc định hoặc kích hoạt Optuna HPO.
-
-#### Cú pháp sử dụng:
+#### 1. Huấn luyện nhanh với siêu tham số mặc định:
 ```bash
-# Xem danh sách tất cả các thuật toán Classifier và Anomaly Detector hỗ trợ:
-python ml_engine/train.py --list-models
-
-# Huấn luyện Decision Tree trên toàn bộ dataset và xuất mã nguồn C TinyML cho ESP32:
+# Huấn luyện Decision Tree trên toàn bộ dữ liệu và xuất C Header TinyML cho ESP32:
 python ml_engine/train.py --classifier decision_tree
 
-# Huấn luyện Random Forest với kích thước mẫu 25,000 dòng:
-python ml_engine/train.py --classifier random_forest --samples 25000
+# Huấn luyện Random Forest với kích thước mẫu 30,000 dòng:
+python ml_engine/train.py --classifier random_forest --samples 30000
+```
 
-# Tích hợp chạy Optuna HPO 5-Fold Stratified CV ngay trong train.py:
-python ml_engine/train.py --classifier decision_tree --optuna --n-trials 15 --cv 5
+#### 2. Huấn luyện End-to-End kết hợp Optuna HPO:
+```bash
+# Tối ưu Decision Tree với 20 trials và 5-Fold Stratified CV:
+python ml_engine/train.py --classifier decision_tree --optuna --n-trials 20 --cv 5
 
-# Huấn luyện mô hình Anomaly Detector khác (One-Class SVM, LOF, Elliptic Envelope):
+# Tối ưu Random Forest trên toàn bộ dữ liệu Edge-IIoTset:
+python ml_engine/train.py --classifier random_forest --optuna --n-trials 15 --cv 5
+
+# Tối ưu kết hợp thuật toán cắt tỉa sớm Hyperband:
+python ml_engine/train.py --classifier decision_tree --optuna --n-trials 30 --pruner hyperband
+```
+
+#### 3. Thử nghiệm các kiến trúc học máy khác:
+```bash
+# Mạng nơ-ron đa tầng MLP:
+python ml_engine/train.py --classifier mlp --optuna --n-trials 10 --cv 3
+
+# Gradient Boosting:
+python ml_engine/train.py --classifier gradient_boosting --samples 30000 --optuna --n-trials 15
+
+# Mô hình kết hợp Ensemble Voting (RandomForest + ExtraTrees + GradientBoosting):
+python ml_engine/train.py --classifier ensemble_voting --optuna --n-trials 10
+
+# Thay đổi mô hình Anomaly Detector (One-Class SVM, LOF, Elliptic Envelope):
 python ml_engine/train.py --classifier decision_tree --anomaly-model one_class_svm
+```
+
+#### 4. Xem danh mục tất cả các thuật toán hỗ trợ:
+```bash
+python ml_engine/train.py --list-models
 ```
 
 #### Các Artifacts sinh ra trong `ml_engine/models/`:
@@ -187,8 +212,8 @@ Phiên chạy `run_system.py` là trung tâm vận hành runtime của hệ sinh
      Vui long chay quy trinh huan luyen offline truoc de tao artifacts:
          python ml_engine/train.py --classifier decision_tree
 
-     Hoac toi uu hoa sieu tham so (HPO) voi Optuna:
-         python ml_engine/tuning/optuna_tuner.py --model decision_tree --cv 5
+      Hoac toi uu hoa sieu tham so (HPO) voi Optuna:
+          python ml_engine/train.py --classifier decision_tree --optuna --cv 5
 
      Sau khi huan luyen thanh cong va xuat artifacts, hay chay lai:
          python run_system.py
@@ -236,8 +261,9 @@ Nếu bạn muốn mở từng terminal riêng biệt để quan sát log chi ti
 
 ### Bước 2: Chạy Service suy luận thời gian thực
 ```bash
-python ml_engine/inference_service.py --threshold 0.55
+python ml_engine/inference_service.py
 ```
+*(Lưu ý: Entrypoint dòng lệnh tập trung để tùy chỉnh `--threshold`, `--broker-port` là `python run_system.py`)*
 
 ### Bước 3: Khởi động Web Dashboard Server
 ```bash
@@ -246,9 +272,9 @@ python dashboard/backend/app.py
 Truy cập giao diện: `http://localhost:8000`
 
 ### Bước 4: Chạy nguồn phát Telemetry
-- **Bộ giả lập ESP32 Simulator (Auto-cycle mode)**:
+- **Bộ giả lập ESP32 Simulator**:
   ```bash
-  python firmware/simulator/esp32_simulator.py --auto-cycle
+  python firmware/simulator/esp32_simulator.py
   ```
 - **Hoặc bắt lưu lượng thật từ card mạng máy tính (Host Sniffer)**:
   ```bash
@@ -259,7 +285,7 @@ Truy cập giao diện: `http://localhost:8000`
 
 ---
 
-## 📂 Cấu Trúc Thư Mục Dự Án (Modular Architecture)
+## 📂 Cấu Trúc Thư Mục Dự Án (Decoupled Modular Architecture)
 
 ```
 d:\STT 2026\
@@ -269,13 +295,13 @@ d:\STT 2026\
 │   │   ├── config.h                   # Cấu hình WiFi SSID, Pass, MQTT Broker IP
 │   │   └── tinyml_model.h             # Mô hình TinyML C Header được cập nhật tự động
 │   ├── host_probe\
-│   │   └── host_sniffer.py            # Bắt lưu lượng mạng thật từ card mạng máy tính (Scapy)
+│   │   └── host_sniffer.py            # Bắt lưu lượng mạng thật từ máy tính (Module cho run_system)
 │   └── simulator\
-│       └── esp32_simulator.py         # Giả lập ESP32 phát traffic đa kịch bản
+│       └── esp32_simulator.py         # Giả lập phát traffic đa kịch bản (Module cho run_system)
 ├── broker\
 │   ├── mosquitto.conf                 # Cấu hình chuẩn Eclipse Mosquitto
 │   ├── docker-compose.yml             # Chạy Mosquitto nhanh bằng Docker
-│   └── embedded_broker.py             # Embedded pure Python MQTT broker dự phòng
+│   └── embedded_broker.py             # Embedded pure Python MQTT broker (Module cho run_system)
 ├── ml_engine\
 │   ├── config\
 │   │   ├── __init__.py
@@ -287,13 +313,15 @@ d:\STT 2026\
 │   │   └── dataset_generator.py       # Bộ sinh dữ liệu synthetic traffic đa kịch bản
 │   ├── tuning\
 │   │   ├── __init__.py
-│   │   └── optuna_tuner.py            # Optuna HPO với Stratified K-Fold CV & SQLite backup
+│   │   └── optuna_tuner.py            # Thư viện hàm Optuna HPO (Search Space, Pruners, K-Fold CV & SQLite)
 │   ├── algorithms\
 │   │   ├── base.py                    # Base protocol cho Classifier & Anomaly Detector
 │   │   ├── classifiers.py             # DecisionTree, RandomForest, ExtraTrees, GradientBoosting, MLP...
 │   │   └── anomaly_detectors.py       # IsolationForest, OneClassSVM, EllipticEnvelope, LOF
 │   ├── exporter\
+│   │   ├── __init__.py
 │   │   └── tinyml_exporter.py         # Chuyển đổi mô hình sang C Header (ESP32 TinyML)
+│   ├── export_tinyml.py               # Tiện ích export TinyML (CLI tập trung tại: train.py --export-tinyml-only)
 │   ├── notebooks\
 │   │   ├── EDA_Edge_IIoTset.ipynb     # Jupyter Notebook phân tích chuyên sâu Edge-IIoTset
 │   │   ├── generate_eda_report.py     # Script xuất biểu đồ EDA SOC Aesthetic
@@ -307,17 +335,38 @@ d:\STT 2026\
 │   │   ├── model_metadata.json        # Thông số cấu hình & kết quả đánh giá mô hình
 │   │   ├── optuna_study.db            # Cơ sở dữ liệu SQLite lưu trữ lịch sử trials Optuna
 │   │   └── tinyml_model.h             # Tệp header C sinh ra cho vi điều khiển
-│   ├── train.py                       # CLI huấn luyện offline độc lập & xuất artifacts
+│   ├── train.py                       # Master Training Pipeline (Entrypoint duy nhất: HPO + Final Model + Artifacts)
 │   └── inference_service.py           # Service suy luận thời gian thực 2 tầng qua MQTT
 ├── dashboard\
 │   ├── backend\
-│   │   └── app.py                     # FastAPI server, WebSocket broadcaster & REST APIs
+│   │   ├── app.py                     # FastAPI root application, lifespan & router coordinator
+│   │   ├── config.py                  # Cấu hình biến môi trường (MQTT_HOST, MQTT_PORT, PORT)
+│   │   ├── models.py                  # Pydantic schema models cho REST API
+│   │   ├── state.py                   # In-memory SystemState (history, alerts, connected nodes)
+│   │   ├── websocket_manager.py       # ConnectionManager quản lý WebSocket clients & broadcast
+│   │   ├── mqtt_bridge.py             # MQTT subscriber bridge chuyển tiếp sang WebSocket
+│   │   └── routers\
+│   │       ├── api.py                 # REST API endpoints (/api/status, /api/simulator/scenario, etc.)
+│   │       └── ws.py                  # WebSocket endpoint (/ws/telemetry)
 │   └── frontend\
-│       ├── index.html                 # Giao diện SOC Dashboard Cyberpunk Dark Mode
-│       ├── css\style.css              # Glassmorphism styling, animations & theme
-│       └── js\app.js                  # WebSocket client, Chart.js visualizations
+│       ├── index.html                 # Semantic HTML Layout, nạp script type="module"
+│       ├── css\style.css              # Cyberpunk Glassmorphism Styling & Design System
+│       └── js\
+│           ├── main.js                # Root Application Coordinator (ES Modules Entrypoint)
+│           ├── state.js               # Centralized Reactive State Store & Pub/Sub Event Bus
+│           ├── services\
+│           │   ├── api_service.js     # REST API client (Fetch kịch bản, ngưỡng threshold)
+│           │   ├── websocket_service.js # WebSocket client kết nối /ws/telemetry tự động reconnect
+│           │   └── audio_service.js   # Web Audio API Synthesizer (còi báo động SOC & alert beeps)
+│           └── components\
+│               ├── header.js          # Connection status dot, nodes online, audio alarm toggle
+│               ├── kpi_grid.js        # 4 thẻ KPI (Packet Rate, Byte Rate, Anomaly Score, Threats)
+│               ├── control_bar.js     # Interactive Attack Simulator control buttons
+│               ├── charts.js          # Chart.js 3 biểu đồ (Throughput, Protocol, Anomaly) & Threshold Slider
+│               ├── risk_assessment.js # Phán quyết Edge TinyML, Phân phối xác suất 15 lớp, Pipeline Flow
+│               └── packet_inspector.js# Bảng bắt gói tin Wireshark-Style thời gian thực, filter & clear
 ├── docs\                              # Tài liệu kỹ thuật kiến trúc, API và ESP32
-├── run_system.py                      # Runtime Master Launcher (Inference Only, loads artifacts)
+├── run_system.py                      # Master Runtime Launcher (Nhập trực tiếp broker & probes, quản lý tập trung)
 ├── run_system.bat                     # Entry point Windows Command Prompt / Batch
 ├── run_system.sh                      # Entry point Linux / macOS / WSL Shell Script
 ├── test_pipeline.py                   # Automated Integration Pipeline Test

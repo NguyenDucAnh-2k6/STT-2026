@@ -3,18 +3,18 @@
 Edge AI Network Anomaly Detection - Master System Launcher
 ==========================================================
 Chỉ dẫn vận hành hệ thống:
-- Script này là Entry Point chính để khởi động toàn bộ hệ sinh thái chỉ bằng 1 lệnh:
-  1. Kiểm tra & tự động khởi động MQTT Broker (Mosquitto hoặc Python Embedded Broker port 1883).
-  2. Kiểm tra trọng số mô hình hoặc huấn luyện mới theo flag (--classifier & --anomaly-model).
-  3. Khởi động Real-time Inference Engine kết nối MQTT.
+- Script này là ENTRYPOINT DUY NHẤT để khởi động toàn bộ hệ sinh thái runtime:
+  1. Tự động kiểm tra các mô hình Artifacts đã được huấn luyện sẵn trong ml_engine/models/.
+  2. Khởi động MQTT Broker (Mosquitto hoặc Python Embedded Broker port 1883).
+  3. Khởi động ML Real-time Inference Engine (kết nối MQTT, suy luận song song 2 tầng).
   4. Khởi động Web Dashboard Server (FastAPI + WebSockets port 8000).
-  5. Khởi động ESP32 Network Traffic Simulator phát luồng dữ liệu thời gian thực.
-  6. Tự động mở trình duyệt hiển thị Dashboard giám sát an ninh mạng.
+  5. Khởi động Telemetry Probe (ESP32 Simulator, Host PC Sniffer hoặc đón ESP32 thật).
+  6. Tự động mở trình duyệt hiển thị Cyberpunk SOC Web Dashboard.
 
 Cú pháp sử dụng:
     python run_system.py
-    python run_system.py --classifier random_forest
-    python run_system.py --classifier decision_tree --anomaly-model isolation_forest --retrain
+    python run_system.py --probe host
+    python run_system.py --probe esp32
     python run_system.py --threshold 0.60 --no-browser
     python run_system.py --help
 """
@@ -27,6 +27,16 @@ import argparse
 import subprocess
 import webbrowser
 import signal
+import multiprocessing
+
+# Đảm bảo thư mục gốc dự án luôn nằm trong sys.path
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
+from broker.embedded_broker import start_embedded_broker
+from firmware.simulator.esp32_simulator import start_simulator
+from firmware.host_probe.host_sniffer import start_host_sniffer
 
 # Tự động nạp biến môi trường từ file .env
 try:
@@ -88,7 +98,10 @@ def cleanup(signum=None, frame=None):
     for p in processes:
         try:
             p.terminate()
-            p.wait(timeout=2)
+            if hasattr(p, "wait"):
+                p.wait(timeout=2)
+            elif hasattr(p, "join"):
+                p.join(timeout=2)
         except Exception:
             try:
                 p.kill()
@@ -168,8 +181,12 @@ def main():
         print(f"  -> Da phat hien MQTT Broker dang hoat dong tai port {args.broker_port}.")
     else:
         print(f"  -> Chua co Broker. Dang khoi dong Embedded Python MQTT Broker tren port {args.broker_port}...")
-        broker_script = os.path.join(root_dir, "broker", "embedded_broker.py")
-        p_broker = subprocess.Popen([python_exe, broker_script])
+        p_broker = multiprocessing.Process(
+            target=start_embedded_broker,
+            kwargs={"host": "127.0.0.1", "port": args.broker_port},
+            daemon=True
+        )
+        p_broker.start()
         processes.append(p_broker)
         time.sleep(1.5)
         if check_port_in_use(args.broker_port):
@@ -220,13 +237,10 @@ def main():
     # 3. Khoi dong ML Inference Service
     print("\n[3/5] Khoi dong ML Real-time Inference Engine...")
     inference_script = os.path.join(root_dir, "ml_engine", "inference_service.py")
-    inference_cmd = [
-        python_exe,
-        inference_script,
-        "--port", str(args.broker_port),
-        "--threshold", str(args.threshold)
-    ]
-    p_inference = subprocess.Popen(inference_cmd)
+    env_inf = os.environ.copy()
+    env_inf["MQTT_PORT"] = str(args.broker_port)
+    env_inf["ANOMALY_THRESHOLD"] = str(args.threshold)
+    p_inference = subprocess.Popen([python_exe, inference_script], env=env_inf)
     processes.append(p_inference)
     time.sleep(1.0)
 
@@ -243,17 +257,31 @@ def main():
     # 5. Khoi dong Telemetry Probe (Simulator, Host Sniffer, hoac cho ESP32 vat ly)
     if probe_mode == "sim":
         print("\n[5/5] Khoi dong ESP32 Network Traffic Simulator (Auto-cycle mode)...")
-        sim_script = os.path.join(root_dir, "firmware", "simulator", "esp32_simulator.py")
-        p_sim = subprocess.Popen([python_exe, sim_script, "--auto-cycle", "--port", str(args.broker_port)])
+        p_sim = multiprocessing.Process(
+            target=start_simulator,
+            kwargs={
+                "host": "127.0.0.1",
+                "port": args.broker_port,
+                "interval": 2.0,
+                "auto_cycle": True,
+                "device_id": "ESP32-Simulated-Probe-01"
+            },
+            daemon=True
+        )
+        p_sim.start()
         processes.append(p_sim)
     elif probe_mode == "host":
         print("\n[5/5] Khoi dong Host PC Live Network Sniffer (Bat luu luong mang that cua may tinh)...")
-        sniffer_script = os.path.join(root_dir, "firmware", "host_probe", "host_sniffer.py")
-        p_sniffer = subprocess.Popen([
-            python_exe, sniffer_script,
-            "--port", str(args.broker_port),
-            "--window", str(args.window)
-        ])
+        p_sniffer = multiprocessing.Process(
+            target=start_host_sniffer,
+            kwargs={
+                "broker_host": "127.0.0.1",
+                "broker_port": args.broker_port,
+                "window_sec": args.window
+            },
+            daemon=True
+        )
+        p_sniffer.start()
         processes.append(p_sniffer)
     else:
         print("\n[5/5] Che do ESP32 vat ly: He thong dang cho du lieu tu phan cung ESP32 qua WiFi/MQTT...")

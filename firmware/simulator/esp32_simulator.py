@@ -8,8 +8,8 @@ Hỗ trợ cả chế độ:
  - Điều khiển bằng tay (Interactive Keyboard) để kích hoạt tấn công theo ý muốn.
 """
 
+import os
 import sys
-import argparse
 import time
 import json
 import random
@@ -258,16 +258,18 @@ def interactive_key_listener():
         except Exception:
             break
 
-def main():
-    parser = argparse.ArgumentParser(description="ESP32 Network Traffic Probe Simulator")
-    parser.add_argument("--host", default="127.0.0.1", help="MQTT Broker Host (default: 127.0.0.1)")
-    parser.add_argument("--port", type=int, default=1883, help="MQTT Broker Port (default: 1883)")
-    parser.add_argument("--interval", type=float, default=2.0, help="Sampling interval in seconds (default: 2.0s)")
-    parser.add_argument("--auto-cycle", action="store_true", help="Tu dong luan phien cac loai tan cong sau moi 15 giay")
-    parser.add_argument("--device-id", default="ESP32-Simulated-Probe-01", help="Device ID")
-    args = parser.parse_args()
-
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=args.device_id)
+def start_simulator(
+    host: str = "127.0.0.1",
+    port: int = 1883,
+    interval: float = 2.0,
+    auto_cycle: bool = True,
+    device_id: str = "ESP32-Simulated-Probe-01"
+):
+    """
+    Khởi động vòng lặp phát sinh lưu lượng mạng giả lập gửi lên MQTT Broker.
+    Có thể gọi trực tiếp từ run_system.py hoặc script khác.
+    """
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=device_id)
 
     def on_control_message(c, userdata, msg):
         global current_mode
@@ -284,21 +286,21 @@ def main():
     client.on_message = on_control_message
 
     try:
-        client.connect(args.host, args.port, keepalive=60)
+        client.connect(host, port, keepalive=60)
         client.subscribe("edge/simulator/control")
         client.loop_start()
-        print(f"[Simulator] Da ket noi den MQTT Broker {args.host}:{args.port}")
+        print(f"[Simulator] Da ket noi den MQTT Broker {host}:{port}")
     except Exception as e:
-        print(f"[Simulator] Khong the ket noi den MQTT Broker tai {args.host}:{args.port}: {e}")
+        print(f"[Simulator] Khong the ket noi den MQTT Broker tai {host}:{port}: {e}")
         print("  -> Vui long kiem tra Mosquitto Broker hoac chay broker/embedded_broker.py!")
-        sys.exit(1)
+        return
 
     # Gửi thông điệp online
-    client.publish("edge/nodes/status", json.dumps({"status": "online", "device_id": args.device_id}))
+    client.publish("edge/nodes/status", json.dumps({"status": "online", "device_id": device_id}))
 
     global current_mode, running
 
-    if not args.auto_cycle:
+    if not auto_cycle:
         # Bật luồng đọc phím tương tác nếu có terminal
         if sys.stdin.isatty():
             t = threading.Thread(target=interactive_key_listener, daemon=True)
@@ -314,14 +316,14 @@ def main():
 
     try:
         while running:
-            if args.auto_cycle:
+            if auto_cycle:
                 if time.time() - last_cycle_time > 15.0:
                     last_cycle_time = time.time()
                     cycle_idx = (cycle_idx + 1) % len(cycle_modes)
                     current_mode = cycle_modes[cycle_idx]
                     print(f"\n[AUTO-CYCLE] >>> Chuyen sang kich ban: [{current_mode}] <<<\n")
 
-            payload = generate_telemetry(current_mode, args.device_id)
+            payload = generate_telemetry(current_mode, device_id)
             json_str = json.dumps(payload)
 
             client.publish("edge/telemetry/traffic", json_str)
@@ -334,15 +336,32 @@ def main():
                   f"Bytes/s: {payload['byte_rate']:>9.0f} | SYN: {payload['syn_ratio']:>5.2f} | "
                   f"Ports: {payload['unique_dst_ports']:>3} | Edge Pred: {payload['edge_prediction']}")
 
-            time.sleep(args.interval)
+            time.sleep(interval)
 
     except KeyboardInterrupt:
         print("\n[Simulator] Dang dung simulator...")
     finally:
-        client.publish("edge/nodes/status", json.dumps({"status": "offline", "device_id": args.device_id}))
+        client.publish("edge/nodes/status", json.dumps({"status": "offline", "device_id": device_id}))
         client.loop_stop()
         client.disconnect()
         print("[Simulator] Da thoat.")
+
+
+def main():
+    host = os.getenv("MQTT_HOST", "127.0.0.1")
+    port = int(os.getenv("MQTT_PORT", 1883))
+    interval = float(os.getenv("SIMULATOR_INTERVAL", 2.0))
+    auto_cycle = os.getenv("SIMULATOR_AUTO_CYCLE", "true").lower() in ("1", "true", "yes")
+    device_id = os.getenv("SIMULATOR_DEVICE_ID", "ESP32-Simulated-Probe-01")
+
+    start_simulator(
+        host=host,
+        port=port,
+        interval=interval,
+        auto_cycle=auto_cycle,
+        device_id=device_id
+    )
+
 
 if __name__ == "__main__":
     main()

@@ -6,7 +6,7 @@ Chỉ dẫn module:
 - Module này thực hiện suy luận thời gian thực cho luồng lưu lượng mạng:
   1. Kết nối đến MQTT Broker (Mosquitto hoặc Embedded Broker), lắng nghe topic:
      'edge/telemetry/traffic' từ thiết bị biên (ESP32) hoặc Simulator.
-  2. Trích xuất vector đặc trưng bằng TrafficFeaturePreprocessor.
+  2. Trích xuất vector đặc trưng bằng EdgeTrafficPreprocessor / TrafficFeaturePreprocessor.
   3. Suy luận song song 2 tầng:
      - Tầng 1: Bộ phát hiện bất thường Unsupervised (Anomaly Score [0.0 - 1.0]).
      - Tầng 2: Bộ phân loại đa lớp (Attack Classifier xác định cụ thể loại tấn công).
@@ -14,16 +14,14 @@ Chỉ dẫn module:
   5. Đẩy kết quả suy luận lên topic 'edge/telemetry/prediction' và
      phát cảnh báo khẩn cấp lên 'edge/alerts/high_priority'.
 - Thời gian trích xuất & suy luận: < 1.5ms mỗi gói tin.
-
-Cú pháp sử dụng dòng lệnh:
-    python ml_engine/inference_service.py --broker 127.0.0.1 --port 1883 --threshold 0.55
+- ENTRYPOINT VẬN HÀNH DUY NHẤT: Khởi động và cấu hình tập trung qua `run_system.py`.
+  Module này nhận cấu hình tự động qua biến môi trường (MQTT_HOST, MQTT_PORT, ANOMALY_THRESHOLD).
 """
 
 import os
 import sys
 import time
 import json
-import argparse
 from typing import Dict, Any, Optional
 
 # Đảm bảo thư mục gốc dự án luôn nằm trong sys.path khi gọi trực tiếp
@@ -281,18 +279,16 @@ def start_mqtt_inference_service(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Edge AI Real-time Anomaly Inference Service")
-    parser.add_argument("--broker", default="127.0.0.1", help="MQTT Broker IP (default: 127.0.0.1)")
-    parser.add_argument("--port", type=int, default=1883, help="MQTT Broker Port (default: 1883)")
-    parser.add_argument("--threshold", type=float, default=DEFAULT_ANOMALY_THRESHOLD, help="Anomaly Score Threshold (default: 0.55)")
-    parser.add_argument("--models-dir", default=None, help="Thu muc chua cac file mo hinh .joblib")
-    args = parser.parse_args()
+    broker_host = os.getenv("MQTT_HOST", "127.0.0.1")
+    broker_port = int(os.getenv("MQTT_PORT", 1883))
+    threshold = float(os.getenv("ANOMALY_THRESHOLD", str(DEFAULT_ANOMALY_THRESHOLD)))
+    models_dir = os.getenv("MODELS_DIR", None)
 
     start_mqtt_inference_service(
-        broker_host=args.broker,
-        broker_port=args.port,
-        threshold=args.threshold,
-        models_dir=args.models_dir
+        broker_host=broker_host,
+        broker_port=broker_port,
+        threshold=threshold,
+        models_dir=models_dir
     )
 
 
