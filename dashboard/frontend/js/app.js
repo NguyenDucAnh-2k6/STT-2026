@@ -28,11 +28,129 @@ document.addEventListener("DOMContentLoaded", () => {
     activeNodesBadge: document.getElementById("active-nodes-badge"),
     gaugeScoreNumber: document.getElementById("gauge-score-number"),
     gaugeThreatDesc: document.getElementById("gauge-threat-desc"),
-    alertsTableBody: document.getElementById("alerts-table-body"),
+    probBarsList: document.getElementById("prob-bars-list"),
+    edgeInferenceBadge: document.getElementById("edge-inference-badge"),
+    btnAudioToggle: document.getElementById("btn-audio-toggle"),
+    packetTableBody: document.getElementById("packet-inspector-table-body"),
+    btnFilterAll: document.getElementById("filter-all-flows"),
+    btnFilterThreats: document.getElementById("filter-threats-only"),
+    btnClearTable: document.getElementById("btn-clear-table"),
     thresholdSlider: document.getElementById("threshold-slider"),
     thresholdValue: document.getElementById("threshold-value"),
     activeNodeName: document.getElementById("active-node-name"),
   };
+
+  let packetCounter = 1;
+  let currentFilter = "ALL";
+
+  // -------------------------------------------------------------
+  // WEB AUDIO API SYNTHESIZER (SOC SIREN / ALARM SOUNDS)
+  // -------------------------------------------------------------
+  let audioCtx = null;
+  let audioAlarmEnabled = true;
+  let lastAlarmTime = 0;
+
+  function initAudioContext() {
+    if (!audioCtx) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        audioCtx = new AudioContextClass();
+      }
+    }
+    if (audioCtx && audioCtx.state === "suspended") {
+      audioCtx.resume();
+    }
+  }
+
+  function playThreatAlarm(severity = "HIGH") {
+    if (!audioAlarmEnabled) return;
+    try {
+      initAudioContext();
+      if (!audioCtx) return;
+
+      const now = Date.now();
+      if (now - lastAlarmTime < 1200) return; // Tránh hú quá dồn dập
+      lastAlarmTime = now;
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      if (severity === "CRITICAL") {
+        // Hú còi cảnh báo khẩn cấp (Police Siren)
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1350, audioCtx.currentTime + 0.15);
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.42);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.45);
+      } else {
+        // Tiếng beep cảnh báo nhanh
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(750, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1050, audioCtx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.32);
+      }
+    } catch (e) {
+      console.warn("Audio alarm notification failed:", e);
+    }
+  }
+
+  // Khởi tạo nút Toggle Âm Thanh Còi Báo Động
+  if (elements.btnAudioToggle) {
+    elements.btnAudioToggle.addEventListener("click", () => {
+      initAudioContext();
+      audioAlarmEnabled = !audioAlarmEnabled;
+      elements.btnAudioToggle.innerText = audioAlarmEnabled ? "🔊 Còi Báo Động: BẬT" : "🔇 Còi Báo Động: TẮT";
+      elements.btnAudioToggle.style.background = audioAlarmEnabled ? "rgba(6, 182, 212, 0.1)" : "rgba(100, 116, 139, 0.1)";
+      elements.btnAudioToggle.style.borderColor = audioAlarmEnabled ? "var(--cyan-neon)" : "var(--text-muted)";
+      elements.btnAudioToggle.style.color = audioAlarmEnabled ? "var(--cyan-neon)" : "var(--text-muted)";
+      if (audioAlarmEnabled) {
+        playThreatAlarm("MEDIUM");
+      }
+    });
+  }
+
+  // Filter button handlers
+  if (elements.btnFilterAll) {
+    elements.btnFilterAll.addEventListener("click", () => {
+      currentFilter = "ALL";
+      elements.btnFilterAll.classList.add("active");
+      if (elements.btnFilterThreats) elements.btnFilterThreats.classList.remove("active");
+      if (elements.packetTableBody) {
+        Array.from(elements.packetTableBody.children).forEach((row) => {
+          row.style.display = "";
+        });
+      }
+    });
+  }
+
+  if (elements.btnFilterThreats) {
+    elements.btnFilterThreats.addEventListener("click", () => {
+      currentFilter = "THREATS";
+      elements.btnFilterThreats.classList.add("active");
+      if (elements.btnFilterAll) elements.btnFilterAll.classList.remove("active");
+      if (elements.packetTableBody) {
+        Array.from(elements.packetTableBody.children).forEach((row) => {
+          row.style.display = row.classList.contains("row-threat") ? "" : "none";
+        });
+      }
+    });
+  }
+
+  if (elements.btnClearTable) {
+    elements.btnClearTable.addEventListener("click", () => {
+      if (elements.packetTableBody) {
+        elements.packetTableBody.innerHTML = "";
+      }
+    });
+  }
 
   // Chart.js instances
   let trafficRateChart = null;
@@ -87,7 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: { duration: 300 },
+        animation: false,
         scales: {
           x: {
             grid: { color: "rgba(255, 255, 255, 0.05)" },
@@ -141,6 +259,7 @@ document.addEventListener("DOMContentLoaded", () => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         cutout: "70%",
         plugins: {
           legend: { position: "bottom", labels: { boxWidth: 12, padding: 14 } },
@@ -176,7 +295,7 @@ document.addEventListener("DOMContentLoaded", () => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: { duration: 300 },
+        animation: false,
         scales: {
           x: {
             grid: { color: "rgba(255, 255, 255, 0.05)" },
@@ -267,13 +386,15 @@ document.addEventListener("DOMContentLoaded", () => {
         if (elements.thresholdValue)
           elements.thresholdValue.innerText = msg.anomaly_threshold.toFixed(2);
       }
-      if (msg.alerts && msg.alerts.length > 0) {
-        msg.alerts.forEach(renderAlertRow);
-      }
       if (msg.history && msg.history.length > 0) {
-        msg.history.forEach(appendTelemetryData);
+        msg.history.forEach((pt) => {
+          renderPacketRow(pt);
+          appendTelemetryData(pt);
+        });
+        updateKPIs(msg.history[msg.history.length - 1]);
       }
     } else if (msg.type === "TELEMETRY_UPDATE") {
+      renderPacketRow(msg.data);
       appendTelemetryData(msg.data);
       if (msg.total_packets) state.totalPackets = msg.total_packets;
       if (msg.total_threats) state.totalThreats = msg.total_threats;
@@ -282,7 +403,6 @@ document.addEventListener("DOMContentLoaded", () => {
       state.totalThreats = msg.total_threats || state.totalThreats + 1;
       if (elements.kpiTotalThreats)
         elements.kpiTotalThreats.innerText = state.totalThreats;
-      renderAlertRow(msg.alert);
     } else if (msg.type === "NODE_UPDATE") {
       if (elements.activeNodeName)
         elements.activeNodeName.innerText = msg.node.device_id;
@@ -296,7 +416,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // -------------------------------------------------------------
   function appendTelemetryData(data) {
     if (!data) return;
-    const timeLabel = new Date(data.timestamp).toLocaleTimeString("vi-VN", {
+    const ts = (!data.timestamp || data.timestamp < 1000000000000) ? Date.now() : data.timestamp;
+    const timeLabel = new Date(ts).toLocaleTimeString("vi-VN", {
       hour12: false,
       hour: "2-digit",
       minute: "2-digit",
@@ -311,7 +432,7 @@ document.addEventListener("DOMContentLoaded", () => {
         Math.round(data.byte_rate / 1024),
       );
 
-      if (trafficRateChart.data.labels.length > 30) {
+      if (trafficRateChart.data.labels.length > 40) {
         trafficRateChart.data.labels.shift();
         trafficRateChart.data.datasets[0].data.shift();
         trafficRateChart.data.datasets[1].data.shift();
@@ -329,7 +450,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const udpPct = Math.round((data.udp_ratio || 0) * 100);
       const icmpPct = Math.round((data.icmp_ratio || 0) * 100);
       protocolDoughnutChart.data.datasets[0].data = [tcpPct, udpPct, icmpPct];
-      protocolDoughnutChart.update();
+      protocolDoughnutChart.update("none");
     }
 
     // 3. Update Anomaly History Chart
@@ -344,7 +465,7 @@ document.addEventListener("DOMContentLoaded", () => {
         anomalyHistoryChart.data.datasets[0].borderColor = "#a8d8b5";
       }
 
-      if (anomalyHistoryChart.data.labels.length > 30) {
+      if (anomalyHistoryChart.data.labels.length > 40) {
         anomalyHistoryChart.data.labels.shift();
         anomalyHistoryChart.data.datasets[0].data.shift();
       }
@@ -357,13 +478,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Packet rate & byte rate
     if (elements.kpiPacketRate)
-      elements.kpiPacketRate.innerText = Math.round(data.packet_rate);
+      elements.kpiPacketRate.innerText = Math.round(data.packet_rate || 0);
     if (elements.kpiByteRate) {
-      const kbRate = data.byte_rate / 1024;
-      elements.kpiByteRate.innerText =
-        kbRate > 1024
-          ? (kbRate / 1024).toFixed(1) + " MB"
-          : Math.round(kbRate) + " KB";
+      const byteRate = data.byte_rate || 0;
+      if (byteRate <= 0) {
+        elements.kpiByteRate.innerText = "0 KB";
+      } else {
+        const kbRate = byteRate / 1024;
+        elements.kpiByteRate.innerText =
+          kbRate > 1024
+            ? (kbRate / 1024).toFixed(1) + " MB"
+            : Math.round(kbRate) + " KB";
+      }
     }
 
     // Anomaly Score
@@ -388,8 +514,64 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (elements.gaugeThreatDesc) {
       elements.gaugeThreatDesc.innerText = data.is_anomaly
-        ? `Phát hiện: ${data.threat_type} (Edge Flag: ${data.edge_prediction})`
+        ? `Phát hiện: ${data.threat_type} (Host Conf: ${(data.confidence * 100).toFixed(1)}%)`
         : "Lưu lượng mạng bình thường. Không phát hiện rủi ro.";
+    }
+
+    // Update Edge TinyML badge
+    if (elements.edgeInferenceBadge) {
+      const edgeLabel = data.edge_prediction || "Normal";
+      elements.edgeInferenceBadge.innerText = edgeLabel;
+      if (edgeLabel !== "Normal") {
+        elements.edgeInferenceBadge.style.background = "rgba(239, 68, 68, 0.25)";
+        elements.edgeInferenceBadge.style.color = "var(--crimson-danger)";
+        elements.edgeInferenceBadge.style.borderColor = "rgba(239, 68, 68, 0.5)";
+      } else {
+        elements.edgeInferenceBadge.style.background = "rgba(16, 185, 129, 0.15)";
+        elements.edgeInferenceBadge.style.color = "var(--emerald-safe)";
+        elements.edgeInferenceBadge.style.borderColor = "rgba(16, 185, 129, 0.3)";
+      }
+    }
+
+    // Kích hoạt còi hú cảnh báo Web Audio API khi phát hiện tấn công
+    if (data.is_anomaly) {
+      playThreatAlarm(data.severity || "HIGH");
+    }
+
+    // Render Probability Distribution Bars
+    if (elements.probBarsList) {
+      let entries = [];
+      if (data.top_probabilities && typeof data.top_probabilities === "object") {
+        entries = Object.entries(data.top_probabilities);
+      }
+      // Fallback nếu chưa có dict xác suất chi tiết
+      if (entries.length === 0 && data.threat_type) {
+        const topConf = data.confidence ? Math.round(data.confidence * 100) : 90;
+        entries = [[data.threat_type, topConf]];
+        if (data.threat_type !== "Normal") {
+          entries.push(["Normal", Math.max(0, 100 - topConf)]);
+        }
+      }
+
+      if (entries.length > 0) {
+        elements.probBarsList.innerHTML = entries.map(([className, percent]) => {
+          const isTop = (className === data.threat_type && data.is_anomaly) || (entries.length > 0 && className === entries[0][0] && data.is_anomaly);
+          const barColor = isTop ? "var(--crimson-danger)" : (className === "Normal" ? "var(--emerald-safe)" : "var(--cyan-neon)");
+          return `
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; font-family: var(--font-mono);">
+                <span style="color: ${isTop ? 'var(--crimson-danger)' : 'var(--text-primary)'}; font-weight: ${isTop ? '700' : '400'};">
+                  ${isTop ? '⚠️ ' : ''}${className}
+                </span>
+                <span style="color: ${barColor}; font-weight: 600;">${percent}%</span>
+              </div>
+              <div style="width: 100%; height: 5px; background: rgba(51, 65, 85, 0.6); border-radius: 3px; overflow: hidden;">
+                <div style="width: ${Math.min(percent, 100)}%; height: 100%; background: ${barColor}; border-radius: 3px; transition: width 0.4s ease;"></div>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
     }
 
     if (elements.kpiTotalThreats) {
@@ -398,37 +580,86 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // -------------------------------------------------------------
-  // RENDER ALERT TABLE ROW
+  // RENDER LIVE PACKET & FLOW INSPECTOR ROW (WIRESHARK-STYLE)
   // -------------------------------------------------------------
-  function renderAlertRow(alert) {
-    if (!elements.alertsTableBody || !alert) return;
+  function renderPacketRow(data) {
+    if (!elements.packetTableBody || !data) return;
 
     const row = document.createElement("tr");
-    const timeStr = new Date(alert.timestamp).toLocaleTimeString("vi-VN", {
-      hour12: false,
-    });
+    const rawTs = data.timestamp;
+    const d = new Date((!rawTs || rawTs < 1000000000000) ? Date.now() : rawTs);
+    const timeStr =
+      d.toLocaleTimeString("vi-VN", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }) +
+      "." +
+      String(d.getMilliseconds()).padStart(3, "0");
 
-    let sevClass = "threat-normal";
-    if (alert.severity === "CRITICAL") sevClass = "threat-critical";
-    else if (alert.severity === "HIGH") sevClass = "threat-high";
+    const noStr = String(packetCounter++).padStart(5, "0");
+    const proto = (data.protocol || "CoAP").toUpperCase();
+    const protoClass = `proto-${proto.toLowerCase()}`;
+
+    const isThreat =
+      data.is_anomaly || (data.threat_type && data.threat_type !== "Normal");
+    if (isThreat) {
+      row.classList.add("row-threat");
+    }
+
+    if (currentFilter === "THREATS" && !isThreat) {
+      row.style.display = "none";
+    }
+
+    let sevBadge = `<span class="badge-threat threat-normal">&#x2714; Normal (${(data.anomaly_score || 0).toFixed(2)})</span>`;
+    if (isThreat) {
+      const sev =
+        data.severity === "CRITICAL" ? "threat-critical" : "threat-high";
+      sevBadge = `<span class="badge-threat ${sev}">&#x26A0; ${data.threat_type || "Attack"} (${(data.anomaly_score || 0.95).toFixed(2)})</span>`;
+    }
+
+    const srcPort = data.src_port ? `:${data.src_port}` : "";
+    const dstPort = data.dst_port ? `:${data.dst_port}` : "";
+    const srcEndpoint = `${data.src_ip || "192.168.137.149"}${srcPort}`;
+    const dstEndpoint = `${data.dst_ip || "192.168.137.1"}${dstPort}`;
+    const pktLen =
+      data.packet_length || Math.round(data.avg_packet_size || 68);
+
+    const dynamicsHtml = `
+      <span class="flow-metric-pill">Rate: <span class="flow-metric-val">${Math.round(data.packet_rate || 0)}/s</span></span>
+      <span class="flow-metric-pill">SYN: <span class="flow-metric-val">${((data.syn_ratio || 0) * 100).toFixed(0)}%</span></span>
+      <span class="flow-metric-pill">ACK: <span class="flow-metric-val">${((data.ack_ratio || 0) * 100).toFixed(0)}%</span></span>
+      <span class="flow-metric-pill">Ports: <span class="flow-metric-val">${data.unique_dst_ports || 1}</span></span>
+    `;
+
+    const infoText =
+      data.info ||
+      `${proto} Flow ${srcEndpoint} -> ${dstEndpoint} Len=${pktLen}`;
 
     row.innerHTML = `
-            <td class="mono-text">${timeStr}</td>
-            <td class="mono-text" style="color: var(--cyan-neon);">${alert.device_id || "ESP32-Probe"}</td>
-            <td><span class="badge-threat ${sevClass}">${alert.threat_type || "Attack"}</span></td>
-            <td class="mono-text">${(alert.anomaly_score || 0.95).toFixed(2)}</td>
-            <td style="color: var(--text-secondary); font-size: 12px;">${alert.details || "Detected anomaly in traffic window"}</td>
-        `;
+      <td class="mono-text" style="color: var(--text-muted); font-size: 11px;">#${noStr}</td>
+      <td class="mono-text">${timeStr}</td>
+      <td class="mono-text" style="color: var(--cyan-neon);">${srcEndpoint}</td>
+      <td class="mono-text" style="color: #cbd5e1;">${dstEndpoint}</td>
+      <td><span class="proto-badge ${protoClass}">${proto}</span></td>
+      <td class="mono-text">${pktLen} B</td>
+      <td>${dynamicsHtml}</td>
+      <td>${sevBadge}</td>
+      <td class="mono-text" style="color: var(--text-secondary); max-width: 260px; overflow: hidden; text-overflow: ellipsis;" title="${infoText}">${infoText}</td>
+    `;
 
     // Prepend to top of table
-    elements.alertsTableBody.insertBefore(
+    elements.packetTableBody.insertBefore(
       row,
-      elements.alertsTableBody.firstChild,
+      elements.packetTableBody.firstChild,
     );
 
-    // Keep maximum 20 rows visible
-    while (elements.alertsTableBody.children.length > 20) {
-      elements.alertsTableBody.removeChild(elements.alertsTableBody.lastChild);
+    // Keep maximum 50 rows visible
+    while (elements.packetTableBody.children.length > 50) {
+      elements.packetTableBody.removeChild(
+        elements.packetTableBody.lastChild,
+      );
     }
   }
 

@@ -261,14 +261,21 @@ class EnsembleVotingWrapper(BaseAttackClassifier):
 
     def __init__(
         self,
+        rf_n_estimators: int = 80,
+        rf_max_depth: int = 10,
+        et_n_estimators: int = 80,
+        et_max_depth: int = 10,
+        gb_n_estimators: int = 60,
+        gb_max_depth: int = 4,
+        gb_learning_rate: float = 0.1,
         random_state: int = 42,
         **kwargs
     ):
         self.model = VotingClassifier(
             estimators=[
-                ('rf', RandomForestClassifier(n_estimators=80, max_depth=10, random_state=random_state, n_jobs=-1)),
-                ('et', ExtraTreesClassifier(n_estimators=80, max_depth=10, random_state=random_state, n_jobs=-1)),
-                ('gb', GradientBoostingClassifier(n_estimators=60, max_depth=4, random_state=random_state))
+                ('rf', RandomForestClassifier(n_estimators=rf_n_estimators, max_depth=rf_max_depth, random_state=random_state, n_jobs=-1)),
+                ('et', ExtraTreesClassifier(n_estimators=et_n_estimators, max_depth=et_max_depth, random_state=random_state, n_jobs=-1)),
+                ('gb', GradientBoostingClassifier(n_estimators=gb_n_estimators, max_depth=gb_max_depth, learning_rate=gb_learning_rate, random_state=random_state))
             ],
             voting='soft'
         )

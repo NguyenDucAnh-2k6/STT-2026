@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
 """
-Edge AI Network Anomaly Detection - Model Training Pipeline
-============================================================
+Edge AI Network Anomaly Detection - Model Training & Artifact Export Pipeline
+=============================================================================
 Chỉ dẫn module:
-- Module này thực thi quy trình huấn luyện toàn diện cho hệ thống phát hiện bất thường:
-  1. Sinh tập dữ liệu lưu lượng mạng mô phỏng (CIC-IDS2017/NSL-KDD benchmark).
-  2. Chuẩn hóa đặc trưng qua TrafficFeaturePreprocessor.
-  3. Huấn luyện mô hình phát hiện bất thường Unsupervised (chọn qua flag --anomaly-model).
-  4. Huấn luyện bộ phân loại dạng tấn công Supervised (chọn qua flag --classifier).
-  5. Đánh giá độ chính xác (Accuracy, F1-Score, Classification Report).
-  6. Lưu trữ model weights (.joblib), metadata (.json), và xuất C header (TinyML).
+- Module này thực thi quy trình huấn luyện offline hoàn chỉnh độc lập:
+  1. Nạp và tiền xử lý toàn diện tập dữ liệu Edge-IIoTset (full 61 đặc trưng đầu vào, 15 nhãn tấn công).
+  2. Tùy chọn tối ưu hóa siêu tham số (HPO) tự động qua Optuna 5-Fold Stratified CV (--optuna).
+  3. Huấn luyện Final Classifier trên tập huấn luyện (X_train, y_train).
+  4. Huấn luyện Anomaly Detector Unsupervised (Isolation Forest) trên các mẫu lưu lượng Normal.
+  5. Đánh giá toàn diện trên tập kiểm thử (Accuracy, Macro F1, Chi tiết từng loại tấn công).
+  6. Xuất đầy đủ toàn bộ Artifacts phục vụ suy luận thời gian thực:
+     - attack_classifier.joblib
+     - isolation_forest.joblib
+     - preprocessor.joblib & scaler.joblib
+     - model_metadata.json
+     - tinyml_model.h (C Header cho ESP32 nếu là Decision Tree).
 
-Cú pháp sử dụng dòng lệnh:
+Cú pháp sử dụng:
+    python ml_engine/train.py --classifier decision_tree
+    python ml_engine/train.py --classifier random_forest --samples 25000
+    python ml_engine/train.py --classifier decision_tree --optuna --n-trials 15
     python ml_engine/train.py --list-models
-    python ml_engine/train.py --classifier decision_tree --export-tinyml
-    python ml_engine/train.py --classifier random_forest --anomaly-model isolation_forest
-    python ml_engine/train.py --classifier all_compare
 """
 
 import os
@@ -23,14 +28,14 @@ import sys
 import json
 import time
 import argparse
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 
-# Đảm bảo thư mục gốc dự án luôn nằm trong sys.path khi gọi trực tiếp
+# Đảm bảo thư mục gốc dự án luôn nằm trong sys.path
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-# Đảm bảo UTF-8 hoặc an toàn mã hóa trên Windows console
+# An toàn mã hóa console trên Windows
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     try:
         sys.stdout.reconfigure(encoding='utf-8')
@@ -39,19 +44,18 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, f1_score
 import joblib
 
-# Import các module đã tách biệt
 from ml_engine.config.schema import (
     FEATURE_NAMES,
     LABEL_NAMES,
-    DEFAULT_DATASET_SAMPLES,
-    DEFAULT_CONTAMINATION_RATE
+    DEFAULT_DATASET_SAMPLES
 )
-from ml_engine.preprocessing.dataset_generator import generate_synthetic_dataset
-from ml_engine.preprocessing.feature_preprocessor import TrafficFeaturePreprocessor
+from ml_engine.preprocessing import (
+    load_and_preprocess_dataset,
+    EdgeTrafficPreprocessor
+)
 from ml_engine.algorithms.classifiers import (
     get_classifier,
     list_supported_classifiers,
@@ -66,7 +70,7 @@ from ml_engine.exporter.tinyml_exporter import export_decision_tree_to_header
 
 
 def print_supported_models():
-    """In danh sach cac thuat toan duoc ho tro kem mo ta."""
+    """In danh sách các thuật toán được hỗ trợ kèm mô tả."""
     print("\n" + "=" * 75)
     print(" DANH SACH CAC THUAT TOAN DUOC HO TRO TRONG ML ENGINE")
     print("=" * 75)
@@ -81,220 +85,165 @@ def print_supported_models():
     print("=" * 75 + "\n")
 
 
-def train_single_classifier(
-    model_name: str,
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_test: np.ndarray,
-    y_test: np.ndarray
-) -> Tuple[Any, float, float]:
-    """Huan luyen va danh gia mot bo phan loai cu the."""
-    clf = get_classifier(model_name)
-    clf.fit(X_train, y_train)
-    y_pred = clf.predict(X_test)
-    acc = float(accuracy_score(y_test, y_pred))
-    macro_f1 = float(f1_score(y_test, y_pred, average="macro"))
-    return clf, acc, macro_f1
-
-
-def benchmark_all_classifiers(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_test: np.ndarray,
-    y_test: np.ndarray
-):
-    """Huan luyen va so sanh toan bo cac bo phan loai duoc ho tro."""
-    print("\n" + "=" * 70)
-    print("  SO SANH DOI CHUNG TOAN BO CAC BO PHAN LOAI (BENCHMARK MODE)")
-    print("=" * 70)
-    print(f"{'Thuat toan':<22} | {'Accuracy':<12} | {'Macro F1':<12} | {'Thoi gian train':<15}")
-    print("-" * 70)
-
-    best_name = None
-    best_f1 = -1.0
-    results = {}
-
-    for name in list_supported_classifiers():
-        t0 = time.perf_counter()
-        clf, acc, f1 = train_single_classifier(name, X_train, y_train, X_test, y_test)
-        elapsed = (time.perf_counter() - t0) * 1000.0
-        results[name] = {"acc": acc, "f1": f1, "time_ms": elapsed, "model": clf}
-        print(f"{name:<22} | {acc * 100:>8.2f}%    | {f1 * 100:>8.2f}%    | {elapsed:>10.2f} ms")
-        if f1 > best_f1:
-            best_f1 = f1
-            best_name = name
-
-    print("-" * 70)
-    print(f" [BEST MODEL ACCURACY]: '{best_name}' (F1: {best_f1 * 100:.2f}%)")
-    print("=" * 70 + "\n")
-    return results[best_name]["model"], best_name
-
-
 def run_training_pipeline(
     classifier_type: str = "decision_tree",
     anomaly_type: str = "isolation_forest",
-    n_samples: int = DEFAULT_DATASET_SAMPLES,
+    dataset_path: Optional[str] = None,
+    samples: Optional[int] = None,
+    use_optuna: bool = False,
+    n_trials: int = 15,
+    cv: int = 5,
     export_tinyml: bool = True,
-    output_dir: str = None
+    output_dir: Optional[str] = None
 ):
-    """Quy trình huấn luyện hoàn chỉnh."""
-    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    """
+    Quy trình huấn luyện offline hoàn chỉnh và xuất toàn bộ artifacts & header.
+    """
     if output_dir is None:
-        output_dir = os.path.join(root_dir, "ml_engine", "models")
-    dataset_dir = os.path.join(root_dir, "ml_engine", "datasets")
-
+        output_dir = os.path.join(ROOT_DIR, "ml_engine", "models")
     os.makedirs(output_dir, exist_ok=True)
-    os.makedirs(dataset_dir, exist_ok=True)
 
-    print("=" * 70)
+    print("=" * 75)
     print("       EDGE AI NETWORK ANOMALY DETECTION - TRAINING PIPELINE")
     print(f"   [Classifier: '{classifier_type}'] | [Anomaly Detector: '{anomaly_type}']")
-    print("=" * 70)
+    print(f"   [Optuna HPO: {'BAT' if use_optuna else 'TAT'}] | [Export TinyML: {'BAT' if export_tinyml else 'TAT'}]")
+    print("=" * 75)
 
-    # 1. Sinh tập dữ liệu huấn luyện
-    print(f"\n[1/5] Sinh tap du lieu luu luong mang mau ({n_samples:,} mau)...")
-    df = generate_synthetic_dataset(n_samples=n_samples, random_state=42)
-    csv_path = os.path.join(dataset_dir, "synthetic_traffic_dataset.csv")
-    df.to_csv(csv_path, index=False)
-    print(f"  -> Da luu dataset tai: {csv_path}")
-
-    X = df[FEATURE_NAMES].values
-    y = df["label"].values
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.25, random_state=42, stratify=y
+    # 1. Nạp và tiền xử lý dữ liệu từ module preprocessing (Full 61 đặc trưng)
+    print("\n[1/5] Nap & tien xu ly du lieu (Module Preprocessing - Full 61 Features)...")
+    t_start = time.perf_counter()
+    X_train, X_test, y_train, y_test, preprocessor = load_and_preprocess_dataset(
+        dataset_path=dataset_path,
+        sample_size=samples
     )
+    feature_names = preprocessor.feature_names
+    label_encoder = preprocessor.label_encoder
+    label_names = list(label_encoder.classes_)
 
-    # 2. Tiền xử lý và Chuẩn hóa đặc trưng
-    print("\n[2/5] Tien xu ly & Chuan hoa dac trung (TrafficFeaturePreprocessor)...")
-    preprocessor = TrafficFeaturePreprocessor()
-    X_train_scaled = preprocessor.fit_transform(X_train)
-    X_test_scaled = preprocessor.transform(X_test)
+    # Lưu preprocessor và scaler đồng bộ
+    preprocessor_path = os.path.join(output_dir, "preprocessor.joblib")
     scaler_path = os.path.join(output_dir, "scaler.joblib")
-    preprocessor.save(scaler_path)
-    print(f"  -> Da luu weights scaler tai: {scaler_path}")
+    preprocessor.save(preprocessor_path)
+    joblib.dump(preprocessor.scaler, scaler_path)
+    print(f"  -> Da luu Preprocessor weights tai: {preprocessor_path}")
 
-    # 3. Huấn luyện bộ phát hiện bất thường Unsupervised / Novelty
-    print(f"\n[3/5] Huan luyen bo phat hien bat thuong ('{anomaly_type}')...")
-    anomaly_detector = get_anomaly_detector(anomaly_type)
-    
-    # Chỉ học trên dữ liệu bình thường (y == 0)
-    X_normal_train = X_train_scaled[y_train == 0]
-    anomaly_detector.fit(X_normal_train)
-
-    test_scores = anomaly_detector.score_samples(X_test_scaled)
-    score_min = float(test_scores.min())
-    score_max = float(test_scores.max())
-
-    preds_binary = (anomaly_detector.predict(X_test_scaled) == -1).astype(int)
-    actual_binary = (y_test != 0).astype(int)
-    iso_f1 = float(f1_score(actual_binary, preds_binary, zero_division=0))
-    print(f"  -> {anomaly_type} Binary F1-Score: {iso_f1:.4f} (Score Range: [{score_min:.3f}, {score_max:.3f}])")
-
-    # 4. Huấn luyện bộ phân loại dạng tấn công
-    print(f"\n[4/5] Huan luyen bo phan loai tan cong ('{classifier_type}')...")
-    if classifier_type == "all_compare":
-        classifier, active_clf_name = benchmark_all_classifiers(X_train, y_train, X_test, y_test)
+    # 2. Tối ưu hóa siêu tham số (HPO) nếu có yêu cầu
+    best_params = {}
+    if use_optuna:
+        print(f"\n[2/5] Kich hoat Optuna HPO ({n_trials} trials, {cv}-Fold Stratified CV)...")
+        from ml_engine.tuning.optuna_tuner import optimize_hyperparameters
+        db_path = os.path.join(output_dir, "optuna_study.db")
+        best_params, best_cv_score, _ = optimize_hyperparameters(
+            model_type=classifier_type,
+            X=X_train,
+            y=y_train,
+            n_trials=n_trials,
+            n_splits=cv,
+            db_path=db_path
+        )
+        print(f"  -> Best Hyperparameters: {best_params} (CV F1: {best_cv_score*100:.2f}%)")
     else:
-        active_clf_name = classifier_type
-        classifier = get_classifier(classifier_type)
-        classifier.fit(X_train, y_train)
+        print("\n[2/5] Bo qua HPO. Su dung bo sieu tham so mac dinh toi uu cho canh bien.")
+
+    # 3. Huấn luyện Final Classifier trên toàn bộ tập train
+    print(f"\n[3/5] Huan luyen Final Classifier ('{classifier_type}') tren {X_train.shape[0]:,} mau...")
+    classifier = get_classifier(classifier_type, **best_params)
+    classifier.fit(X_train, y_train)
 
     y_pred = classifier.predict(X_test)
     acc = float(accuracy_score(y_test, y_pred))
-    print(f"  -> {active_clf_name} Accuracy: {acc * 100:.2f}%\n")
-    print(classification_report(y_test, y_pred, target_names=LABEL_NAMES))
+    macro_f1 = float(f1_score(y_test, y_pred, average="macro", zero_division=0))
 
-    # 5. Lưu models và metadata
-    iso_path = os.path.join(output_dir, "isolation_forest.joblib")
+    print(f"  -> {classifier_type} Test Accuracy: {acc * 100:.2f}% | Test Macro F1: {macro_f1 * 100:.2f}%")
+    print("\nChi tiet Classification Report tren Test Set:")
+    eval_labels = sorted(list(set(y_test) | set(y_pred)))
+    eval_names = [label_names[i] if i < len(label_names) else f"Class_{i}" for i in eval_labels]
+    print(classification_report(y_test, y_pred, labels=eval_labels, target_names=eval_names, zero_division=0))
+
+    # 4. Huấn luyện Unsupervised Anomaly Detector trên mẫu Normal (y == 0)
+    print(f"\n[4/5] Huan luyen Bo phat hien bat thuong ('{anomaly_type}')...")
+    anomaly_detector = get_anomaly_detector(anomaly_type)
+    normal_train = X_train[y_train == 0]
+    if len(normal_train) == 0:
+        normal_train = X_train[:max(100, len(X_train)//4)]
+    anomaly_detector.fit(normal_train)
+
+    # Đánh giá Anomaly Score
+    if hasattr(anomaly_detector, "score_samples"):
+        test_scores = anomaly_detector.score_samples(X_test)
+        score_min = float(test_scores.min())
+        score_max = float(test_scores.max())
+    else:
+        score_min, score_max = -1.0, 0.0
+
+    preds_binary = (anomaly_detector.predict(X_test) == -1).astype(int)
+    actual_binary = (y_test != 0).astype(int)
+    anomaly_f1 = float(f1_score(actual_binary, preds_binary, zero_division=0))
+    print(f"  -> {anomaly_type} Binary F1: {anomaly_f1:.4f} (Score range: [{score_min:.3f}, {score_max:.3f}])")
+
+    # 5. Lưu Artifacts và xuất C Header
+    print("\n[5/5] Xuat toan bo Artifacts va TinyML Header...")
     clf_path = os.path.join(output_dir, "attack_classifier.joblib")
+    iso_path = os.path.join(output_dir, "isolation_forest.joblib")
     meta_path = os.path.join(output_dir, "model_metadata.json")
 
-    joblib.dump(anomaly_detector, iso_path)
     joblib.dump(classifier, clf_path)
+    joblib.dump(anomaly_detector, iso_path)
 
     metadata = {
         "timestamp": int(time.time()),
-        "features": FEATURE_NAMES,
-        "labels": LABEL_NAMES,
-        "classifier_type": active_clf_name,
+        "features_count": len(feature_names),
+        "features": feature_names,
+        "labels_count": len(label_names),
+        "labels": label_names,
+        "classifier_type": classifier_type,
         "anomaly_detector_type": anomaly_type,
         "classifier_accuracy": acc,
-        "anomaly_f1_score": iso_f1,
+        "classifier_macro_f1": macro_f1,
+        "anomaly_f1_score": anomaly_f1,
         "isolation_score_min": score_min,
         "isolation_score_max": score_max,
+        "best_params": best_params,
         "can_export_tinyml": getattr(classifier, "can_export_tinyml", False)
     }
 
     with open(meta_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-    print(f"  -> Da luu model classifier: {clf_path}")
-    print(f"  -> Da luu anomaly detector: {iso_path}")
-    print(f"  -> Da luu metadata: {meta_path}")
+    print(f"  -> [Artifact] Classifier Model   : {clf_path}")
+    print(f"  -> [Artifact] Anomaly Detector   : {iso_path}")
+    print(f"  -> [Artifact] Model Metadata     : {meta_path}")
 
-    # Xuất mã C TinyML nếu được yêu cầu và mô hình hỗ trợ
-    if export_tinyml:
-        if getattr(classifier, "can_export_tinyml", False):
-            print("\n[5/5] Tu dong xuat TinyML C Header (.h) cho firmware ESP32...")
-            h_out = os.path.join(output_dir, "tinyml_model.h")
-            export_decision_tree_to_header(classifier, h_out)
-            
-            firmware_h = os.path.join(root_dir, "firmware", "esp32_probe", "tinyml_model.h")
-            if os.path.exists(os.path.dirname(firmware_h)):
-                export_decision_tree_to_header(classifier, firmware_h)
-            print(f"  -> [OK] Da cap nhat TinyML C Header tai: {h_out}")
-        else:
-            print(f"\n[5/5] Chu y: Model '{active_clf_name}' khong phai Decision Tree.")
-            print("  -> Khong xuat ma nguon C truc tiep. Model se chay o tang Host Inference Service.")
+    # Xuất TinyML C Header nếu được yêu cầu
+    if export_tinyml and getattr(classifier, "can_export_tinyml", False):
+        h_out = os.path.join(output_dir, "tinyml_model.h")
+        export_decision_tree_to_header(classifier, h_out, feature_names=feature_names, label_names=label_names)
+        print(f"  -> [TinyML C Header] Da xuat C Header: {h_out}")
 
-    print("\n" + "=" * 70)
-    print(f" [OK] HUAN LUYEN HOAN TAT MY MAN! MODELS DA SAN SANG TAI: {output_dir}")
-    print("=" * 70 + "\n")
+        firmware_h = os.path.join(ROOT_DIR, "firmware", "esp32_probe", "tinyml_model.h")
+        if os.path.exists(os.path.dirname(firmware_h)):
+            export_decision_tree_to_header(classifier, firmware_h, feature_names=feature_names, label_names=label_names)
+            print(f"  -> [Firmware] Da cap nhat header firmware tai: {firmware_h}")
+
+    elapsed_total = time.perf_counter() - t_start
+    print("\n" + "=" * 75)
+    print(f" [OK] QUY TRINH HUAN LUYEN HOAN TAT TRONG {elapsed_total:.2f}s!")
+    print(f"  * Tat ca Artifacts da san sang tai: {output_dir}")
+    print("=" * 75 + "\n")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Train Network Anomaly Detection and Attack Classification Models"
-    )
-    parser.add_argument(
-        "--classifier",
-        default="decision_tree",
-        help="Loai model phan loai tan cong (mac dinh: decision_tree). Ho tro: decision_tree, random_forest, extra_trees, gradient_boosting, mlp, logistic_regression, all_compare"
-    )
-    parser.add_argument(
-        "--anomaly-model",
-        default="isolation_forest",
-        help="Loai model phat hien bat thuong (mac dinh: isolation_forest). Ho tro: isolation_forest, one_class_svm, elliptic_envelope, lof"
-    )
-    parser.add_argument(
-        "--samples",
-        type=int,
-        default=DEFAULT_DATASET_SAMPLES,
-        help="So luong mau synthetic du lieu sinh ra (mac dinh: 10,000)"
-    )
-    parser.add_argument(
-        "--export-tinyml",
-        action="store_true",
-        default=True,
-        help="Tu dong sinh C Header tinyml_model.h neu classifier ho tro"
-    )
-    parser.add_argument(
-        "--no-tinyml",
-        dest="export_tinyml",
-        action="store_false",
-        help="Bo qua buoc xuat C Header"
-    )
-    parser.add_argument(
-        "--list-models",
-        action="store_true",
-        help="Liet ke tat ca cac mo hinh duoc ho tro roi thoat"
-    )
-    parser.add_argument(
-        "--output-dir",
-        default=None,
-        help="Thu muc luu tru weights (.joblib) va metadata (.json)"
-    )
+    parser = argparse.ArgumentParser(description="Train Offline Network Anomaly Detection Models & Export Artifacts")
+    parser.add_argument("--classifier", default="decision_tree", help="Loai classifier: decision_tree, random_forest, extra_trees, gradient_boosting, mlp, ensemble_voting")
+    parser.add_argument("--anomaly-model", default="isolation_forest", help="Loai anomaly detector: isolation_forest, one_class_svm, elliptic_envelope, lof")
+    parser.add_argument("--dataset", default=None, help="Duong dan den dataset CSV Edge-IIoTset")
+    parser.add_argument("--samples", type=int, default=None, help="So luong mau du lieu huan luyen (mac dinh: None - huan luyen toan bo 157,800 mau)")
+    parser.add_argument("--optuna", action="store_true", help="Kich hoat Optuna Hyperparameter Optimization")
+    parser.add_argument("--n-trials", type=int, default=15, help="So luong trial cho Optuna HPO")
+    parser.add_argument("--cv", type=int, default=5, help="So luong fold cho Stratified K-Fold CV khi Optuna bat (mac dinh: 5)")
+    parser.add_argument("--no-tinyml", dest="export_tinyml", action="store_false", help="Khong xuat C Header tinyml_model.h")
+    parser.add_argument("--list-models", action="store_true", help="Liet ke cac thuat toan duoc ho tro roi thoat")
+    parser.add_argument("--output-dir", default=None, help="Thu muc xuat artifacts")
 
     args = parser.parse_args()
 
@@ -305,7 +254,11 @@ def main():
     run_training_pipeline(
         classifier_type=args.classifier,
         anomaly_type=args.anomaly_model,
-        n_samples=args.samples,
+        dataset_path=args.dataset,
+        samples=args.samples,
+        use_optuna=args.optuna,
+        n_trials=args.n_trials,
+        cv=args.cv,
         export_tinyml=args.export_tinyml,
         output_dir=args.output_dir
     )

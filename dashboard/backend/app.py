@@ -134,11 +134,18 @@ def on_mqtt_message(client, userdata, msg):
 
         state.current_anomaly_score = anomaly_score
         state.current_threat_level = severity
-        state.total_packets_inspected += int(raw.get("packet_rate", 0) * 2)
+        state.total_packets_inspected += int(raw.get("packet_rate", 0))
 
         data_point = {
-            "timestamp": now_ts,
+            "timestamp": now_ts if (not raw.get("timestamp") or raw.get("timestamp") < 1000000000000) else raw.get("timestamp"),
             "device_id": payload.get("device_id", "probe"),
+            "src_ip": raw.get("src_ip", "192.168.137.149"),
+            "dst_ip": raw.get("dst_ip", "192.168.137.1"),
+            "src_port": raw.get("src_port", 5683),
+            "dst_port": raw.get("dst_port", 5683),
+            "protocol": raw.get("protocol", "CoAP"),
+            "packet_length": raw.get("packet_length", int(raw.get("avg_packet_size", 64))),
+            "info": raw.get("info", ""),
             "packet_rate": raw.get("packet_rate", 0.0),
             "byte_rate": raw.get("byte_rate", 0.0),
             "avg_packet_size": raw.get("avg_packet_size", 0.0),
@@ -151,7 +158,11 @@ def on_mqtt_message(client, userdata, msg):
             "is_anomaly": is_anomaly,
             "threat_type": threat_type,
             "severity": severity,
-            "edge_prediction": raw.get("edge_prediction", "Unknown"),
+            "confidence": float(payload.get("confidence", 1.0)),
+            "top_probabilities": payload.get("top_probabilities", {}),
+            "class_probabilities": payload.get("class_probabilities", {}),
+            "edge_prediction": payload.get("edge_prediction") or raw.get("edge_prediction", "Normal"),
+            "edge_flag": bool(payload.get("edge_flag") or raw.get("edge_flag", False)),
             "latency_ms": payload.get("latency_ms", 0.0)
         }
 
@@ -171,6 +182,7 @@ def on_mqtt_message(client, userdata, msg):
 
     elif topic == "edge/alerts/high_priority":
         state.total_threats_detected += 1
+        raw_alert = payload.get("raw_telemetry", {})
         alert_entry = {
             "id": f"alert_{int(time.time()*1000)}_{len(state.alerts_history)+1}",
             "timestamp": now_ts,
@@ -178,7 +190,10 @@ def on_mqtt_message(client, userdata, msg):
             "threat_type": payload.get("threat_type", payload.get("edge_prediction", "Unknown Threat")),
             "severity": payload.get("severity", "CRITICAL"),
             "anomaly_score": payload.get("anomaly_score", 0.95),
-            "details": f"Packet Rate: {payload.get('raw_telemetry', payload).get('packet_rate', 0)} pkts/s | SYN: {payload.get('raw_telemetry', payload).get('syn_ratio', 0)}"
+            "src_ip": raw_alert.get("src_ip", "192.168.137.149"),
+            "dst_ip": raw_alert.get("dst_ip", "192.168.137.1"),
+            "protocol": raw_alert.get("protocol", "TCP"),
+            "details": f"{raw_alert.get('protocol', 'TCP')} {raw_alert.get('src_ip', '')}:{raw_alert.get('src_port', '')}->{raw_alert.get('dst_ip', '')}:{raw_alert.get('dst_port', '')} | PktRate: {raw_alert.get('packet_rate', 0)}/s | SYN: {raw_alert.get('syn_ratio', 0)}"
         }
         state.alerts_history.append(alert_entry)
         if len(state.alerts_history) > 100:

@@ -28,6 +28,13 @@ import subprocess
 import webbrowser
 import signal
 
+# Tự động nạp biến môi trường từ file .env
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # Đảm bảo UTF-8 an toàn cho Windows console
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     try:
@@ -36,6 +43,36 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
         pass
 
 processes = []
+
+
+def sync_env_to_firmware(root_dir: str):
+    """Đồng bộ tự động WiFi SSID/Password và MQTT IP từ .env vào firmware/esp32_probe/credentials.h."""
+    env_file = os.path.join(root_dir, ".env")
+    cred_file = os.path.join(root_dir, "firmware", "esp32_probe", "credentials.h")
+    if os.path.exists(env_file):
+        wifi_ssid = os.getenv("WIFI_SSID", "your_wifi_ssid").strip('"\'')
+        wifi_pass = os.getenv("WIFI_PASSWORD", "your_wifi_password").strip('"\'')
+        mqtt_host = os.getenv("MQTT_BROKER_HOST", "127.0.0.1").strip('"\'')
+        
+        content = f"""#ifndef CREDENTIALS_H
+#define CREDENTIALS_H
+
+// ====================================================================
+// ESP32 LOCAL CREDENTIALS (TU DONG DONG BO TU .env - DO NOT COMMIT TO GIT)
+// ====================================================================
+
+#define WIFI_SSID "{wifi_ssid}"
+#define WIFI_PASSWORD "{wifi_pass}"
+#define MQTT_BROKER_HOST "{mqtt_host}"
+
+#endif // CREDENTIALS_H
+"""
+        try:
+            with open(cred_file, "w", encoding="utf-8") as f:
+                f.write(content)
+            print("  [Config] Da tu dong dong bo thong tin WiFi & Broker tu .env vao firmware/esp32_probe/credentials.h")
+        except Exception as e:
+            pass
 
 
 def check_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
@@ -63,24 +100,7 @@ def cleanup(signum=None, frame=None):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Master Launcher for Edge AI Network Anomaly Detection System"
-    )
-    parser.add_argument(
-        "--classifier",
-        default="decision_tree",
-        choices=["decision_tree", "random_forest", "extra_trees", "gradient_boosting", "mlp", "logistic_regression", "ensemble_voting"],
-        help="Chon mo hinh phan loai tan cong (mac dinh: decision_tree)"
-    )
-    parser.add_argument(
-        "--anomaly-model",
-        default="isolation_forest",
-        choices=["isolation_forest", "one_class_svm", "elliptic_envelope", "lof"],
-        help="Chon mo hinh phat hien bat thuong (mac dinh: isolation_forest)"
-    )
-    parser.add_argument(
-        "--retrain",
-        action="store_true",
-        help="Bat buoc huan luyen lai mo hinh theo flag truoc khi khoi dong"
+        description="Runtime Launcher for Edge AI Network Anomaly Detection System (Loads Pre-trained Artifacts)"
     )
     parser.add_argument(
         "--threshold",
@@ -112,6 +132,12 @@ def main():
         help="Khong tu dong chay ESP32 simulator (tuong duong --probe esp32)"
     )
     parser.add_argument(
+        "--window",
+        type=float,
+        default=1.0,
+        help="Cua so lay mau telemetry giay (mac dinh: 1.0s)"
+    )
+    parser.add_argument(
         "--no-browser",
         action="store_true",
         help="Khong tu dong mo trinh duyet"
@@ -129,9 +155,12 @@ def main():
     probe_mode = "esp32" if args.no_sim else args.probe
 
     print("=" * 70)
-    print("   EDGE AI NETWORK ANOMALY DETECTION SYSTEM - ONE-CLICK LAUNCHER")
-    print(f"   [Classifier: {args.classifier}] | [Anomaly: {args.anomaly_model}] | [Probe: {probe_mode.upper()}]")
+    print("   EDGE AI NETWORK ANOMALY DETECTION SYSTEM - RUNTIME LAUNCHER")
+    print(f"   [Mode: INFERENCE ONLY (LOAD ARTIFACTS)] | [Probe: {probe_mode.upper()}]")
     print("=" * 70)
+
+    # Đồng bộ thông tin môi trường vào firmware
+    sync_env_to_firmware(root_dir)
 
     # 1. Kiem tra MQTT Broker
     print(f"\n[1/5] Kiem tra MQTT Broker tai port {args.broker_port}...")
@@ -148,34 +177,45 @@ def main():
         else:
             print("  [Canh bao] Chua khoi dong duoc broker, he thong se tiep tuc...")
 
-    # 2. Kiem tra Model Weights & Huan luyen neu can
-    print("\n[2/5] Kiem tra mo hinh Machine Learning...")
+    # 2. Kiem tra Model Artifacts (Khong con training trong run_system)
+    print("\n[2/5] Kiem tra Artifacts mo hinh Machine Learning...")
     model_path = os.path.join(root_dir, "ml_engine", "models", "attack_classifier.joblib")
     meta_path = os.path.join(root_dir, "ml_engine", "models", "model_metadata.json")
+    scaler_path = os.path.join(root_dir, "ml_engine", "models", "scaler.joblib")
 
-    need_train = args.retrain or not os.path.exists(model_path)
-    if not need_train and os.path.exists(meta_path):
-        import json
-        try:
-            with open(meta_path, "r", encoding="utf-8") as f:
-                meta = json.load(f)
-                if meta.get("classifier_type") != args.classifier or meta.get("anomaly_detector_type") != args.anomaly_model:
-                    print(f"  -> Phat hien yeu cau doi model tu '{meta.get('classifier_type')}' sang '{args.classifier}'.")
-                    need_train = True
-        except Exception:
-            pass
+    if not (os.path.exists(model_path) and os.path.exists(meta_path) and os.path.exists(scaler_path)):
+        print("\n" + "=" * 76)
+        print("  [NHAC NHO QUAN TRONG] CHUA TIM THAY ARTIFACTS MO HINH MACHINE LEARNING!")
+        print("=" * 76)
+        print("  He thong van hanh (run_system.py) hoat dong o che do suy luan thuan tuy,")
+        print("  khong con tu dong huan luyen de dam bao tinh on dinh va toc do khoi dong.")
+        print("\n  Vui long chay quy trinh huan luyen offline truoc de tao artifacts:")
+        print("      python ml_engine/train.py --classifier decision_tree")
+        print("\n  Hoac toi uu hoa sieu tham so (HPO) voi Optuna:")
+        print("      python ml_engine/train.py --classifier random_forest --optuna")
+        print("\n  Sau khi huan luyen thanh cong va xuat artifacts, hay chay lai:")
+        print("      python run_system.py")
+        print("=" * 76 + "\n")
+        cleanup()
+        sys.exit(1)
 
-    if need_train:
-        print(f"  -> Bat dau huan luyen mo hinh: [{args.classifier}] + [{args.anomaly_model}]...")
-        train_cmd = [
-            python_exe,
-            os.path.join(root_dir, "ml_engine", "train.py"),
-            "--classifier", args.classifier,
-            "--anomaly-model", args.anomaly_model
-        ]
-        subprocess.run(train_cmd, check=True)
-    else:
-        print(f"  -> Models [{args.classifier}] da ton tai va san sang suy luan!")
+    import json
+    try:
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+        clf_name = meta.get("classifier_type", "Unknown")
+        det_name = meta.get("anomaly_detector_type", "Unknown")
+        feat_cnt = meta.get("features_count", len(meta.get("features", [])))
+        lbl_cnt = meta.get("labels_count", len(meta.get("labels", [])))
+        acc = meta.get("classifier_accuracy", 0.0)
+        macro_f1 = meta.get("classifier_macro_f1", 0.0)
+        print(f"  -> Da load thanh cong Artifacts da huan luyen:")
+        print(f"     * Classifier Model       : {clf_name} (Accuracy: {acc*100:.2f}%, Macro F1: {macro_f1*100:.2f}%)")
+        print(f"     * Anomaly Detector       : {det_name}")
+        print(f"     * Schema Features        : {feat_cnt} dac trung (Edge-IIoTset)")
+        print(f"     * Nhan phan loai tan cong: {lbl_cnt} lop")
+    except Exception as e:
+        print(f"  -> Da tim thay artifacts model tai ml_engine/models (Chi tiet meta: {e})")
 
     # 3. Khoi dong ML Inference Service
     print("\n[3/5] Khoi dong ML Real-time Inference Engine...")
@@ -209,7 +249,11 @@ def main():
     elif probe_mode == "host":
         print("\n[5/5] Khoi dong Host PC Live Network Sniffer (Bat luu luong mang that cua may tinh)...")
         sniffer_script = os.path.join(root_dir, "firmware", "host_probe", "host_sniffer.py")
-        p_sniffer = subprocess.Popen([python_exe, sniffer_script, "--port", str(args.broker_port)])
+        p_sniffer = subprocess.Popen([
+            python_exe, sniffer_script,
+            "--port", str(args.broker_port),
+            "--window", str(args.window)
+        ])
         processes.append(p_sniffer)
     else:
         print("\n[5/5] Che do ESP32 vat ly: He thong dang cho du lieu tu phan cung ESP32 qua WiFi/MQTT...")
@@ -222,8 +266,8 @@ def main():
     print(" [OK] HE THONG DA HOAT DONG TOAN DIEN!")
     print(f"  -> Truy cap Web Dashboard: {dashboard_url}")
     print(f"  -> Luong Telemetry: {probe_desc} -> MQTT:{args.broker_port} -> ML Engine -> WebSocket")
-    print(f"  -> Model Classifier: {args.classifier}")
-    print(f"  -> Model Anomaly:    {args.anomaly_model}")
+    print(f"  -> Model Classifier: {clf_name}")
+    print(f"  -> Model Anomaly:    {det_name}")
     print(f"  -> Probe Source:     {probe_mode.upper()} ({probe_desc})")
     print(f"  -> Nguong canh bao:  {args.threshold}")
     print("  -> Nhan Ctrl + C de dung toan bo he thong.")

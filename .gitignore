@@ -9,10 +9,17 @@ __pycache__/
 *.elf
 .pio/
 
-# Virtual environment
+# Virtual environment & Environment configs
 venv/
 env/
 .env
+.env.*
+!.env.example
+*.local
+
+# Sensitive firmware credentials
+firmware/**/credentials.h
+firmware/**/config.local.h
 
 # Mosquitto broker persistence data
 broker/data/
@@ -27,3 +34,6 @@ broker/log/
 # OS files
 .DS_Store
 Thumbs.db
+*.db
+# Large datasets
+Edge-IIoTset dataset/

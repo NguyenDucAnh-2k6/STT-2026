@@ -80,21 +80,50 @@ class WindowStats:
             self.syn_count = 0
             self.ack_count = 0
             self.dst_ports: Set[int] = set()
+            self.last_src_ip = "127.0.0.1"
+            self.last_dst_ip = "127.0.0.1"
+            self.last_src_port = 0
+            self.last_dst_port = 0
+            self.last_protocol = "TCP"
+            self.last_size = 64
+            self.last_info = "Normal Host Flow"
 
-    def add_packet(self, proto: int, size: int, dst_port: Optional[int] = None, is_syn: bool = False, is_ack: bool = False):
+    def add_packet(
+        self,
+        proto: int,
+        size: int,
+        src_ip: str = "127.0.0.1",
+        dst_ip: str = "127.0.0.1",
+        src_port: Optional[int] = None,
+        dst_port: Optional[int] = None,
+        is_syn: bool = False,
+        is_ack: bool = False,
+        info: str = ""
+    ):
         with self.lock:
             self.packet_count += 1
             self.byte_count += size
+            self.last_src_ip = src_ip
+            self.last_dst_ip = dst_ip
+            self.last_src_port = src_port or 0
+            self.last_dst_port = dst_port or 0
+            self.last_size = size
+            self.last_info = info
             if proto == 6:  # TCP
                 self.tcp_count += 1
+                self.last_protocol = "TCP"
                 if is_syn:
                     self.syn_count += 1
                 if is_ack:
                     self.ack_count += 1
             elif proto == 17:  # UDP
                 self.udp_count += 1
+                self.last_protocol = "UDP"
             elif proto == 1:  # ICMP
                 self.icmp_count += 1
+                self.last_protocol = "ICMP"
+            else:
+                self.last_protocol = f"IP:{proto}"
 
             if dst_port is not None and dst_port > 0:
                 self.dst_ports.add(dst_port)
@@ -118,10 +147,24 @@ class WindowStats:
             tcp_c = self.tcp_count
             udp_c = self.udp_count
             icmp_c = self.icmp_count
+            src_ip = self.last_src_ip
+            dst_ip = self.last_dst_ip
+            src_port = self.last_src_port
+            dst_port = self.last_dst_port
+            protocol = self.last_protocol
+            pkt_len = self.last_size
+            info_str = self.last_info or f"{protocol} Stream ({round(pkt_rate, 1)} pkts/s)"
 
         return {
             "device_id": "Host-PC-Live-Probe",
             "timestamp": int(time.time() * 1000),
+            "src_ip": src_ip,
+            "dst_ip": dst_ip,
+            "src_port": src_port,
+            "dst_port": dst_port,
+            "protocol": protocol,
+            "packet_length": pkt_len,
+            "info": info_str,
             "packet_rate": round(pkt_rate, 2),
             "byte_rate": round(byte_rate, 2),
             "avg_packet_size": round(avg_size, 2),
@@ -178,27 +221,51 @@ class RawSocketEngine:
                 ihl = (data[0] & 0x0F) * 4
                 proto = data[9]
                 total_len = len(data)
+                src_ip = socket.inet_ntoa(data[12:16])
+                dst_ip = socket.inet_ntoa(data[16:20])
 
+                src_port = None
                 dst_port = None
                 is_syn = False
                 is_ack = False
+                info_text = ""
 
                 if proto == 6 and len(data) >= ihl + 20:  # TCP
                     tcp_header = data[ihl:ihl + 20]
+                    src_port = struct.unpack("!H", tcp_header[0:2])[0]
                     dst_port = struct.unpack("!H", tcp_header[2:4])[0]
                     flags = tcp_header[13]
                     is_syn = bool(flags & 0x02)
                     is_ack = bool(flags & 0x10)
+                    flag_names = []
+                    if is_syn: flag_names.append("SYN")
+                    if is_ack: flag_names.append("ACK")
+                    if flags & 0x01: flag_names.append("FIN")
+                    if flags & 0x04: flag_names.append("RST")
+                    info_text = f"[{' '.join(flag_names) or 'DATA'}] {src_port} -> {dst_port} Len={total_len}"
                 elif proto == 17 and len(data) >= ihl + 8:  # UDP
                     udp_header = data[ihl:ihl + 8]
+                    src_port = struct.unpack("!H", udp_header[0:2])[0]
                     dst_port = struct.unpack("!H", udp_header[2:4])[0]
+                    if dst_port == 5683 or src_port == 5683:
+                        info_text = f"CoAP Protocol UDP:{src_port}->{dst_port} Len={total_len}"
+                    elif dst_port == 53 or src_port == 53:
+                        info_text = f"DNS Query/Response UDP:{src_port}->{dst_port} Len={total_len}"
+                    else:
+                        info_text = f"UDP Datagram {src_port} -> {dst_port} Len={total_len}"
+                elif proto == 1:
+                    info_text = f"ICMP Ping Len={total_len}"
 
                 self.stats.add_packet(
                     proto=proto,
                     size=total_len,
+                    src_ip=src_ip,
+                    dst_ip=dst_ip,
+                    src_port=src_port,
                     dst_port=dst_port,
                     is_syn=is_syn,
-                    is_ack=is_ack
+                    is_ack=is_ack,
+                    info=info_text
                 )
             except Exception:
                 if not self.running:
@@ -246,11 +313,22 @@ class PsutilMonitorEngine:
         udp_count = 0
         dst_ports: Set[int] = set()
 
+        active_src_ip = "127.0.0.1"
+        active_dst_ip = "127.0.0.1"
+        active_src_port = 0
+        active_dst_port = 0
+        active_protocol = "TCP"
         try:
             conns = psutil.net_connections(kind='inet')
             for c in conns:
                 if c.raddr:
                     dst_ports.add(c.raddr.port)
+                    if active_dst_port == 0:
+                        active_src_ip = c.laddr.ip if c.laddr else "127.0.0.1"
+                        active_dst_ip = c.raddr.ip
+                        active_src_port = c.laddr.port if c.laddr else 0
+                        active_dst_port = c.raddr.port
+                        active_protocol = "TCP" if c.type == socket.SOCK_STREAM else "UDP"
                 if c.type == socket.SOCK_STREAM:
                     tcp_count += 1
                     if c.status in ("SYN_SENT", "SYN_RECV"):
@@ -270,9 +348,18 @@ class PsutilMonitorEngine:
         total_conns = max(tcp_count + udp_count, 1)
         udp_ratio = float(udp_count / total_conns) if total_conns > 0 else 0.15
 
+        info_str = f"Flow {active_protocol} {active_src_port}->{active_dst_port} ({round(pkt_rate, 1)} pkts/s)"
+
         return {
             "device_id": "Host-PC-Live-Probe",
             "timestamp": int(time.time() * 1000),
+            "src_ip": active_src_ip,
+            "dst_ip": active_dst_ip,
+            "src_port": active_src_port,
+            "dst_port": active_dst_port,
+            "protocol": active_protocol,
+            "packet_length": int(avg_size) if avg_size > 0 else 64,
+            "info": info_str,
             "packet_rate": round(pkt_rate, 2),
             "byte_rate": round(byte_rate, 2),
             "avg_packet_size": round(avg_size, 2),

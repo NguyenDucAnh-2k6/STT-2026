@@ -13,19 +13,74 @@ Chỉ dẫn module:
 from typing import List, Dict, Any, TypedDict
 
 # ==============================================================================
-# 1. ĐẶC TRƯNG MẠNG (FEATURES) TỐI ƯU CHO THIẾT BỊ BIÊN (EDGE IOT)
+# 1. ĐẶC TRƯNG MẠNG ĐẦY ĐỦ EDGE-IIOTSET (FULL 63-COLUMN SCHEMA: 61 FEATURES + 2 LABELS)
 # ==============================================================================
-# 8 chỉ số thống kê rút gọn từ luồng gói tin trong cửa sổ thời gian (sliding window):
-#  - packet_rate:      Tần suất gói (pkts/s) -> Nhận diện tấn công dồn dập (DDoS, Flood).
-#  - byte_rate:        Băng thông tiêu thụ (bytes/s) -> Nhận diện rò rỉ dữ liệu hoặc cạn kiệt tài nguyên.
-#  - avg_packet_size:  Kích thước gói trung bình -> Nhận diện gói TCP SYN nhỏ hay data chunk lớn.
-#  - syn_ratio:        Tỷ lệ cờ SYN / tổng TCP -> Dấu hiệu kinh điển của SYN Flood scan/attack.
-#  - ack_ratio:        Tỷ lệ cờ ACK / tổng TCP -> Dấu hiệu luồng kết nối ổn định hay bất thường.
-#  - udp_ratio:        Tỷ lệ lưu lượng UDP -> Dấu hiệu UDP Flood / DNS amplification.
-#  - icmp_ratio:       Tỷ lệ gói tin ICMP -> Dấu hiệu Ping Flood / Smurf attack.
-#  - unique_dst_ports: Số lượng cổng đích -> Dấu hiệu quét cổng (Port Scan / Network Recon).
+EDGE_IIOTSET_FEATURES: List[str] = [
+    "frame.time",
+    "ip.src_host",
+    "ip.dst_host",
+    "arp.dst.proto_ipv4",
+    "arp.opcode",
+    "arp.hw.size",
+    "arp.src.proto_ipv4",
+    "icmp.checksum",
+    "icmp.seq_le",
+    "icmp.transmit_timestamp",
+    "icmp.unused",
+    "http.file_data",
+    "http.content_length",
+    "http.request.uri.query",
+    "http.request.method",
+    "http.referer",
+    "http.request.full_uri",
+    "http.request.version",
+    "http.response",
+    "http.tls_port",
+    "tcp.ack",
+    "tcp.ack_raw",
+    "tcp.checksum",
+    "tcp.connection.fin",
+    "tcp.connection.rst",
+    "tcp.connection.syn",
+    "tcp.connection.synack",
+    "tcp.dstport",
+    "tcp.flags",
+    "tcp.flags.ack",
+    "tcp.len",
+    "tcp.options",
+    "tcp.payload",
+    "tcp.seq",
+    "tcp.srcport",
+    "udp.port",
+    "udp.stream",
+    "udp.time_delta",
+    "dns.qry.name",
+    "dns.qry.name.len",
+    "dns.qry.qu",
+    "dns.qry.type",
+    "dns.retransmission",
+    "dns.retransmit_request",
+    "dns.retransmit_request_in",
+    "mqtt.conack.flags",
+    "mqtt.conflag.cleansess",
+    "mqtt.conflags",
+    "mqtt.hdrflags",
+    "mqtt.len",
+    "mqtt.msg_decoded_as",
+    "mqtt.msg",
+    "mqtt.msgtype",
+    "mqtt.proto_len",
+    "mqtt.protoname",
+    "mqtt.topic",
+    "mqtt.topic_len",
+    "mqtt.ver",
+    "mbtcp.len",
+    "mbtcp.trans_id",
+    "mbtcp.unit_id"
+]
 
-FEATURE_NAMES: List[str] = [
+# 8 chỉ số thống kê rút gọn từ luồng gói tin trong cửa sổ thời gian (sliding window):
+SLIDING_WINDOW_FEATURES: List[str] = [
     "packet_rate",
     "byte_rate",
     "avg_packet_size",
@@ -36,18 +91,44 @@ FEATURE_NAMES: List[str] = [
     "unique_dst_ports"
 ]
 
+# Mặc định sử dụng bộ đặc trưng đầy đủ 61 đặc trưng đầu vào
+FEATURE_NAMES: List[str] = EDGE_IIOTSET_FEATURES
+
 # ==============================================================================
-# 2. DANH MỤC NHÃN TẤN CÔNG (LABELS)
+# 2. DANH MỤC NHÃN TẤN CÔNG (LABELS: 15 LỚP TRONG EDGE-IIOTSET)
 # ==============================================================================
-LABEL_NAMES: List[str] = [
-    "Normal",               # 0: Lưu lượng truy cập mạng an toàn, bình thường
-    "SYN_Flood",            # 1: Tấn công dồn dập cờ TCP SYN gây cạn kiệt hàng đợi kết nối
-    "Port_Scan",            # 2: Quét dò cổng phân tán nhằm thu thập thông tin lỗ hổng
-    "Volumetric_DDoS",      # 3: Tấn công từ chối dịch vụ băng thông cực lớn
-    "Data_Exfiltration"     # 4: Hành vi đánh cắp, trích xuất dữ liệu dung lượng lớn ra ngoài
+EDGE_IIOTSET_LABELS: List[str] = [
+    "Normal",
+    "DDoS_UDP",
+    "DDoS_ICMP",
+    "Ransomware",
+    "DDoS_HTTP",
+    "SQL_injection",
+    "Uploading",
+    "DDoS_TCP",
+    "Backdoor",
+    "Vulnerability_scanner",
+    "Port_Scanning",
+    "XSS",
+    "Password",
+    "MITM",
+    "Fingerprinting"
 ]
 
+# Danh mục nhãn thu gọn 5 lớp (cho Sliding Window / Simulator cũ)
+SLIDING_WINDOW_LABELS: List[str] = [
+    "Normal",
+    "SYN_Flood",
+    "Port_Scan",
+    "Volumetric_DDoS",
+    "Data_Exfiltration"
+]
+
+# Mặc định sử dụng 15 nhãn của Edge-IIoTset
+LABEL_NAMES: List[str] = EDGE_IIOTSET_LABELS
+
 LABEL_MAP: Dict[str, int] = {name: idx for idx, name in enumerate(LABEL_NAMES)}
+LABEL_NAME_TO_ID: Dict[str, int] = LABEL_MAP
 INDEX_TO_LABEL: Dict[int, str] = {idx: name for idx, name in enumerate(LABEL_NAMES)}
 
 # ==============================================================================
@@ -55,7 +136,8 @@ INDEX_TO_LABEL: Dict[int, str] = {idx: name for idx, name in enumerate(LABEL_NAM
 # ==============================================================================
 DEFAULT_ANOMALY_THRESHOLD: float = 0.55   # Điểm số bất thường vượt ngưỡng này sẽ phát cảnh báo
 DEFAULT_CONTAMINATION_RATE: float = 0.03  # Tỷ lệ ngoại lai giả định trong tập dữ liệu bình thường
-DEFAULT_DATASET_SAMPLES: int = 10000      # Số lượng mẫu mặc định khi sinh dữ liệu huấn luyện
+DEFAULT_DATASET_SAMPLES: int = 15000      # Số lượng mẫu mặc định khi huấn luyện / lấy mẫu
+
 
 
 class FeatureVector(TypedDict):

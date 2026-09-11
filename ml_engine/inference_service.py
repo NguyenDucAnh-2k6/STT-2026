@@ -47,7 +47,10 @@ from ml_engine.config.schema import (
     LABEL_NAMES,
     DEFAULT_ANOMALY_THRESHOLD
 )
-from ml_engine.preprocessing.feature_preprocessor import TrafficFeaturePreprocessor
+from ml_engine.preprocessing import (
+    TrafficFeaturePreprocessor,
+    EdgeTrafficPreprocessor
+)
 
 
 class AnomalyInferenceEngine:
@@ -86,11 +89,15 @@ class AnomalyInferenceEngine:
             sys.exit(1)
 
         # Nạp scaler / preprocessor
-        raw_scaler = joblib.load(scaler_path)
-        if isinstance(raw_scaler, TrafficFeaturePreprocessor):
-            self.preprocessor = raw_scaler
+        preprocessor_path = os.path.join(self.models_dir, "preprocessor.joblib")
+        if os.path.exists(preprocessor_path):
+            self.preprocessor = EdgeTrafficPreprocessor.load(preprocessor_path)
         else:
-            self.preprocessor = TrafficFeaturePreprocessor(scaler=raw_scaler)
+            raw_scaler = joblib.load(scaler_path)
+            if isinstance(raw_scaler, (TrafficFeaturePreprocessor, EdgeTrafficPreprocessor)):
+                self.preprocessor = raw_scaler
+            else:
+                self.preprocessor = TrafficFeaturePreprocessor(scaler=raw_scaler)
 
         self.anomaly_detector = joblib.load(iso_path)
         self.classifier = joblib.load(clf_path)
@@ -152,17 +159,29 @@ class AnomalyInferenceEngine:
         normalized_score = float(np.clip(normalized_score, 0.0, 1.0))
 
         # 3. Phân loại dạng tấn công (Tầng 2)
-        # Sử dụng raw_features hoặc scaled_features tùy mô hình, ở đây raw_features an toàn cho cây
-        class_idx = int(self.classifier.predict(raw_features)[0])
-        
-        # Tính confidence xác suất
         if hasattr(self.classifier, "predict_proba"):
-            proba = self.classifier.predict_proba(raw_features)[0]
+            proba = self.classifier.predict_proba(scaled_features)[0]
+            class_idx = int(np.argmax(proba))
             confidence = float(proba[class_idx])
         else:
+            class_idx = int(self.classifier.predict(scaled_features)[0])
             confidence = 1.0
 
-        attack_type = LABEL_NAMES[class_idx] if 0 <= class_idx < len(LABEL_NAMES) else "Unknown"
+        labels_list = self.metadata.get("labels", LABEL_NAMES)
+        attack_type = labels_list[class_idx] if 0 <= class_idx < len(labels_list) else f"Class_{class_idx}"
+
+        # 4. Tính toán phân phối xác suất cho tất cả các lớp
+        class_probabilities = {}
+        top_probabilities = {}
+        if hasattr(self.classifier, "predict_proba") and proba is not None:
+            for idx, p in enumerate(proba):
+                label_name = labels_list[idx] if idx < len(labels_list) else f"Class_{idx}"
+                class_probabilities[label_name] = round(float(p), 4)
+            # Lấy Top 5 xác suất cao nhất
+            sorted_probs = sorted(class_probabilities.items(), key=lambda item: item[1], reverse=True)[:5]
+            top_probabilities = {k: round(v * 100, 1) for k, v in sorted_probs}
+        else:
+            top_probabilities = {attack_type: 100.0}
 
         # Đánh giá xem có phải Anomaly hay không
         is_anomaly = bool(normalized_score >= self.anomaly_threshold or attack_type != "Normal")
@@ -178,6 +197,9 @@ class AnomalyInferenceEngine:
         else:
             severity = "MEDIUM"
 
+        edge_pred = telemetry.get("edge_prediction", "Normal")
+        edge_flag = bool(telemetry.get("edge_flag", False))
+
         return {
             "device_id": telemetry.get("device_id", "unknown-probe"),
             "timestamp": telemetry.get("timestamp", int(time.time() * 1000)),
@@ -187,6 +209,10 @@ class AnomalyInferenceEngine:
             "threat_type": attack_type,
             "confidence": round(confidence, 4),
             "latency_ms": round(latency_ms, 2),
+            "class_probabilities": class_probabilities,
+            "top_probabilities": top_probabilities,
+            "edge_prediction": edge_pred,
+            "edge_flag": edge_flag,
             "raw_telemetry": telemetry
         }
 
@@ -218,15 +244,21 @@ def start_mqtt_inference_service(
             res_json = json.dumps(result)
             client.publish("edge/telemetry/prediction", res_json)
 
+            top_items = list(result.get("top_probabilities", {}).items())[:3]
+            top_str = ", ".join([f"{k}: {v:.1f}%" for k, v in top_items])
+            edge_info = f" | Edge TinyML: {result.get('edge_prediction', 'Normal')}"
+
             # Nếu phát hiện bất thường nghiêm trọng, bắn cảnh báo
             if result.get("is_anomaly", False):
                 client.publish("edge/alerts/high_priority", res_json)
-                print(f" [!!! ALERT - {result['severity']} !!!] {result['threat_type']} "
-                      f"(Score: {result['anomaly_score']:.2f} | Conf: {result['confidence']*100:.1f}%) "
-                      f"from Node: {result['device_id']} [Latency: {result['latency_ms']}ms]")
+                print(f" [!!! ALERT - {result['severity']} !!!] Host: {result['threat_type']} ({result['confidence']*100:.1f}%){edge_info} "
+                      f"[Score: {result['anomaly_score']:.2f} | Latency: {result['latency_ms']}ms]")
+                if top_str:
+                    print(f"      └─ Top Probs: [{top_str}]")
             else:
-                print(f" [OK] Normal Traffic (Score: {result['anomaly_score']:.2f}) "
-                      f"Pkts/s: {payload.get('packet_rate', 0)} [Latency: {result['latency_ms']}ms]")
+                print(f" [OK] Host: Normal ({result['confidence']*100:.1f}%){edge_info} (Score: {result['anomaly_score']:.2f}) [Latency: {result['latency_ms']}ms]")
+                if top_str:
+                    print(f"      └─ Top Probs: [{top_str}]")
 
         except Exception as e:
             print(f"[InferenceService] Loi xu ly packet: {e}")

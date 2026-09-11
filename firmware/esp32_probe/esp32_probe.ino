@@ -19,9 +19,18 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include "esp_wifi.h"
 #include "config.h"
 #include "tinyml_model.h"
+
+// Biến điều khiển ngoại vi màn hình OLED SSD1306
+#if ENABLE_OLED
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+bool oledReady = false;
+#endif
 
 // Biến điều khiển MQTT & WiFi
 WiFiClient espClient;
@@ -170,6 +179,35 @@ void setup() {
   mqttClient.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
   mqttClient.setBufferSize(512);
 
+  // Cấu hình ngoại vi cảnh báo: LED Đỏ và Còi Chíp Buzzer
+  pinMode(PIN_RED_LED, OUTPUT);
+  pinMode(2, OUTPUT); // Đèn LED có sẵn trên bo mạch ESP32 (Onboard LED D2)
+  pinMode(PIN_BUZZER, OUTPUT);
+  digitalWrite(PIN_RED_LED, LOW);
+  digitalWrite(2, LOW);
+  digitalWrite(PIN_BUZZER, LOW);
+
+  // Khởi tạo màn hình OLED SSD1306 (I2C)
+#if ENABLE_OLED
+  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+  if (display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+    oledReady = true;
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(8, 8);
+    display.println(F("=================="));
+    display.println(F("  AERO EDGE AI SOC"));
+    display.println(F("  ESP32 SNIFFER OK"));
+    display.println(F("=================="));
+    display.display();
+    delay(1200);
+    Serial.println(F("[OLED] Khoi tao SSD1306 thanh cong tai 0x3C!"));
+  } else {
+    Serial.println(F("[OLED] Khong tim thay SSD1306 tai 0x3C (chay khong can OLED)."));
+  }
+#endif
+
   // Cấu hình ESP32 Promiscuous Mode (Packet Sniffer)
   esp_wifi_set_promiscuous(true);
   esp_wifi_set_promiscuous_rx_cb(&wifi_promiscuous_rx_cb);
@@ -237,16 +275,17 @@ void loop() {
     // -------------------------------------------------------------
     // Suy luan TinyML truc tiep tren chip ESP32 (Phase 2 On-Device AI)
     // -------------------------------------------------------------
-    float feature_vec[8] = {
-      packet_rate,
-      byte_rate,
-      avg_packet_size,
-      syn_ratio,
-      ack_ratio,
-      udp_ratio,
-      icmp_ratio,
-      (float)snap.unique_ports_count
-    };
+    // Khởi tạo mảng 64 đặc trưng an toàn tránh tràn bộ nhớ
+    float feature_vec[64] = {0};
+    feature_vec[0] = packet_rate;
+    feature_vec[1] = byte_rate;
+    feature_vec[2] = avg_packet_size;
+    feature_vec[3] = syn_ratio;
+    feature_vec[4] = ack_ratio;
+    feature_vec[5] = udp_ratio;
+    feature_vec[6] = icmp_ratio;
+    feature_vec[7] = (float)snap.unique_ports_count;
+
     int tinyml_class_idx = 0;
     float tinyml_anomaly_score = 0.0f;
     int is_tinyml_anomaly = tinyml_predict_anomaly(feature_vec, &tinyml_class_idx, &tinyml_anomaly_score);
@@ -262,6 +301,58 @@ void loop() {
 
     char jsonBuffer[512];
     serializeJson(doc, jsonBuffer);
+
+    // -------------------------------------------------------------
+    // Dieu khien Ngoai vi: LED Do, Coi Buzzer & Man hinh OLED
+    // -------------------------------------------------------------
+    if (local_anomaly) {
+      // Phat hien bat thuong: Bat ca LED ngoai vi (D4) va LED co san tren ESP32 (D2)
+      digitalWrite(PIN_RED_LED, HIGH);
+      digitalWrite(2, HIGH);
+      digitalWrite(PIN_BUZZER, HIGH);
+      delay(60);
+      digitalWrite(PIN_BUZZER, LOW);
+      delay(30);
+      digitalWrite(PIN_BUZZER, HIGH);
+      delay(60);
+      digitalWrite(PIN_BUZZER, LOW);
+    } else {
+      digitalWrite(PIN_RED_LED, LOW);
+      digitalWrite(2, LOW);
+      digitalWrite(PIN_BUZZER, LOW);
+    }
+
+#if ENABLE_OLED
+    if (oledReady) {
+      display.clearDisplay();
+      // Dong 1: Header kenh & trang thai ket noi
+      display.setTextSize(1);
+      display.setCursor(0, 0);
+      display.printf("CH%d | %s", currentChannel, (WiFi.status() == WL_CONNECTED) ? "ONLINE" : "OFFLINE");
+      display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
+
+      // Dong 2-3: Thong so luu luong mang thoi gian thuc
+      display.setCursor(0, 13);
+      display.printf("Pkts: %.0f /s", packet_rate);
+      display.setCursor(0, 23);
+      display.printf("Rate: %.1f KB/s", byte_rate / 1024.0);
+
+      // Dong 4-5: Phan quyet Edge TinyML
+      display.drawLine(0, 34, 128, 34, SSD1306_WHITE);
+      display.setCursor(0, 38);
+      if (local_anomaly) {
+        display.print(F("THREAT: "));
+        display.println(local_attack);
+        display.setCursor(0, 48);
+        display.printf("[!] CONF: %.0f%%", tinyml_anomaly_score * 100);
+      } else {
+        display.print(F("STATUS: ALL NORMAL"));
+        display.setCursor(0, 48);
+        display.print(F("[OK] System Secure"));
+      }
+      display.display();
+    }
+#endif
 
     // In Serial giám sát
     Serial.printf("[Telemetry] Pkts/s: %.1f | Bytes/s: %.0f | SYN: %.2f | Ports: %d | Threat: %s\n",

@@ -1,0 +1,15 @@
+{
+  "model_type": "decision_tree",
+  "best_macro_f1_cv": 0.9901632430779653,
+  "best_params": {
+    "criterion": "entropy",
+    "max_depth": 16,
+    "min_samples_split": 6,
+    "min_samples_leaf": 2
+  },
+  "n_trials": 6,
+  "cv_folds": 3,
+  "sqlite_db": "D:\\STT 2026\\ml_engine\\models\\optuna_study.db",
+  "timestamp": 1789056774,
+  "features_count": 61
+}

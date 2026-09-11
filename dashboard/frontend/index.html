@@ -54,6 +54,13 @@
       </div>
 
       <div class="header-actions">
+        <button
+          id="btn-audio-toggle"
+          class="btn-cyber"
+          style="padding: 4px 10px; font-size: 11px; display: flex; align-items: center; gap: 5px; cursor: pointer; border-color: var(--cyan-neon); background: rgba(6, 182, 212, 0.1);"
+        >
+          🔊 Còi Báo Động: BẬT
+        </button>
         <div class="system-status-indicator">
           <span class="status-dot" id="status-dot"></span>
           <span id="connection-status">DANG KET NOI...</span>
@@ -101,7 +108,7 @@
             <span class="kpi-unit">pkts / s</span>
           </div>
           <div class="kpi-footer">
-            <span>Chu kỳ lấy mẫu: 2.0s</span>
+            <span>Chu kỳ lấy mẫu: 1.0s (Live)</span>
           </div>
         </div>
 
@@ -210,33 +217,39 @@
         <div class="control-buttons-group">
           <button
             class="btn-cyber btn-attack btn-safe-mode active-scenario"
-            data-attack="NORMAL"
+            data-attack="Normal"
           >
             &#x25CF; Normal Traffic
           </button>
           <button
             class="btn-cyber btn-attack btn-attack-danger"
-            data-attack="SYN_FLOOD"
+            data-attack="Port_Scanning"
           >
-            &#x26A0; SYN Flood
+            &#x26A0; Port Scanning
           </button>
           <button
             class="btn-cyber btn-attack btn-attack-danger"
-            data-attack="PORT_SCAN"
+            data-attack="Vulnerability_scanner"
           >
-            &#x26A0; Port Scan
+            &#x26A0; Vulnerability Scanner
           </button>
           <button
             class="btn-cyber btn-attack btn-attack-danger"
-            data-attack="VOLUMETRIC_DDOS"
+            data-attack="DDoS_TCP"
           >
-            &#x26A0; Volumetric DDoS
+            &#x26A0; DDoS TCP (SYN Flood)
           </button>
           <button
             class="btn-cyber btn-attack btn-attack-danger"
-            data-attack="DATA_EXFILTRATION"
+            data-attack="DDoS_UDP"
           >
-            &#x26A0; Data Exfiltration
+            &#x26A0; DDoS UDP (Volumetric)
+          </button>
+          <button
+            class="btn-cyber btn-attack btn-attack-danger"
+            data-attack="Uploading"
+          >
+            &#x26A0; Data Exfiltration (Uploading)
           </button>
         </div>
       </section>
@@ -371,6 +384,39 @@
             >
               Lưu lượng mạng bình thường. Không phát hiện rủi ro.
             </p>
+
+            <!-- Dual AI Decision & Probability Distribution Widget -->
+            <div id="prob-distribution-card" style="width: 100%; margin-top: 14px; padding: 12px 14px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(148, 163, 184, 0.15); border-radius: 8px; display: flex; flex-direction: column; gap: 10px;">
+              
+              <!-- Khối 1: Phán Quyết Tại Biên (Edge TinyML trên ESP32) -->
+              <div style="padding: 8px 10px; background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 11px; font-weight: 600; color: var(--purple-accent); display: flex; align-items: center; gap: 5px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    Phán Quyết Biên (Edge TinyML - ESP32)
+                  </span>
+                  <span style="font-size: 10px; color: var(--text-muted);">C-Tree (8 đặc trưng) &bull; Suy luận tức thời trên chip</span>
+                </div>
+                <span id="edge-inference-badge" style="font-size: 11px; font-family: var(--font-mono); font-weight: 700; padding: 3px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: var(--emerald-safe); border: 1px solid rgba(16, 185, 129, 0.3);">
+                  Normal
+                </span>
+              </div>
+
+              <!-- Khối 2: Phân Phối Xác Suất (Host Server Machine Learning) -->
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 11px; font-weight: 600; color: var(--cyan-neon); display: flex; align-items: center; gap: 5px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+                    Phân Phối Xác Suất (Host Server ML)
+                  </span>
+                  <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">61 Features &bull; predict_proba</span>
+                </div>
+                <div id="prob-bars-list" style="display: flex; flex-direction: column; gap: 6px;">
+                  <div style="font-size: 11px; color: var(--text-muted); text-align: center; padding: 6px 0;">Đang thu thập phân phối xác suất...</div>
+                </div>
+              </div>
+
+            </div>
           </div>
 
           <!-- Pipeline Visualization -->
@@ -402,51 +448,59 @@
         </div>
       </section>
 
-      <!-- Live Security Events Feed Table -->
-      <section class="glass-panel alert-feed-card">
+      <!-- Live Wireshark-Style Packet & Flow Inspector Table -->
+      <section class="glass-panel packet-inspector-card">
         <div class="feed-header">
-          <h3
-            style="
-              font-size: 16px;
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            "
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--crimson-danger)"
-              stroke-width="2"
+          <div>
+            <h3
+              style="
+                font-size: 16px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+              "
             >
-              <path
-                d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-              />
-              <line x1="12" x2="12" y1="9" y2="13" />
-              <line x1="12" x2="12.01" y1="17" y2="17" />
-            </svg>
-            Nhật Ký Cảnh Báo An Ninh Mạng Thời Gian Thực (Live Alert Stream)
-          </h3>
-          <span class="chart-legend-badge"
-            >Auto-Refresh via MQTT / WebSocket</span
-          >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--cyan-neon)"
+                stroke-width="2"
+              >
+                <polyline points="4 17 10 11 4 5" />
+                <line x1="12" y1="19" x2="20" y2="19" />
+              </svg>
+              Live Packet & Flow Inspector (Wireshark-Style Capture)
+            </h3>
+            <span class="chart-legend-badge"
+              >ESP32 Sniffer / PC Probe &bull; CoAP &bull; TCP/UDP Flow Dynamics</span
+            >
+          </div>
+          <div class="inspector-controls">
+            <button id="filter-all-flows" class="btn-filter active">All Packets</button>
+            <button id="filter-threats-only" class="btn-filter">Threats Only</button>
+            <button id="btn-clear-table" class="btn-filter">Clear View</button>
+          </div>
         </div>
 
-        <div class="alert-table-wrapper">
-          <table class="alert-table">
+        <div class="packet-table-wrapper">
+          <table class="packet-table" id="packet-table">
             <thead>
               <tr>
-                <th>Thời Gian</th>
-                <th>Nguồn / Node ID</th>
-                <th>Loại Tấn Công (Threat Type)</th>
-                <th>Anomaly Score</th>
-                <th>Chi Tiết Đặc Trưng (Telemetry Summary)</th>
+                <th style="width: 55px">No.</th>
+                <th style="width: 90px">Time</th>
+                <th style="width: 175px">Source IP:Port</th>
+                <th style="width: 175px">Destination IP:Port</th>
+                <th style="width: 85px">Protocol</th>
+                <th style="width: 75px">Length</th>
+                <th style="width: 220px">8 Flow Dynamics</th>
+                <th style="width: 165px">AI Threat Diagnosis</th>
+                <th>Info / Payload</th>
               </tr>
             </thead>
-            <tbody id="alerts-table-body">
-              <!-- Alert rows inserted dynamically -->
+            <tbody id="packet-inspector-table-body">
+              <!-- Live packet/flow rows injected dynamically -->
             </tbody>
           </table>
         </div>
@@ -454,6 +508,6 @@
     </main>
 
     <!-- Custom JS -->
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v=2.4"></script>
   </body>
 </html>
