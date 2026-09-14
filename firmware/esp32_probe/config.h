@@ -39,12 +39,21 @@
 // --- Hardware Peripherals (OLED, Red LED, Buzzer) ---
 #define ENABLE_OLED true        // Bật/tắt màn hình OLED SSD1306 (I2C)
 #define SCREEN_WIDTH 128        // Chiều rộng OLED (pixels)
-#define SCREEN_HEIGHT 64        // Chiều cao OLED (pixels)
-#define OLED_RESET -1           // Reset pin (-1 nếu dùng chung reset ESP32)
-#define SCREEN_ADDRESS 0x3C     // Địa chỉ I2C SSD1306 (0x3C hoặc 0x3D)
+#define SCREEN_HEIGHT 64        // Chiều cao OLED (pixels):
+                                // - Màn hình 0.96 inch thông dụng: 64
+                                // - Màn hình nhỏ 0.91 inch: ĐỔI THÀNH 32 (tránh đen màn hình do sai multiplex)
 
-#define PIN_I2C_SDA 21          // Chân SDA I2C OLED (GPIO 21)
-#define PIN_I2C_SCL 22          // Chân SCL I2C OLED (GPIO 22)
+#define OLED_RESET -1           // Reset pin (-1 nếu dùng chung reset ESP32, hoặc GPIO 16 trên bo mạch Heltec WiFi Kit 32)
+#define SCREEN_ADDRESS 0x3C     // Địa chỉ I2C SSD1306 mặc định (0x3C hoặc 0x3D)
+
+// --- Sơ đồ chân I2C phần cứng trên ESP32 ---
+// Khớp chính xác với màu dây cắm thực tế của bạn:
+// - Đỏ   : ESP32 3V3 -> OLED VDD
+// - Đen  : ESP32 GND -> OLED GND
+// - Vàng : ESP32 D23 -> OLED SCK (SCL)
+// - Xanh : ESP32 D21 -> OLED SDA
+#define PIN_I2C_SDA 21          // Chân SDA I2C OLED (GPIO 21 - Dây xanh)
+#define PIN_I2C_SCL 23          // Chân SCL/SCK I2C OLED (GPIO 23 - Dây vàng)
 
 #define PIN_RED_LED 4           // Đèn LED đỏ cảnh báo tấn công (GPIO 4)
 #define PIN_BUZZER  19          // Còi chíp Buzzer báo động âm thanh (GPIO 19)

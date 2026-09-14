@@ -21,6 +21,12 @@ class SystemState:
         self.anomaly_threshold: float = 0.55
         self.broker_connected: bool = False
 
+        # Trạng thái của bộ bắn gói tin mạng thật (Attack Traffic Generator)
+        self.attack_status: str = "IDLE"          # IDLE hoặc ATTACKING
+        self.attack_scenario: str = "Normal"      # Normal, Port_Scanning, DDoS_UDP, DDoS_TCP, Vulnerability_scanner, Uploading
+        self.attack_target_ip: str = "127.0.0.1"
+        self.attack_auto_cycle: bool = False
+
     def add_telemetry(self, data_point: dict):
         self.telemetry_history.append(data_point)
         if len(self.telemetry_history) > 200:
@@ -41,7 +47,13 @@ class SystemState:
             "total_packets": self.total_packets_inspected,
             "total_threats": self.total_threats_detected,
             "anomaly_threshold": self.anomaly_threshold,
-            "broker_connected": self.broker_connected
+            "broker_connected": self.broker_connected,
+            "attack_status": {
+                "status": self.attack_status,
+                "scenario": self.attack_scenario,
+                "target_ip": self.attack_target_ip,
+                "auto_cycle": self.attack_auto_cycle
+            }
         }
 
 

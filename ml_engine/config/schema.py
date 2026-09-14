@@ -13,16 +13,11 @@ Chỉ dẫn module:
 from typing import List, Dict, Any, TypedDict
 
 # ==============================================================================
-# 1. ĐẶC TRƯNG MẠNG ĐẦY ĐỦ EDGE-IIOTSET (FULL 63-COLUMN SCHEMA: 61 FEATURES + 2 LABELS)
+# 1. ĐẶC TRƯNG MẠNG ĐẦY ĐỦ EDGE-IIOTSET (56 ĐẶC TRƯNG HÀNH VI MẠNG THỰC SỰ - ĐÃ LOẠI BỎ TOÀN BỘ IP & METADATA RÒ RỈ)
 # ==============================================================================
 EDGE_IIOTSET_FEATURES: List[str] = [
-    "frame.time",
-    "ip.src_host",
-    "ip.dst_host",
-    "arp.dst.proto_ipv4",
     "arp.opcode",
     "arp.hw.size",
-    "arp.src.proto_ipv4",
     "icmp.checksum",
     "icmp.seq_le",
     "icmp.transmit_timestamp",

@@ -20,7 +20,9 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-    <!-- Custom CSS -->
+    <!-- Custom CSS & Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
     <link rel="stylesheet" href="/static/css/style.css" />
   </head>
   <body>
@@ -199,57 +201,70 @@
         </div>
       </section>
 
-      <!-- Interactive Attack Injection & Scenario Simulator Control Bar -->
-      <section class="glass-panel control-bar">
-        <div class="control-title">
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="var(--purple-accent)"
-            stroke-width="2"
-          >
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
-          <span>Giả Lập Kịch Bản Tấn Công (Interactive Attack Simulator):</span>
+      <!-- Interactive Real Network Packet Injection Control Bar -->
+      <section class="glass-panel control-bar" style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div class="control-title" style="display: flex; align-items: center; gap: 8px;">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--purple-accent)"
+              stroke-width="2"
+            >
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+            <span style="font-weight: 600; letter-spacing: 0.5px;">Bắn Gói Tin Mạng Thật (Real Socket Packet Injection):</span>
+            <span class="badge-edge" style="background: rgba(168, 85, 247, 0.2); border-color: var(--purple-accent); color: var(--purple-accent);">100% Raw Socket</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; font-size: 12px;">
+            <span style="color: var(--text-secondary);">Mục tiêu: <span id="attack-target-display" class="mono-text" style="color: var(--cyan-neon);">127.0.0.1</span></span>
+            <span id="attack-status-display" style="padding: 3px 10px; border-radius: 20px; border: 1px solid var(--emerald-safe); color: var(--emerald-safe); background: rgba(0, 255, 157, 0.12); font-weight: 500;">
+              🟢 SẴN SÀNG (Lưu lượng bình thường)
+            </span>
+            <button id="btn-auto-cycle" class="btn-cyber" style="padding: 3px 10px; font-size: 11px; border-color: var(--border-glass);">
+              🔄 Auto-Cycle: TẮT
+            </button>
+          </div>
         </div>
+
         <div class="control-buttons-group">
           <button
             class="btn-cyber btn-attack btn-safe-mode active-scenario"
             data-attack="Normal"
           >
-            &#x25CF; Normal Traffic
+            &#x25CF; Normal (Bình thường)
           </button>
           <button
             class="btn-cyber btn-attack btn-attack-danger"
             data-attack="Port_Scanning"
           >
-            &#x26A0; Port Scanning
+            &#x26A0; Port_Scanning (Quét cổng TCP SYN)
           </button>
           <button
             class="btn-cyber btn-attack btn-attack-danger"
             data-attack="Vulnerability_scanner"
           >
-            &#x26A0; Vulnerability Scanner
+            &#x26A0; Vulnerability_scanner (Quét lỗ hổng)
           </button>
           <button
             class="btn-cyber btn-attack btn-attack-danger"
             data-attack="DDoS_TCP"
           >
-            &#x26A0; DDoS TCP (SYN Flood)
+            &#x26A0; DDoS_TCP (SYN Flood)
           </button>
           <button
             class="btn-cyber btn-attack btn-attack-danger"
             data-attack="DDoS_UDP"
           >
-            &#x26A0; DDoS UDP (Volumetric)
+            &#x26A0; DDoS_UDP (Volumetric Flood)
           </button>
           <button
             class="btn-cyber btn-attack btn-attack-danger"
             data-attack="Uploading"
           >
-            &#x26A0; Data Exfiltration (Uploading)
+            &#x26A0; Uploading (Data Exfiltration)
           </button>
         </div>
       </section>

@@ -8,9 +8,8 @@ import os
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# MQTT Broker connection settings
-MQTT_BROKER_HOST = os.getenv("MQTT_HOST", "127.0.0.1")
-MQTT_BROKER_PORT = int(os.getenv("MQTT_PORT", 1883))
+MQTT_BROKER_HOST = os.getenv("MQTT_HOST") or os.getenv("MQTT_BROKER_HOST", "127.0.0.1")
+MQTT_BROKER_PORT = int(os.getenv("MQTT_PORT") or os.getenv("MQTT_BROKER_PORT", 1883))
 
 # Web Dashboard Server port
 WEB_PORT = int(os.getenv("PORT", 8000))

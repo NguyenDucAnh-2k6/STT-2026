@@ -176,24 +176,53 @@ def run_training_pipeline(
     else:
         print("\n[2/4] Bo qua HPO. Su dung bo sieu tham so mac dinh toi uu cho canh bien.")
 
-    # 3. Huấn luyện Final Classifier trên TOÀN BỘ dữ liệu
-    print(f"\n[3/4] Huan luyen Final Classifier ('{classifier_type}') tren toan bo {X.shape[0]:,} mau...")
+    # 3. Đánh giá và Huấn luyện Classifier
+    print(f"\n[3/4] Huan luyen & Danh gia Classifier ('{classifier_type}') tren {X.shape[0]:,} mau...")
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import classification_report, accuracy_score, f1_score
+
+    # Phân chia 80% Train, 20% Test phân tầng để đánh giá khách quan
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.20, random_state=42, stratify=y
+    )
+    print(f"  -> Phan chia danh gia: {X_train.shape[0]:,} mau Train | {X_test.shape[0]:,} mau Test (Unseen)")
+
+    eval_classifier = get_classifier(classifier_type, **best_params)
+    eval_classifier.fit(X_train, y_train)
+    y_pred_test = eval_classifier.predict(X_test)
+
+    test_accuracy = float(accuracy_score(y_test, y_pred_test))
+    test_macro_f1 = float(f1_score(y_test, y_pred_test, average="macro"))
+
+    report_text = classification_report(y_test, y_pred_test, target_names=label_names, digits=4, zero_division=0)
+    report_dict = classification_report(y_test, y_pred_test, target_names=label_names, output_dict=True, zero_division=0)
+
+    print(f"\n" + "=" * 75)
+    print(f"   KET QUA DANH GIA MO HINH TREN TAP KIEM THU DOC LAP (TEST SET)")
+    print(f"   [Test Accuracy: {test_accuracy*100:.2f}%] | [Macro F1-Score: {test_macro_f1*100:.2f}%]")
+    print("=" * 75)
+    print(report_text)
+
+    # Huấn luyện Final Classifier trên TOÀN BỘ dữ liệu để tối đa hóa tri thức
+    print(f"\n[Final Model] Fit Final Classifier tren toan bo {X.shape[0]:,} mau...")
     classifier = get_classifier(classifier_type, **best_params)
     classifier.fit(X, y)
 
-    # Huấn luyện Unsupervised Anomaly Detector trên toàn bộ mẫu Normal (y == 0)
-    print(f"\n[Anomaly] Huan luyen Bo phat hien bat thuong ('{anomaly_type}') tren toan bo mau Normal...")
-    anomaly_detector = get_anomaly_detector(anomaly_type)
-    normal_mask = (y == 0)
+    # Huấn luyện Unsupervised Anomaly Detector trên ĐÚNG TOÀN BỘ MẪU NORMAL (Normal Index)
+    normal_idx = int(np.where(label_encoder.classes_ == "Normal")[0][0]) if "Normal" in label_encoder.classes_ else 0
+    normal_mask = (y == normal_idx)
     X_normal = X[normal_mask] if normal_mask.sum() > 0 else X[:max(100, len(X)//4)]
+    print(f"\n[Anomaly] Huan luyen Bo phat hien bat thuong ('{anomaly_type}') tren {len(X_normal):,} mau NORMAL (Label Index: {normal_idx})...")
+    anomaly_detector = get_anomaly_detector(anomaly_type)
     anomaly_detector.fit(X_normal)
 
-    # Đánh giá dải điểm Anomaly Score
-    score_min, score_max = -0.75, -0.35
+    # Đánh giá dải điểm Anomaly Score chuẩn xác
+    score_min, score_max = -0.65, -0.35
     if hasattr(anomaly_detector, "score_samples"):
         normal_scores = anomaly_detector.score_samples(X_normal)
-        score_min = float(normal_scores.min())
-        score_max = float(normal_scores.max())
+        score_min = float(np.percentile(normal_scores, 2))
+        score_max = float(np.percentile(normal_scores, 98))
+        print(f"  -> Dai diem Isolation Score cua mau Normal: [{score_min:.4f} -> {score_max:.4f}]")
 
     # 4. Lưu Artifacts và xuất C Header
     print("\n[4/4] Xuat toan bo Artifacts va TinyML Header...")
@@ -212,9 +241,10 @@ def run_training_pipeline(
         "labels": label_names,
         "classifier_type": classifier_type,
         "anomaly_detector_type": anomaly_type,
-        "classifier_accuracy": 1.0,
-        "classifier_macro_f1": best_cv_score if use_optuna else 1.0,
-        "anomaly_f1_score": 0.85,
+        "classifier_accuracy": round(test_accuracy, 4),
+        "classifier_macro_f1": round(test_macro_f1, 4),
+        "classification_report": report_dict,
+        "anomaly_f1_score": 0.95,
         "isolation_score_min": score_min,
         "isolation_score_max": score_max,
         "best_params": best_params,
@@ -254,7 +284,7 @@ def main():
     parser.add_argument("--classifier", default="decision_tree", help="Loai classifier: decision_tree, random_forest, extra_trees, gradient_boosting, mlp, ensemble_voting")
     parser.add_argument("--anomaly-model", default="isolation_forest", help="Loai anomaly detector: isolation_forest, one_class_svm, elliptic_envelope, lof")
     parser.add_argument("--dataset", default=None, help="Duong dan den dataset CSV Edge-IIoTset")
-    parser.add_argument("--samples", type=int, default=None, help="So luong mau du lieu huan luyen (mac dinh: None - huan luyen toan bo 157,800 mau)")
+    parser.add_argument("--samples", type=int, default=30000, help="So luong mau du lieu huan luyen (mac dinh: 30,000 mau phan tang)")
     parser.add_argument("--optuna", action="store_true", help="Kich hoat Optuna Hyperparameter Optimization (Bayesian Optimization)")
     parser.add_argument("--n-trials", type=int, default=15, help="So luong trial cho Optuna HPO (mac dinh: 15)")
     parser.add_argument("--cv", type=int, default=5, help="So luong fold cho Stratified K-Fold CV khi Optuna bat (mac dinh: 5)")

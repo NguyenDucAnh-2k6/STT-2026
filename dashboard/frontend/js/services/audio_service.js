@@ -10,6 +10,8 @@ export class AudioService {
   constructor() {
     this.audioCtx = null;
     this.lastAlarmTime = 0;
+    this.currentOsc = null;
+    this.currentGain = null;
   }
 
   initContext() {
@@ -24,6 +26,22 @@ export class AudioService {
     }
   }
 
+  stopAlarm() {
+    try {
+      if (this.currentOsc) {
+        this.currentOsc.stop();
+        this.currentOsc.disconnect();
+        this.currentOsc = null;
+      }
+      if (this.currentGain && this.audioCtx) {
+        this.currentGain.gain.cancelScheduledValues(this.audioCtx.currentTime);
+        this.currentGain.gain.setValueAtTime(0.0001, this.audioCtx.currentTime);
+      }
+    } catch (e) {
+      // Bỏ qua lỗi ngắt audio
+    }
+  }
+
   playThreatAlarm(severity = "HIGH") {
     if (!state.audioEnabled) return;
     try {
@@ -34,8 +52,13 @@ export class AudioService {
       if (now - this.lastAlarmTime < 1200) return; // Tránh phát quá dồn dập
       this.lastAlarmTime = now;
 
+      this.stopAlarm();
+
       const osc = this.audioCtx.createOscillator();
       const gain = this.audioCtx.createGain();
+      this.currentOsc = osc;
+      this.currentGain = gain;
+
       osc.connect(gain);
       gain.connect(this.audioCtx.destination);
 
@@ -59,6 +82,13 @@ export class AudioService {
         osc.start();
         osc.stop(this.audioCtx.currentTime + 0.32);
       }
+
+      osc.onended = () => {
+        if (this.currentOsc === osc) {
+          this.currentOsc = null;
+          this.currentGain = null;
+        }
+      };
     } catch (e) {
       console.warn("[AudioService] Failed to play sound:", e);
     }

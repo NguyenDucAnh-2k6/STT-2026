@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 # Đảm bảo thư mục gốc dự án luôn nằm trong sys.path
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -51,6 +51,25 @@ app.include_router(ws_router)
 # Phục vụ Static Files cho Frontend
 if os.path.exists(FRONTEND_DIR):
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def serve_favicon():
+    fav_svg = os.path.join(FRONTEND_DIR, "favicon.svg")
+    if os.path.exists(fav_svg):
+        return FileResponse(fav_svg, media_type="image/svg+xml")
+    fav_ico = os.path.join(FRONTEND_DIR, "favicon.ico")
+    if os.path.exists(fav_ico):
+        return FileResponse(fav_ico, media_type="image/x-icon")
+    return Response(status_code=204)
+
+
+@app.get("/favicon.svg", include_in_schema=False)
+async def serve_favicon_svg():
+    fav_svg = os.path.join(FRONTEND_DIR, "favicon.svg")
+    if os.path.exists(fav_svg):
+        return FileResponse(fav_svg, media_type="image/svg+xml")
+    return Response(status_code=204)
 
 
 @app.get("/")

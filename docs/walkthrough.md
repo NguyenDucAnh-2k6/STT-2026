@@ -1,80 +1,109 @@
 # Walkthrough: Hệ Thống Edge AI Phát Hiện Bất Thường Lưu Lượng Mạng
 
-Repository **EdgeGuard AI** đã được khởi tạo hoàn chỉnh tại thư mục làm việc `d:\STT 2026`. Hệ thống hiện thực hóa trọn vẹn pipeline theo đề xuất của team (ESP32 $\rightarrow$ Mosquitto MQTT $\rightarrow$ Host Machine ML & Dashboard) đồng thời chuẩn bị sẵn lộ trình TinyML chạy trực tiếp on-chip trên ESP32.
+Repository **EdgeGuard AI** (`d:\STT 2026`) đã được nâng cấp toàn diện để hỗ trợ **đa nền tảng (Cross-Platform trên Windows, Linux, macOS, WSL)**, loại bỏ triệt để các đường dẫn tuyệt đối hoặc định danh hardcode, tự động hóa Zero-Config Wi-Fi, tích hợp nạp firmware 1-click CLI, đồng bộ hóa `run_system.sh` và xử lý triệt để sự cố hiển thị màn hình OLED SSD1306.
 
 ---
 
-## Các Thành Phần Đã Xây Dựng
+## 🚀 Các Nâng Cấp Nổi Bật Mới Nhất
 
-### 1. Firmware & Simulator Thiết Bị Biên (Edge Probe Layer)
-- [config.h](file:///d:/STT%202026/firmware/esp32_probe/config.h): Cấu hình WiFi, MQTT Broker IP/port, cửa sổ lấy mẫu và các ngưỡng cảnh báo.
-- [esp32_probe.ino](file:///d:/STT%202026/firmware/esp32_probe/esp32_probe.ino): Mã nguồn Arduino C++ cho ESP32 bắt gói tin WiFi bằng Promiscuous Mode, tính toán 8 đặc trưng lưu lượng, tích hợp bộ suy luận `tinyml_model.h` và gửi telemetry qua MQTT.
-- [tinyml_model.h](file:///d:/STT%202026/firmware/esp32_probe/tinyml_model.h): Mô hình học máy C header tự sinh, thực thi suy luận trực tiếp trong $< 50\,\mu s$ trên ESP32 mà không phụ thuộc Python hay máy chủ.
-- [esp32_simulator.py](file:///d:/STT%202026/firmware/simulator/esp32_simulator.py): Giả lập trạm bắt mạng ESP32 với các kịch bản lưu lượng thực tế và nhận lệnh kích hoạt tấn công từ xa qua MQTT.
-
-### 2. Message Broker Layer (MQTT)
-- [mosquitto.conf](file:///d:/STT%202026/broker/mosquitto.conf): Cấu hình Mosquitto MQTT mở port `1883` (TCP) và `9001` (WebSocket).
-- [docker-compose.yml](file:///d:/STT%202026/broker/docker-compose.yml): Triển khai Mosquitto container nhanh bằng Docker.
-- [embedded_broker.py](file:///d:/STT%202026/broker/embedded_broker.py): MQTT Broker thuần Python dự phòng, giúp khởi chạy hệ thống ngay mà không cần cài đặt thêm phần mềm ngoài.
-
-### 3. Machine Learning Engine (Dual AI Pipeline)
-- [train.py](file:///d:/STT%202026/ml_engine/train.py): Sinh tập dữ liệu mô phỏng chuẩn CIC-IDS2017/NSL-KDD (10,000 mẫu), huấn luyện mô hình **Isolation Forest** (Unsupervised, F1: **0.9709**) và **Decision Classifier** (Độ chính xác: **100%**).
-- [inference_service.py](file:///d:/STT%202026/ml_engine/inference_service.py): Service lắng nghe MQTT `edge/telemetry/traffic`, tính toán Anomaly Score thời gian thực ($< 2\,\text{ms}$) và bắn cảnh báo lên `edge/alerts/high_priority`.
-- [export_tinyml.py](file:///d:/STT%202026/ml_engine/export_tinyml.py): Tự động chuyển đổi cây quyết định thành file C header cho vi điều khiển.
-- [models/](file:///d:/STT%202026/ml_engine/models/): Chứa các model weights (`isolation_forest.joblib`, `attack_classifier.joblib`, `scaler.joblib`).
-
-### 4. SOC Web Dashboard Real-Time
-- [app.py](file:///d:/STT%202026/dashboard/backend/app.py): FastAPI backend, WebSocket broadcaster `/ws/telemetry` và REST APIs điều khiển simulator.
-- [index.html](file:///d:/STT%202026/dashboard/frontend/index.html): Giao diện SOC Cyberpunk Glassmorphism Dark Mode với đồng hồ rủi ro, bảng điều khiển phát động tấn công và nhật ký cảnh báo trực tiếp.
-- [style.css](file:///d:/STT%202026/dashboard/frontend/css/style.css): Thiết kế phong cách neon dark mode, micro-animations và bố cục responsive.
-- [app.js](file:///d:/STT%202026/dashboard/frontend/js/app.js): Client WebSocket, cập nhật 3 biểu đồ Chart.js mượt mà 60 FPS.
-
-### 5. Công Cụ Vận Hành & Tài Liệu
-- [run_system.py](file:///d:/STT%202026/run_system.py): Script One-Click khởi chạy toàn bộ 5 thành phần của hệ thống cùng lúc.
-- [test_pipeline.py](file:///d:/STT%202026/test_pipeline.py): Script kiểm thử tự động xác minh toàn bộ luồng MQTT và suy luận ML.
-- [ARCHITECTURE.md](file:///d:/STT%202026/docs/ARCHITECTURE.md): Sơ đồ kiến trúc Mermaid và phân tích chi tiết.
-- [ESP32_FLASHING_GUIDE.md](file:///d:/STT%202026/docs/ESP32_FLASHING_GUIDE.md): Hướng dẫn nạp code chi tiết cho ESP32 qua Arduino IDE / PlatformIO.
-- [MQTT_API_SPEC.md](file:///d:/STT%202026/docs/MQTT_API_SPEC.md): Đặc tả topics và schema JSON trao đổi dữ liệu.
-- [README.md](file:///d:/STT%202026/README.md): Hướng dẫn cài đặt và sử dụng tổng quan.
+### 1. Khử Hardcode Đường Dẫn & Hỗ Trợ Đa Nền Tảng (Windows / Linux / macOS)
+- **Định vị `arduino-cli` động**:
+  - Không còn hardcode đường dẫn ổ đĩa `C:\Program Files\...`.
+  - Tận dụng `shutil.which("arduino-cli")` ưu tiên số 1.
+  - Tự động quét theo biến môi trường `LOCALAPPDATA`, `ProgramFiles`, `ProgramFiles(x86)` trên Windows; `/usr/local/bin`, `/usr/bin`, `~/.local/bin`, `~/.arduino-ide/...` trên Linux; và `/Applications/Arduino IDE.app/...`, `/opt/homebrew/bin` trên macOS.
+- **Tự động nhận diện cổng kết nối USB-Serial đa nền tảng**:
+  - Không fallback về hardcode `"COM4"`. Nếu không có bo mạch, trả về `None` an toàn.
+  - Tích hợp quét qua `serial.tools.list_ports` (chuẩn hóa trên mọi OS), PowerShell `Win32_SerialPort` (Windows), `/dev/serial/by-id/*`, `/dev/ttyUSB*`, `/dev/ttyACM*` (Linux) và `/dev/cu.usbserial*`, `/dev/cu.SLAB*`, `/dev/cu.wch*` (macOS).
+  - Bổ sung alias cờ CLI: `--port` và `--com-port` để người dùng Linux/macOS dễ dàng chỉ định (ví dụ: `--port /dev/ttyUSB0`).
+- **Trích xuất Wi-Fi & IP LAN ngầm (Zero-Config Network)**:
+  - Windows: Tự động trích xuất SSID và Mật khẩu qua `netsh wlan show interfaces` và `netsh wlan show profile key=clear`.
+  - Linux: Tự động trích xuất qua `nmcli dev wifi` và `nmcli connection show`.
+  - macOS: Tự động trích xuất qua `airport -I` / `networksetup` và `security find-generic-password`.
+  - Tự động ghi vào `firmware/esp32_probe/credentials.h` và `.env` mà người dùng không cần phải gõ thủ công.
 
 ---
 
-## Kết Quả Kiểm Thử (Verification Results)
+### 2. Đồng Bộ Hóa & Hoàn Thiện `run_system.sh` (Linux / macOS / WSL)
+- Cập nhật toàn bộ các cờ tính năng hiện đại: `--flash`, `--port`, `--attack-sim`, `--probe esp32`.
+- Tự động kích hoạt môi trường ảo `venv` hoặc `.venv` nếu có.
+- Chuẩn hóa định dạng Unix LF cho shell script.
 
-### 1. Huấn luyện Mô hình Machine Learning
+---
+
+### 3. Khắc Phục Triệt Để Màn Hình OLED SSD1306
+- **Tốc độ I2C Chuẩn**: Chuyển từ `400000` (Fast Mode dễ nhiễu trên breadboard) sang `100000` (Standard Mode ổn định tuyệt đối với mọi loại dây jumper và màn hình clone SSD1306/SH1106).
+- **Bộ quét I2C Bus tích hợp**: Tự động quét toàn bộ dải địa chỉ 0x01 .. 0x7F khi khởi động, in chi tiết các thiết bị tìm thấy lên Serial Monitor (115200 baud).
+- **Thử nghiệm tuần tự địa chỉ 0x3C & 0x3D**: Tự động tương thích với cả 2 loại chân địa chỉ phổ biến của SSD1306.
+- **Sửa lỗi hiển thị trong `loop()`**: Bổ sung tường minh `display.setTextColor(SSD1306_WHITE)` ngay sau `display.clearDisplay()` để đảm bảo màu chữ không bị trùng màu nền đen.
+- **Giao diện Responsive theo độ phân giải**:
+  - Hỗ trợ màn hình 0.96 inch thông dụng (**128x64 pixels**).
+### 4. Cơ Chế Bắt Cấu Hình Mạng Thời Gian Thực (Zero-Config Network Roaming) & Sửa Lỗi Timeout
+- **Khắc phục lỗi IP cũ gây TimeoutError ở ML Inference**:
+  - Trước đây, khi chuyển mạng Wi-Fi (ví dụ từ mạng nhà `192.168.1.x` sang `Phong 401` hoặc điểm phát di động `Nokia 5.3` `10.24.47.x`), giá trị cũ trong `.env` làm `inference_service.py` cố kết nối tới IP cũ và bị `TimeoutError: timed out`.
+  - **Khắc phục**: 
+    1. Các tiến trình Python cục bộ trên máy tính (`inference_service.py`, `dashboard/backend`, `attack_traffic_generator.py`) luôn kết nối tới Broker qua **`127.0.0.1` (Loopback)**. Vừa an toàn tuyệt đối, độ trễ 0ms, không bao giờ bị ảnh hưởng bởi đổi mạng Wi-Fi hay tường lửa Windows Firewall.
+    2. Bổ sung cơ chế Fallback tự động trong `inference_service.py`: nếu IP Broker gặp sự cố, tự động fallback về `127.0.0.1`.
+    3. Hàm `sync_env_to_firmware()` luôn ưu tiên địa chỉ IP thực tế của card Wi-Fi đang kết nối (`10.24.47.135`) để đồng bộ vào `credentials.h` phục vụ bo mạch phần cứng ESP32.
+
+### 5. Sơ Đồ Chân OLED Khớp Chính Xác Phần Cứng (D23-SCK, D21-SDA)
+- Khớp chính xác theo màu dây thực tế:
+  - **Đỏ**: ESP32 3V3 -> OLED VDD
+  - **Đen**: ESP32 GND -> OLED GND
+  - **Vàng**: ESP32 **D23** -> OLED SCK (SCL)
+  - **Xanh**: ESP32 **D21** -> OLED SDA
+- `initOLED()` được chuyển lên đầu hàm `setup()`, tự động bật pull-up nội bộ và hiển thị thông tin khởi động + trạng thái kết nối Wi-Fi ngay lập tức.
+
+### 6. Khắc Phục Lỗi 404 `/favicon.ico` & Tích Hợp Cyber Shield Icon
+- Tạo mới vector icon SVG công nghệ cao [`dashboard/frontend/favicon.svg`](file:///d:/STT%202026/dashboard/frontend/favicon.svg) mang biểu tượng chiếc khiên an ninh mạng với gradient Cyan/Emerald.
+- Trong [`dashboard/backend/app.py`](file:///d:/STT%202026/dashboard/backend/app.py): Bổ sung route xử lý `/favicon.ico` và `/favicon.svg` trả về icon chuẩn media type `image/svg+xml`.
+- Trong [`dashboard/frontend/index.html`](file:///d:/STT%202026/dashboard/frontend/index.html): Bổ sung thẻ `<link rel="icon" type="image/svg+xml" href="/favicon.svg" />`. Loại bỏ hoàn toàn lỗi `404 Not Found` trên terminal server.
+
+### 7. Kiến Trúc Chịu Lỗi Khi Chuyển Mạng Đột Ngột (Zero-Downtime Network Roaming)
+- **Dual-Transport Telemetry (Truyền thông kép Wi-Fi + USB Serial)**:
+  - Khi cắm ESP32 vào máy tính qua cáp USB, firmware luôn xuất bản tin `ESP32_TELEMETRY:{...}` ra cổng Serial song song với MQTT.
+  - Trên máy tính, `run_system.py` chạy luồng `serial_telemetry_bridge_worker` kết nối tới cổng COM. Kể cả khi Wi-Fi bị ngắt, đang chuyển mạng hoặc router bật AP Isolation, **Web Dashboard & ML Engine vẫn nhận dữ liệu liên tục 100% qua cáp USB!**
+- **WiFiMulti (Tự động chuyển AP)**:
+  - ESP32 tích hợp `WiFiMulti`, đăng ký sẵn danh sách các mạng đã biết (mạng phòng, hotspot di động). Khi người dùng đổi mạng, ESP32 tự động quét và kết nối tới Access Point khả dụng mà không cần nạp lại firmware.
+- **Auto-Discovery Broker IP qua UDP Broadcast Beacon**:
+  - Máy tính phát sóng UDP Beacon mỗi 3s trên port `18830`. ESP32 khi vào mạng mới sẽ lắng nghe UDP, tự động nhận diện IP mới của máy tính và trỏ MQTT về IP mới tức thì.
+- **Network Roaming Watcher trên PC**:
+  - `run_system.py` liên tục giám sát card mạng; khi phát hiện máy tính chuyển sang Wi-Fi mới, nó tự động cập nhật `.env`, `credentials.h` và luồng UDP Beacon.
+
+---
+
+## 🧪 Kết Quả Kiểm Thử (Verification Results)
+
+### 1. Kiểm thử Route Favicon
+```text
+Favicon status: 200 image/svg+xml (Khong con loi 404 Not Found!)
 ```
-[3/4] Huan luyen mo hinh Isolation Forest (Unsupervised Anomaly Detector)...
-  -> Isolation Forest Binary F1-Score: 0.9709
 
-[4/4] Huan luyen bo phan loai tan cong (Decision Tree / Edge Optimized)...
-  -> Decision Tree Accuracy: 100.00%
-                   precision    recall  f1-score   support
-           Normal       1.00      1.00      1.00      1500
-        SYN_Flood       1.00      1.00      1.00       250
-        Port_Scan       1.00      1.00      1.00       250
-  Volumetric_DDoS       1.00      1.00      1.00       250
-Data_Exfiltration       1.00      1.00      1.00       250
+### 2. Kiểm thử Tự Động Trích Xuất Wi-Fi & Gateway Thời Gian Thực
+```text
+  -> Da dong bo cau hinh WiFi/MQTT tu dong vao firmware\esp32_probe\credentials.h:
+     * WIFI_SSID        : "Nokia 5.3" (Tu dong)
+     * WIFI_PASSWORD    : "duc***" (Tu dong)
+     * MQTT_BROKER_HOST : "10.24.47.135" (Tu dong)
+  -> Target Gateway IP  : 10.24.47.189
 ```
 
-### 2. Kiểm thử End-to-End Pipeline Tự Động (`test_pipeline.py`)
-- Khởi động Embedded MQTT Broker trên port 1883 $\rightarrow$ Thành công.
-- Client Subscriber đăng ký lắng nghe topic alerts và predictions $\rightarrow$ Thành công.
-- Client Publisher gửi gói tin thử nghiệm tấn công SYN Flood $\rightarrow$ Thành công.
-- Bộ máy suy luận đưa ra kết quả:
+### 3. Kiểm thử Biên dịch Firmware ESP32 Đa Mạng (WiFiMulti + UDP Beacon)
+```text
+Sketch uses 1053192 bytes (80%) of program storage space. Maximum is 1310720 bytes.
+Global variables use 49592 bytes (15%) of dynamic memory, leaving 278088 bytes for local variables. Maximum is 327680 bytes.
+[SUCCESS - 0 COMPILATION ERRORS]
+```
+
+---
+
+## 💡 Hướng Dẫn Vận Hành Nhanh
+
+- **Chạy trên Windows (1-Click Flash Firmware & Run Hệ Thống)**:
+  ```cmd
+  run_system.bat --probe esp32 --attack-sim --flash
   ```
-  Direct inference assertion passed: Anomaly detected, threat = SYN_Flood, latency = 15.91 ms
-  MQTT End-to-end verified! Received 2 messages on subscribed topics.
-  [ALL TESTS PASSED SUCCESSFULLY!]
+- **Chạy trên Linux / macOS**:
+  ```bash
+  chmod +x run_system.sh
+  ./run_system.sh --probe esp32 --attack-sim --flash --port /dev/ttyUSB0
   ```
-
----
-
-## Cách Khởi Chạy Nhanh Cho Người Dùng
-
-Bạn chỉ cần mở terminal tại thư mục `d:\STT 2026` và gõ:
-
-```powershell
-python run_system.py
-```
-
-Trình duyệt sẽ tự động mở trang Dashboard tại `http://localhost:8000` để bạn trải nghiệm ngay!

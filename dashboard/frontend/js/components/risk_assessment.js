@@ -41,12 +41,14 @@ export class RiskAssessmentComponent {
 
     // Mô tả đe dọa
     if (this.elThreatDesc) {
-      if (data.is_anomaly) {
+      if (data.is_anomaly && data.threat_type && data.threat_type !== "Normal") {
         this.elThreatDesc.innerHTML = `<span style="color: var(--crimson-danger); font-weight: 600;">[CẢNH BÁO] Phát hiện đe dọa: ${data.threat_type}</span> (${((data.confidence || 1.0) * 100).toFixed(1)}% độ tin cậy)`;
         // Kích hoạt còi báo động qua Audio Service
         audioService.playThreatAlarm(data.severity || "HIGH");
       } else {
-        this.elThreatDesc.innerText = "Lưu lượng mạng bình thường. Không phát hiện rủi ro.";
+        this.elThreatDesc.innerHTML = `<span style="color: var(--emerald-safe); font-weight: 500;">🟢 Lưu lượng mạng bình thường. Không phát hiện rủi ro.</span>`;
+        // Tắt ngay lập tức còi báo động nếu trước đó đang kêu
+        audioService.stopAlarm();
       }
     }
 

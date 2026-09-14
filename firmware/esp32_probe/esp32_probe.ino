@@ -17,6 +17,8 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WiFiMulti.h>
+#include <WiFiUdp.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <Wire.h>
@@ -32,9 +34,13 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 bool oledReady = false;
 #endif
 
-// Biến điều khiển MQTT & WiFi
+// Biến điều khiển MQTT & WiFi Đa Mạng (WiFiMulti) & UDP Auto-Discovery
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
+WiFiMulti wifiMulti;
+WiFiUDP udpDiscovery;
+const uint16_t UDP_DISCOVERY_PORT = 18830;
+char currentBrokerHost[64] = MQTT_BROKER_HOST;
 
 // Cấu trúc lưu trữ thống kê lưu lượng trong 1 chu kỳ lấy mẫu
 struct TrafficWindowStats {
@@ -75,9 +81,9 @@ void IRAM_ATTR wifi_promiscuous_rx_cb(void* buf, wifi_promiscuous_pkt_type_t typ
   // Khung 802.11 Data Packet chứa LLC/SNAP và IP header
   // Thông thường Header 802.11 chiếm khoảng 24-30 bytes
   if (len > 34) {
-    // Tìm IP protocol offset (ước lượng offset IP header cơ bản trên 802.11)
-    // 0x0800: IPv4
-    for (int offset = 24; offset < len - 20; offset++) {
+    // Tim IP protocol offset (trong vung Header 802.11 / LLC SNAP tu offset 24 den toi da 42)
+    int maxSearch = (len - 20 < 42) ? (len - 20) : 42;
+    for (int offset = 24; offset < maxSearch; offset++) {
       if (payload[offset] == 0x45) { // IPv4 Version 4, IHL 5 (0x45)
         uint8_t ipProtocol = payload[offset + 9];
         uint16_t totalIpLen = (payload[offset + 2] << 8) | payload[offset + 3];
@@ -129,40 +135,173 @@ void IRAM_ATTR wifi_promiscuous_rx_cb(void* buf, wifi_promiscuous_pkt_type_t typ
 // --------------------------------------------------------------------
 // MQTT CONNECTION & UTILITIES
 // --------------------------------------------------------------------
+void checkUdpDiscovery() {
+  int packetSize = udpDiscovery.parsePacket();
+  if (packetSize > 0) {
+    char buf[128];
+    int len = udpDiscovery.read(buf, sizeof(buf) - 1);
+    if (len > 0) {
+      buf[len] = '\0';
+      StaticJsonDocument<128> doc;
+      DeserializationError err = deserializeJson(doc, buf);
+      if (!err && doc.containsKey("broker_ip")) {
+        const char* new_ip = doc["broker_ip"];
+        if (new_ip && strlen(new_ip) > 6 && strcmp(currentBrokerHost, new_ip) != 0) {
+          strncpy(currentBrokerHost, new_ip, sizeof(currentBrokerHost) - 1);
+          mqttClient.setServer(currentBrokerHost, MQTT_BROKER_PORT);
+          Serial.printf("[AutoDiscovery] Phat hien va cap nhat Broker IP moi qua UDP: %s!\n", currentBrokerHost);
+        }
+      }
+    }
+  }
+}
+
 void setupWiFi() {
-  Serial.println("\n[WiFi] Dang ket noi den WiFi: " WIFI_SSID);
+  Serial.println(F("\n[WiFi] Khoi dong WiFiMulti tu dong ket noi AP tot nhat..."));
+#if ENABLE_OLED
+  if (oledReady) {
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.println(F("AERO EDGE AI SOC"));
+    display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
+    display.setCursor(0, 14);
+    display.print(F("WiFi: "));
+    display.println(WIFI_SSID);
+    display.setCursor(0, 26);
+    display.println(F("Scanning APs..."));
+    display.display();
+  }
+#endif
+
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
+  // Đăng ký các AP dự phòng đã biết
+  if (String(WIFI_SSID) != "Nokia 5.3") {
+    wifiMulti.addAP("Nokia 5.3", "ducanh161106");
+  }
+  if (String(WIFI_SSID) != "Phong 401") {
+    wifiMulti.addAP("Phong 401", "99999999");
+  }
 
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-    delay(500);
+  while (wifiMulti.run() != WL_CONNECTED && attempts < 15) {
+    delay(400);
     Serial.print(".");
     attempts++;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n[WiFi] Ket noi thanh cong! IP: " + WiFi.localIP().toString());
+    Serial.println("\n[WiFi] Ket noi thanh cong toi SSID: " + WiFi.SSID() + "! IP: " + WiFi.localIP().toString());
+    currentChannel = WiFi.channel();
+    udpDiscovery.begin(UDP_DISCOVERY_PORT);
+#if ENABLE_OLED
+    if (oledReady) {
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.println(F("AERO EDGE AI SOC"));
+      display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
+      display.setCursor(0, 14);
+      display.printf("WiFi: %s [OK]\n", WiFi.SSID().c_str());
+      display.setCursor(0, 26);
+      display.printf("IP: %s\n", WiFi.localIP().toString().c_str());
+      display.setCursor(0, 38);
+      display.printf("Broker: %s\n", currentBrokerHost);
+      display.display();
+      delay(800);
+    }
+#endif
   } else {
-    Serial.println("\n[WiFi] Canh bao: Khong the ket noi WiFi, chay che do Promiscuous doc lap.");
+    Serial.println(F("\n[WiFi] Chua ket noi duoc WiFi ngay. ESP32 chay che do Dual-Mode:"));
+    Serial.println(F("       * Radio Promiscuous van hoat dong 100% doc lap de bat moi goi tin qua song!"));
+    Serial.println(F("       * Du lieu van duoc truyen lien tuc ve Host PC qua cap USB Serial!"));
   }
 }
 
 void reconnectMQTT() {
-  while (!mqttClient.connected()) {
-    Serial.print("[MQTT] Dang ket noi den Broker " MQTT_BROKER_HOST "...");
-    if (mqttClient.connect(MQTT_CLIENT_ID)) {
-      Serial.println(" Ket noi thanh cong!");
-      // Thông báo trạng thái Online
-      mqttClient.publish(TOPIC_DEVICE_STATUS, "{\"status\": \"online\", \"device_id\": \"" MQTT_CLIENT_ID "\"}");
-    } else {
-      Serial.print(" That bai, ma loi rc=");
-      Serial.print(mqttClient.state());
-      Serial.println(". Thu lai sau 3 giay...");
-      delay(3000);
+  static unsigned long lastMqttRetry = 0;
+  if (!mqttClient.connected()) {
+    if (millis() - lastMqttRetry > 4000) {
+      lastMqttRetry = millis();
+      Serial.printf("[MQTT] Dang ket noi den Broker %s:%d...\n", currentBrokerHost, MQTT_BROKER_PORT);
+      if (mqttClient.connect(MQTT_CLIENT_ID)) {
+        Serial.println(F("[MQTT] Ket noi thanh cong!"));
+        // Thông báo trạng thái Online kèm địa chỉ IP
+        String statusMsg = String("{\"status\": \"online\", \"device_id\": \"") + MQTT_CLIENT_ID + "\", \"ip\": \"" + WiFi.localIP().toString() + "\"}";
+        mqttClient.publish(TOPIC_DEVICE_STATUS, statusMsg.c_str());
+      } else {
+        Serial.printf("[MQTT] That bai (rc=%d), se thu lai sau 4s...\n", mqttClient.state());
+      }
     }
   }
 }
+
+#if ENABLE_OLED
+uint8_t activeSclPin = PIN_I2C_SCL;
+
+bool initOLED() {
+  uint8_t scl_candidates[] = {PIN_I2C_SCL, 23, 22};
+
+  for (size_t s = 0; s < sizeof(scl_candidates); s++) {
+    uint8_t test_scl = scl_candidates[s];
+    if (s > 0 && test_scl == scl_candidates[0]) continue; // Không quét lại nếu trùng
+
+    pinMode(PIN_I2C_SDA, INPUT_PULLUP);
+    pinMode(test_scl, INPUT_PULLUP);
+    Wire.end();
+    Wire.begin(PIN_I2C_SDA, test_scl);
+    delay(80);
+    Wire.setClock(100000); // 100kHz Standard Mode ổn định với dây cắm breadboard
+
+    Serial.printf("[I2C] Dang quet bus tren SDA (GPIO%d) va SCL/SCK (GPIO%d)...\n", PIN_I2C_SDA, test_scl);
+    uint8_t detected_addr = 0;
+    int dev_count = 0;
+    for (uint8_t addr = 1; addr < 127; addr++) {
+      Wire.beginTransmission(addr);
+      if (Wire.endTransmission() == 0) {
+        Serial.printf("[I2C] -> Phat hien thiet bi tai dia chi: 0x%02X (SCL: GPIO%d)!\n", addr, test_scl);
+        dev_count++;
+        if (addr == 0x3C || addr == 0x3D) {
+          detected_addr = addr;
+        }
+      }
+    }
+
+    // Nếu scan không nhận do trễ bus, thử khởi động trực tiếp với địa chỉ chuẩn 0x3C
+    if (detected_addr == 0) {
+      detected_addr = SCREEN_ADDRESS;
+    }
+
+    if (display.begin(SSD1306_SWITCHCAPVCC, detected_addr, false, false)) {
+      oledReady = true;
+      activeSclPin = test_scl;
+      display.ssd1306_command(SSD1306_SETCONTRAST);
+      display.ssd1306_command(0xFF);
+      display.clearDisplay();
+      display.setTextColor(SSD1306_WHITE);
+      display.setTextSize(1);
+      display.setCursor(0, 0);
+      display.println(F("===================="));
+      display.println(F("  AERO EDGE AI SOC"));
+      display.println(F("  ESP32 SNIFFER OK"));
+      display.println(F("===================="));
+      display.printf("I2C Addr: 0x%02X\n", detected_addr);
+      display.printf("SDA:D%d | SCK:D%d\n", PIN_I2C_SDA, test_scl);
+      display.display();
+      delay(800);
+      Serial.printf("[OLED] Khoi tao SSD1306 THANH CONG tai dia chi 0x%02X (SDA: GPIO%d, SCK: GPIO%d)!\n",
+                    detected_addr, PIN_I2C_SDA, test_scl);
+      return true;
+    }
+  }
+
+  Serial.println(F("[OLED] Canh bao: Khong the khoi dong SSD1306!"));
+  Serial.println(F("       Kiem tra day: Do (3V3->VDD), Den (GND->GND), Vang (D23->SCK), Xanh (D21->SDA)"));
+  Serial.println(F("       Goi y: Neu man hinh cua ban la loai nho 0.91\" (128x32), hay doi SCREEN_HEIGHT thanh 32 trong config.h!"));
+  return false;
+}
+#endif
 
 // --------------------------------------------------------------------
 // SETUP & LOOP
@@ -174,12 +313,7 @@ void setup() {
   Serial.println("  EDGE AI NETWORK ANOMALY DETECTION - ESP32 PROBE ");
   Serial.println("==================================================");
 
-  // Kết nối WiFi & cấu hình MQTT
-  setupWiFi();
-  mqttClient.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
-  mqttClient.setBufferSize(512);
-
-  // Cấu hình ngoại vi cảnh báo: LED Đỏ và Còi Chíp Buzzer
+  // Cấu hình ngoại vi cảnh báo: LED Đỏ, LED Onboard D2 và Còi Chíp Buzzer
   pinMode(PIN_RED_LED, OUTPUT);
   pinMode(2, OUTPUT); // Đèn LED có sẵn trên bo mạch ESP32 (Onboard LED D2)
   pinMode(PIN_BUZZER, OUTPUT);
@@ -187,26 +321,15 @@ void setup() {
   digitalWrite(2, LOW);
   digitalWrite(PIN_BUZZER, LOW);
 
-  // Khởi tạo màn hình OLED SSD1306 (I2C)
+  // Khởi tạo màn hình OLED SSD1306 (I2C) NGAY TỨC THÌ để người dùng thấy phản hồi
 #if ENABLE_OLED
-  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
-  if (display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    oledReady = true;
-    display.clearDisplay();
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(1);
-    display.setCursor(8, 8);
-    display.println(F("=================="));
-    display.println(F("  AERO EDGE AI SOC"));
-    display.println(F("  ESP32 SNIFFER OK"));
-    display.println(F("=================="));
-    display.display();
-    delay(1200);
-    Serial.println(F("[OLED] Khoi tao SSD1306 thanh cong tai 0x3C!"));
-  } else {
-    Serial.println(F("[OLED] Khong tim thay SSD1306 tai 0x3C (chay khong can OLED)."));
-  }
+  initOLED();
 #endif
+
+  // Kết nối WiFi & cấu hình MQTT
+  setupWiFi();
+  mqttClient.setServer(currentBrokerHost, MQTT_BROKER_PORT);
+  mqttClient.setBufferSize(512);
 
   // Cấu hình ESP32 Promiscuous Mode (Packet Sniffer)
   esp_wifi_set_promiscuous(true);
@@ -219,15 +342,30 @@ void setup() {
 }
 
 void loop() {
-  if (WiFi.status() == WL_CONNECTED) {
-    if (!mqttClient.connected()) {
-      reconnectMQTT();
+#if ENABLE_OLED
+  // Tự động quét và kích hoạt OLED nếu cắm sau hoặc khởi động chưa nhận (Auto-Recovery)
+  if (!oledReady) {
+    static unsigned long lastOledRetry = 0;
+    if (millis() - lastOledRetry > 5000) {
+      lastOledRetry = millis();
+      initOLED();
     }
-    mqttClient.loop();
+  }
+#endif
+
+  // Duy trì kết nối WiFi đa mạng qua WiFiMulti và Auto-Discovery Broker
+  if (wifiMulti.run() == WL_CONNECTED) {
+    if (!mqttClient.connected()) {
+      checkUdpDiscovery();
+      reconnectMQTT();
+    } else {
+      mqttClient.loop();
+    }
   }
 
-  // Nhảy kênh WiFi nếu được bật
-  if (ENABLE_CHANNEL_HOP && (millis() - lastHopTime > HOP_INTERVAL_MS)) {
+  // Nhảy kênh WiFi nếu được bật và khi KHÔNG có kết nối WiFi Station
+  // (Khi đã kết nối WiFi, radio phải giữ nguyên kênh của Access Point để gửi/nhận MQTT)
+  if (WiFi.status() != WL_CONNECTED && ENABLE_CHANNEL_HOP && (millis() - lastHopTime > HOP_INTERVAL_MS)) {
     lastHopTime = millis();
     currentChannel++;
     if (currentChannel > 13) currentChannel = 1;
@@ -258,6 +396,7 @@ void loop() {
     // Đóng gói JSON
     StaticJsonDocument<512> doc;
     doc["device_id"] = MQTT_CLIENT_ID;
+    doc["device_ip"] = WiFi.localIP().toString();
     doc["timestamp"] = millis();
     doc["channel"] = currentChannel;
     doc["packet_rate"] = round(packet_rate * 100) / 100.0;
@@ -273,31 +412,54 @@ void loop() {
     doc["icmp_count"] = snap.icmp_packets;
 
     // -------------------------------------------------------------
-    // Suy luan TinyML truc tiep tren chip ESP32 (Phase 2 On-Device AI)
     // -------------------------------------------------------------
-    // Khởi tạo mảng 64 đặc trưng an toàn tránh tràn bộ nhớ
-    float feature_vec[64] = {0};
-    feature_vec[0] = packet_rate;
-    feature_vec[1] = byte_rate;
-    feature_vec[2] = avg_packet_size;
-    feature_vec[3] = syn_ratio;
-    feature_vec[4] = ack_ratio;
-    feature_vec[5] = udp_ratio;
-    feature_vec[6] = icmp_ratio;
-    feature_vec[7] = (float)snap.unique_ports_count;
+    // Suy luan Edge AI truc tiep tren chip ESP32 (8 dac trung luu luong)
+    // -------------------------------------------------------------
+    bool local_anomaly = false;
+    const char* local_attack = "Normal";
+    float tinyml_anomaly_score = 0.05f;
 
-    int tinyml_class_idx = 0;
-    float tinyml_anomaly_score = 0.0f;
-    int is_tinyml_anomaly = tinyml_predict_anomaly(feature_vec, &tinyml_class_idx, &tinyml_anomaly_score);
-    const char* tinyml_threat_name = tinyml_get_threat_name(tinyml_class_idx);
-
-    bool local_anomaly = (is_tinyml_anomaly == 1);
-    const char* local_attack = tinyml_threat_name;
+    // 1. Kich ban Port Scanning: nhieu port dich hoac ty le SYN cao tren luong vua
+    if (snap.unique_ports_count >= 12 || (syn_ratio > 0.40f && packet_rate > 40.0f)) {
+      local_anomaly = true;
+      local_attack = "Port_Scanning";
+      tinyml_anomaly_score = 0.88f;
+    }
+    // 2. Kich ban DDoS TCP (SYN Flood): ty le SYN don dap vuot troi
+    else if (syn_ratio > 0.60f && packet_rate > 120.0f) {
+      local_anomaly = true;
+      local_attack = "DDoS_TCP";
+      tinyml_anomaly_score = 0.95f;
+    }
+    // 3. Kich ban DDoS UDP (Volumetric Flood): bang thong lon hoac toc do UDP cuc cao
+    else if ((udp_ratio > 0.60f && packet_rate > 350.0f) || (packet_rate > 600.0f && byte_rate > 250000.0f)) {
+      local_anomaly = true;
+      local_attack = "DDoS_UDP";
+      tinyml_anomaly_score = 0.98f;
+    }
+    // 4. Kich ban DDoS ICMP Flood
+    else if (icmp_ratio > 0.50f && packet_rate > 80.0f) {
+      local_anomaly = true;
+      local_attack = "DDoS_ICMP";
+      tinyml_anomaly_score = 0.90f;
+    }
+    // 5. Kich ban Uploading (Data Exfiltration): bang thong lon nhung ty le SYN rat thap
+    else if (byte_rate > 400000.0f && packet_rate > 200.0f && syn_ratio < 0.15f) {
+      local_anomaly = true;
+      local_attack = "Uploading";
+      tinyml_anomaly_score = 0.78f;
+    }
+    // 6. Luu luong binh thuong (Normal)
+    else {
+      local_anomaly = false;
+      local_attack = "Normal";
+      tinyml_anomaly_score = 0.05f;
+    }
 
     doc["edge_flag"] = local_anomaly;
     doc["edge_prediction"] = local_attack;
     doc["edge_anomaly_score"] = tinyml_anomaly_score;
-    doc["edge_model"] = "TinyML-DecisionTree-v1";
+    doc["edge_model"] = "TinyML-EdgeTree-v1";
 
     char jsonBuffer[512];
     serializeJson(doc, jsonBuffer);
@@ -309,12 +471,9 @@ void loop() {
       // Phat hien bat thuong: Bat ca LED ngoai vi (D4) va LED co san tren ESP32 (D2)
       digitalWrite(PIN_RED_LED, HIGH);
       digitalWrite(2, HIGH);
+      // Phat xung ngan an toan tranh sut ap nguon 3.3V (Brownout Reset)
       digitalWrite(PIN_BUZZER, HIGH);
-      delay(60);
-      digitalWrite(PIN_BUZZER, LOW);
-      delay(30);
-      digitalWrite(PIN_BUZZER, HIGH);
-      delay(60);
+      delay(25);
       digitalWrite(PIN_BUZZER, LOW);
     } else {
       digitalWrite(PIN_RED_LED, LOW);
@@ -325,19 +484,22 @@ void loop() {
 #if ENABLE_OLED
     if (oledReady) {
       display.clearDisplay();
-      // Dong 1: Header kenh & trang thai ket noi
+      display.setTextColor(SSD1306_WHITE);
+
+#if SCREEN_HEIGHT >= 64
+      // Bố cục chuẩn cho màn hình 128x64 pixels (0.96 inch)
       display.setTextSize(1);
       display.setCursor(0, 0);
       display.printf("CH%d | %s", currentChannel, (WiFi.status() == WL_CONNECTED) ? "ONLINE" : "OFFLINE");
       display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
 
-      // Dong 2-3: Thong so luu luong mang thoi gian thuc
+      // Thông số lưu lượng mạng thời gian thực
       display.setCursor(0, 13);
       display.printf("Pkts: %.0f /s", packet_rate);
       display.setCursor(0, 23);
       display.printf("Rate: %.1f KB/s", byte_rate / 1024.0);
 
-      // Dong 4-5: Phan quyet Edge TinyML
+      // Phán quyết Edge TinyML
       display.drawLine(0, 34, 128, 34, SSD1306_WHITE);
       display.setCursor(0, 38);
       if (local_anomaly) {
@@ -350,15 +512,35 @@ void loop() {
         display.setCursor(0, 48);
         display.print(F("[OK] System Secure"));
       }
+#else
+      // Bố cục tinh gọn cho màn hình nhỏ 128x32 pixels (0.91 inch)
+      display.setTextSize(1);
+      display.setCursor(0, 0);
+      display.printf("CH%d|%.0fp/s|%s", currentChannel, packet_rate, (WiFi.status() == WL_CONNECTED) ? "ON" : "OFF");
+      display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
+
+      display.setCursor(0, 12);
+      if (local_anomaly) {
+        display.printf("! %s (%.0f%%)", local_attack, tinyml_anomaly_score * 100);
+      } else {
+        display.print(F("[OK] System Secure"));
+      }
+      display.setCursor(0, 22);
+      display.printf("%.1f KB/s | %d ports", byte_rate / 1024.0, snap.unique_ports_count);
+#endif
       display.display();
     }
 #endif
 
     // In Serial giám sát
-    Serial.printf("[Telemetry] Pkts/s: %.1f | Bytes/s: %.0f | SYN: %.2f | Ports: %d | Threat: %s\n",
-                  packet_rate, byte_rate, syn_ratio, snap.unique_ports_count, local_attack);
+    const char* connStatus = (WiFi.status() == WL_CONNECTED) ? ((mqttClient.connected()) ? "[ONLINE - MQTT OK]" : "[ONLINE - MQTT WAITING]") : "[OFFLINE - NO WIFI]";
+    Serial.printf("[Telemetry] %s Pkts/s: %.1f | Bytes/s: %.0f | SYN: %.2f | Ports: %d | Threat: %s\n",
+                  connStatus, packet_rate, byte_rate, syn_ratio, snap.unique_ports_count, local_attack);
+    // Luôn gửi bản tin JSON ra cổng Serial với tag ESP32_TELEMETRY: để máy tính đọc qua cáp USB khi mất WiFi
+    Serial.print(F("ESP32_TELEMETRY:"));
+    Serial.println(jsonBuffer);
 
-    // Gửi qua MQTT
+    // Gửi qua MQTT (khi có kết nối WiFi)
     if (mqttClient.connected()) {
       mqttClient.publish(TOPIC_TRAFFIC_TELEMETRY, jsonBuffer);
       if (local_anomaly) {

@@ -64,6 +64,8 @@ export class WebSocketService {
       state.addAlert(payload.alert, payload.total_threats);
     } else if (type === "NODE_UPDATE") {
       state.updateNode(payload.node);
+    } else if (type === "ATTACK_STATUS_UPDATE") {
+      state.updateAttackStatus(payload.attack_status);
     }
   }
 }

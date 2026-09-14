@@ -9,3 +9,5 @@ websockets
 requests
 scapy
 psutil
+pyserial
+

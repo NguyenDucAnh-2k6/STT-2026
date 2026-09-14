@@ -32,9 +32,9 @@ class DecisionTreeWrapper(BaseAttackClassifier):
 
     def __init__(
         self,
-        max_depth: int = 6,
-        min_samples_split: int = 5,
-        min_samples_leaf: int = 3,
+        max_depth: int = 16,
+        min_samples_split: int = 6,
+        min_samples_leaf: int = 2,
         random_state: int = 42,
         **kwargs
     ):

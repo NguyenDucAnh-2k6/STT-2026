@@ -1,7 +1,8 @@
 """
 Dashboard MQTT to WebSocket Bridge Service
 ==========================================
-Lắng nghe các topic telemetry, prediction, alerts từ MQTT và chuyển tiếp đến Web Dashboard.
+Lắng nghe các topic telemetry, prediction, alerts và attack status từ MQTT
+và chuyển tiếp tức thời đến Web Dashboard qua WebSocket.
 """
 
 import time
@@ -25,6 +26,7 @@ def on_mqtt_connect(client, userdata, flags, rc, properties=None):
         client.subscribe("edge/telemetry/prediction")
         client.subscribe("edge/alerts/high_priority")
         client.subscribe("edge/nodes/status")
+        client.subscribe("edge/attack/status")
     else:
         state.broker_connected = False
         print(f"[DashboardBackend] Ket noi broker that bai (rc={rc})")
@@ -48,7 +50,26 @@ def on_mqtt_message(client, userdata, msg):
 
     now_ts = int(time.time() * 1000)
 
-    if topic == "edge/nodes/status":
+    if topic == "edge/attack/status":
+        state.attack_status = payload.get("status", "IDLE")
+        state.attack_scenario = payload.get("scenario", "Normal")
+        state.attack_target_ip = payload.get("target_ip", "127.0.0.1")
+        state.attack_auto_cycle = bool(payload.get("auto_cycle", False))
+
+        asyncio.run_coroutine_threadsafe(
+            manager.broadcast({
+                "type": "ATTACK_STATUS_UPDATE",
+                "attack_status": {
+                    "status": state.attack_status,
+                    "scenario": state.attack_scenario,
+                    "target_ip": state.attack_target_ip,
+                    "auto_cycle": state.attack_auto_cycle
+                }
+            }),
+            main_loop
+        )
+
+    elif topic == "edge/nodes/status":
         dev_id = payload.get("device_id", "unknown")
         status = payload.get("status", "online")
         state.connected_nodes[dev_id] = {

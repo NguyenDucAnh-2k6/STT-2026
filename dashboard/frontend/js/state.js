@@ -49,6 +49,14 @@ export const state = {
   audioEnabled: true,
   packetCounter: 1,
 
+  // Trạng thái của bộ phát sinh tấn công mạng thật
+  attackStatus: {
+    status: "IDLE",
+    scenario: "Normal",
+    target_ip: "127.0.0.1",
+    auto_cycle: false
+  },
+
   setState(partialState) {
     Object.assign(this, partialState);
     eventBus.emit("stateChanged", this);
@@ -61,8 +69,19 @@ export const state = {
     this.connectedNodes = payload.connected_nodes || [];
     this.history = payload.history || [];
     this.alerts = payload.alerts || [];
+    if (payload.attack_status) {
+      this.attackStatus = Object.assign(this.attackStatus, payload.attack_status);
+    }
     this.wsConnected = true;
     eventBus.emit("initialStateLoaded", this);
+    eventBus.emit("attackStatusUpdated", this.attackStatus);
+    eventBus.emit("stateChanged", this);
+  },
+
+  updateAttackStatus(statusObj) {
+    if (!statusObj) return;
+    this.attackStatus = Object.assign(this.attackStatus, statusObj);
+    eventBus.emit("attackStatusUpdated", this.attackStatus);
     eventBus.emit("stateChanged", this);
   },
 

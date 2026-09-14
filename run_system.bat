@@ -3,18 +3,21 @@ rem ============================================================================
 rem Edge AI Network Anomaly Detection System - Windows Launcher (.bat)
 rem ==============================================================================
 rem Chi dan su dung:
-rem   1. Chay mac dinh voi ESP32 Simulator:
+rem   1. Chay mac dinh (Host PC Live Sniffer bat luu luong mang that cua may tinh):
 rem        run_system.bat
-rem   2. Chay bat luu luong mang THAT cua may tinh (khi chua co ESP32):
-rem        run_system.bat --probe host
-rem   3. Chay voi thiet bi ESP32 vat ly qua WiFi/MQTT:
+rem   2. Chay kem bo ban goi tin doc hai mang that (Dieu khien on-demand tu Web UI):
+rem        run_system.bat --attack-sim
+rem   3. Chay voi thiet bi ESP32 vat ly qua WiFi/MQTT (Promiscuous Mode):
 rem        run_system.bat --probe esp32
-rem   4. Chay voi Random Forest va huan luyen lai:
-rem        run_system.bat --classifier random_forest --retrain
-rem   5. Chay bat mang that kem mo hinh Gradient Boosting:
-rem        run_system.bat --probe host --classifier gradient_boosting
+rem   4. Chay ESP32 kem ban goi tin mang that:
+rem        run_system.bat --probe esp32 --attack-sim
+rem   5. 1-Click tu dong build va nap code cho ESP32 qua CLI (khong can mo Arduino IDE):
+rem        run_system.bat --probe esp32 --attack-sim --flash
 rem   6. Xem toan bo danh sach cac flag ho tro:
 rem        run_system.bat --help
+rem
+rem Luu y: Huan luyen mo hinh Machine Learning da duoc tach rieng tai train.py:
+rem        python ml_engine/train.py --classifier decision_tree
 rem ==============================================================================
 
 setlocal enabledelayedexpansion

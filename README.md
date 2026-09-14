@@ -14,6 +14,8 @@ Hệ thống sử dụng bộ dữ liệu an ninh mạng công nghiệp chuẩn 
 ## 🌟 Tính Năng Nổi Bật
 
 - **Bắt gói tin biên (Edge Promiscuous Sniffing)**: ESP32 bắt trực tiếp các khung WiFi 802.11, trích xuất đặc trưng lưu lượng mạng thời gian thực mà không cần can thiệp hạ tầng mạng phức tạp.
+- **Bắn gói tin mạng thật (100% Real Socket Injection)**: Không dùng số liệu giả lập ảo. Module `attack_traffic_generator.py` mở socket thật bắn các luồng gói tin TCP SYN, UDP Flood, HTTP Probe, Exfiltration Data ra mạng thật. Cả Host Sniffer và ESP32 đều thực sự bắt được các gói tin này trong thực tế.
+- **Điều khiển trực tiếp On-Demand từ SOC Web Dashboard**: Khi kích hoạt `--attack-sim`, thanh Control Bar trên Dashboard cung cấp cụm nút bấm tương ứng các kịch bản mã độc, cho phép người dùng click chuột phát động tấn công thật ra mạng ngay tức thì và quan sát phản ứng của AI.
 - **Dữ liệu chuẩn Edge-IIoTset (Full 63 Features)**: Mô hình hỗ trợ học trên toàn bộ 61 đặc trưng lưu lượng mạng và phân loại chính xác 15 nhãn tấn công (DDoS UDP/TCP/HTTP/ICMP, SQL Injection, Ransomware, Port Scanning, Backdoor, Vulnerability Scanner, MITM, XSS...).
 - **Tối ưu hóa siêu tham số tự động (Optuna HPO)**:
   - Tích hợp Stratified $K$-Fold Cross-Validation (`--cv [N]`).
@@ -25,7 +27,7 @@ Hệ thống sử dụng bộ dữ liệu an ninh mạng công nghiệp chuẩn 
 - **TinyML On-Device Ready**: Công cụ chuyển đổi tự động xuất mã nguồn C Header (`tinyml_model.h`), cho phép nhúng trực tiếp cây quyết định vào ESP32 để suy luận 100% on-chip với thời gian thực thi $< 50\,\mu s$.
 - **Kiến trúc tách bạch (Zero-Training in Runtime)**: Phiên vận hành `run_system.py` thuần túy nạp các Artifacts đã được huấn luyện sẵn, khởi động tức thì, có cơ chế cảnh báo và hướng dẫn nếu thiếu Artifacts.
 - **SOC Web Dashboard Real-time**: Giao diện Cyberpunk Glassmorphism Dark Mode tuyệt đẹp, biểu đồ Chart.js cập nhật trực tiếp qua WebSocket.
-- **Đa dạng nguồn Telemetry (Multi-Probe)**: Hỗ trợ linh hoạt 3 nguồn dữ liệu: Bộ giả lập ESP32 Simulator, Host PC Sniffer (bắt card mạng thật của máy tính) hoặc phần cứng ESP32 thật qua WiFi/MQTT.
+- **Đa dạng nguồn Telemetry (Multi-Probe)**: Mặc định bắt card mạng thật từ máy tính (`--probe host`) hoặc phần cứng ESP32 thật qua WiFi/MQTT (`--probe esp32`).
 
 ---
 
@@ -34,43 +36,42 @@ Hệ thống sử dụng bộ dữ liệu an ninh mạng công nghiệp chuẩn 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                       NGUỒN DỮ LIỆU TELEMETRY (PROBES)                      │
-│   [ESP32 WiFi Sniffer]   │   [Host PC Sniffer]   │   [ESP32 Simulator]      │
+│   [ESP32 WiFi Promiscuous]               │   [Host PC Live Sniffer]         │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │ MQTT: edge/telemetry/traffic
                                        ▼
                       ┌─────────────────────────────────┐
-                      │ Mosquitto MQTT Broker (Port 1883)│
-                      └────────────────┬────────────────┘
-                                       │
-         ┌─────────────────────────────┴─────────────────────────────┐
-         ▼                                                           ▼
-┌───────────────────────────────┐       ┌────────────────────────────────────────────────┐
-│   ML REAL-TIME INFERENCE      │       │   MODULAR FASTAPI & WEBSOCKET BACKEND (8000)   │
-│  (Loads Pre-trained Artifacts)│       │ ┌────────────────────────────────────────────┐ │
-│ ┌───────────────────────────┐ │       │ │ MQTT Bridge -> WebSocket ConnectionManager │ │ │
-│ │ Preprocessor (Standardize)│ │       │ └─────────────────────┬──────────────────────┘ │
-│ └─────────────┬─────────────┘ │       │ ┌─────────────────────▼──────────────────────┐ │
-│ ┌─────────────▼─────────────┐ │       │ │ Routers: REST APIs (/api/*) & WS (/ws/*)   │ │
-│ │ Tier 1: Isolation Forest  │ │       │ └────────────────────────────────────────────┘ │
-│ └─────────────┬─────────────┘ │       └───────────────────────┬────────────────────────┘
-│ ┌─────────────▼─────────────┐ │                               │
-│ │ Tier 2: Attack Classifier │ │                               │
-│ └───────────────────────────┘ │                               │
-└───────────────┬───────────────┘                               │
-                │ MQTT: edge/telemetry/prediction               │
-                └───────────────────────────────────────────────┘
-                                │ WebSocket: /ws/telemetry
-                                ▼
-┌────────────────────────────────────────────────────────────────────────────────┐
-│            SOC WEB DASHBOARD (MODULAR COMPONENT-BASED FRONTEND)                │
-│ ┌───────────────────┐ ┌───────────────────┐ ┌────────────────────────────────┐ │
-│ │ Header & Audio    │ │ KPI Grid Cards    │ │ Interactive Control Bar        │ │
-│ └───────────────────┘ └───────────────────┘ └────────────────────────────────┘ │
-│ ┌───────────────────┐ ┌───────────────────┐ ┌────────────────────────────────┐ │
-│ │ Chart.js Analytics│ │ Dual AI Assessment│ │ Live Wireshark Flow Inspector  │ │
-│ └───────────────────┘ └───────────────────┘ └────────────────────────────────┘ │
-└────────────────────────────────────────────────────────────────────────────────┘
+                      │ Mosquitto MQTT Broker (Port 1883)│ ◄───┐
+                      └────────────────┬────────────────┘     │
+                                       │                      │ edge/attack/control
+         ┌─────────────────────────────┴──────────┐           │ (Lệnh phát động)
+         ▼                                        ▼           │
+┌───────────────────────────────┐  ┌───────────────────────────────┐  │
+│   ML REAL-TIME INFERENCE      │  │   MODULAR FASTAPI BACKEND     │──┘
+│  (Loads Pre-trained Artifacts)│  │ ┌───────────────────────────┐ │
+│ ┌───────────────────────────┐ │  │ │ REST API & WebSocket Br.  │ │
+│ │ Preprocessor (Standardize)│ │  │ └─────────────┬─────────────┘ │
+│ └─────────────┬─────────────┘ │  └───────────────┼───────────────┘
+│ ┌─────────────▼─────────────┐ │                  │ WebSocket
+│ │ Tier 1: Isolation Forest  │ │                  ▼
+│ └─────────────┬─────────────┘ │  ┌───────────────────────────────┐
+│ ┌─────────────▼─────────────┐ │  │   SOC WEB DASHBOARD (UI)      │
+│ │ Tier 2: Attack Classifier │ │  │ ┌───────────────────────────┐ │
+│ └───────────────────────────┘ │  │ │ Control Bar: Nút Bấm      │ │
+└───────────────┬───────────────┘  │ │ Kích Hoạt Tấn Công Thật   │ │
+                │                  │ └───────────────────────────┘ │
+                │                  └───────────────────────────────┘
+                │
+                │ MQTT: edge/attack/control
+                ▼
+┌────────────────────────────────────────────────────────┐
+│  ATTACK TRAFFIC GENERATOR (Module Bắn Gói Tin Thật)    │
+│  - Bắn Socket TCP SYN, UDP Flood, Vuln Probe ra mạng   │
+│  - Host Sniffer / ESP32 thật bắt được ngay trên mạng   │
+└────────────────────────────────────────────────────────┘
 ```
+
+---
 
 ### 🧩 Phân Tầng Kiến Trúc Decoupled (Decoupled Layering):
 1. **Telemetry Probes**: Tách biệt hoàn toàn phần cứng/giả lập khỏi hệ thống phân tích. Tất cả các probe (`esp32_simulator.py`, `host_sniffer.py`) là các module độc lập, được nạp trực tiếp qua `run_system.py`.
@@ -101,18 +102,28 @@ python ml_engine/train.py --classifier decision_tree
 
 ### 3. Khởi chạy toàn bộ hệ sinh thái chỉ bằng 1 lệnh duy nhất!
 
-Hệ thống hỗ trợ Entry Points trên mọi hệ điều hành:
+Hệ thống hỗ trợ Entry Points trên mọi hệ điều hành (**Windows, Linux, macOS, WSL**) với cơ chế **Zero-Config Wi-Fi**: Tự động nhận diện tên mạng Wi-Fi, mật khẩu và IP LAN của máy chủ ngầm để cấu hình cho thiết bị mà không cần nhập tay!
 
 - **Trên Windows (Command Prompt / PowerShell)**:
   ```cmd
   run_system.bat
   ```
+  *Hoặc 1-click tự động build & nạp code firmware cho ESP32 qua cổng USB:*
+  ```cmd
+  run_system.bat --probe esp32 --attack-sim --flash
+  ```
+
 - **Trên Linux / macOS / WSL**:
   ```bash
   chmod +x run_system.sh
   ./run_system.sh
   ```
-- **Hoặc chạy trực tiếp qua Python**:
+  *Hoặc nạp firmware ESP32 qua CLI trên Linux/macOS:*
+  ```bash
+  ./run_system.sh --probe esp32 --attack-sim --flash --port /dev/ttyUSB0
+  ```
+
+- **Hoặc khởi chạy trực tiếp qua Python**:
   ```bash
   python run_system.py
   ```
@@ -227,21 +238,59 @@ Phiên chạy `run_system.py` là trung tâm vận hành runtime của hệ sinh
 
 #### Cú pháp khởi chạy:
 ```bash
-# 1. Khởi chạy tiêu chuẩn (Mặc định dùng ESP32 Simulator tự đổi kịch bản demo):
+# 1. Khởi chạy tiêu chuẩn (Mặc định bắt luồng mạng thật của PC qua Host Sniffer):
 python run_system.py
 
-# 2. Khởi chạy bắt luồng mạng thật của máy tính (Live PC Network Sniffer):
-python run_system.py --probe host
+# 2. Khởi chạy KÈM BỘ BẮN GÓI TIN MẠNG THẬT (Điều khiển on-demand từ các nút bấm Web Dashboard):
+python run_system.py --attack-sim
 
-# 3. Khởi chạy đón dữ liệu từ bo mạch ESP32 thật qua WiFi/MQTT:
-python run_system.py --probe esp32
+# 3. Khởi chạy đón bo mạch ESP32 thật qua WiFi + BẮN GÓI TIN THẬT để ESP32 bắt over-the-air:
+python run_system.py --probe esp32 --attack-sim
 
-# 4. Tùy chỉnh ngưỡng cảnh báo Anomaly Score (mặc định 0.55):
+# 4. 1-Click Tự động build & nạp firmware ESP32 qua CLI (Không cần mở Arduino IDE):
+python run_system.py --probe esp32 --attack-sim --flash
+
+# 5. Chỉ định cổng Serial khi nạp ESP32 trên các hệ điều hành khác nhau:
+python run_system.py --flash --port COM4              # Windows
+python run_system.py --flash --port /dev/ttyUSB0      # Linux
+python run_system.py --flash --port /dev/cu.usbserial-0001 # macOS
+
+# 6. Tùy chọn chỉ định IP đích cụ thể để bắn gói tin độc hại:
+python run_system.py --attack-sim --attack-target 192.168.1.1
+
+# 7. Tùy chỉnh ngưỡng cảnh báo Anomaly Score (mặc định 0.55):
 python run_system.py --threshold 0.65
 
-# 5. Khởi chạy không tự động bật trình duyệt:
+# 8. Khởi chạy không tự động bật trình duyệt:
 python run_system.py --no-browser
 ```
+
+---
+
+## 📟 Đấu Nối Phần Cứng ESP32 & Màn Hình OLED SSD1306
+
+### Sơ đồ chân I2C & Cảnh báo ngoại vi:
+| Linh Kiện | Chân Module | Chân ESP32 (NodeMCU / WROOM) | Mô Tả Chức Năng |
+| :--- | :--- | :--- | :--- |
+| **OLED SSD1306** | **VDD / VCC** | **3.3V** (Dây Đỏ) | Nguồn cấp 3.3V cho IC điều khiển màn hình |
+| *(0.96" hoặc 0.91")* | **GND** | **GND** (Dây Đen) | Chân nối đất |
+| | **SCK / SCL** | **GPIO 23 (D23)** hoặc **GPIO 22 (D22)** (Dây Vàng) | Tín hiệu I2C Clock (firmware tự động quét cả D23 & D22) |
+| | **SDA** | **GPIO 21 (D21)** (Dây Xanh) | Tín hiệu I2C Data |
+| **Đèn LED Đỏ** | Anode (+) | **GPIO 4** (D4) qua trở 220Ω | Sáng rực rỡ khi phát hiện cuộc tấn công |
+| | Cathode (-) | **GND** | |
+| **Còi Buzzer** | VCC (+) | **GPIO 19** (D19) | Kêu ngắt quãng 25ms (chống sụt áp nguồn 3.3V) |
+| | GND (-) | **GND** | |
+
+> [!TIP]
+> **Khắc phục sự cố màn hình OLED không hiển thị (Màn hình tối đen):**
+> 1. **Kiểm tra dây nối**: 
+>    - Đỏ: `3V3` $\rightarrow$ `VDD`
+>    - Đen: `GND` $\rightarrow$ `GND`
+>    - Vàng: `D23` $\rightarrow$ `SCK` (Firmware đã cấu hình SCL tại GPIO 23 và hỗ trợ tự động quét cả D23 & D22)
+>    - Xanh: `D21` $\rightarrow$ `SDA`
+> 2. **Kiểm tra loại màn hình (128x64 vs 128x32)**: Nếu bạn dùng màn hình nhỏ **0.91 inch (128x32 pixels)**, hãy mở `firmware/esp32_probe/config.h` và đổi `#define SCREEN_HEIGHT 64` thành `#define SCREEN_HEIGHT 32` để tránh bị đen màn hình do sai chu kỳ quét multiplex!
+> 3. **Tính năng Auto-Recovery**: Firmware được trang bị bộ quét I2C tự động (0x3C/0x3D) và tự động thử kích hoạt lại màn hình mỗi 5 giây trong `loop()`, nên ngay cả khi bạn cắm dây màn hình sau khi ESP32 đã boot thì màn hình vẫn tự động sáng!
+> 4. Chi tiết xem thêm tại: [docs/ESP32_FLASHING_GUIDE.md](file:///d:/STT%202026/docs/ESP32_FLASHING_GUIDE.md).
 
 ---
 
@@ -271,16 +320,16 @@ python dashboard/backend/app.py
 ```
 Truy cập giao diện: `http://localhost:8000`
 
-### Bước 4: Chạy nguồn phát Telemetry
-- **Bộ giả lập ESP32 Simulator**:
-  ```bash
-  python firmware/simulator/esp32_simulator.py
-  ```
-- **Hoặc bắt lưu lượng thật từ card mạng máy tính (Host Sniffer)**:
+### Bước 4: Chạy nguồn phát Telemetry & Bộ bắn gói tin độc hại
+- **Bắt lưu lượng mạng thật từ card mạng máy tính (Host Sniffer)**:
   ```bash
   python firmware/host_probe/host_sniffer.py
   ```
-- **Hoặc bo mạch ESP32 vật lý**:
+- **Phát động các đợt tấn công mạng thật qua socket (Attack Traffic Generator)**:
+  ```bash
+  python firmware/simulator/attack_traffic_generator.py
+  ```
+- **Hoặc bo mạch ESP32 vật lý (Promiscuous Mode)**:
   Xem hướng dẫn nạp code tại: [docs/ESP32_FLASHING_GUIDE.md](file:///d:/STT%202026/docs/ESP32_FLASHING_GUIDE.md)
 
 ---
@@ -297,7 +346,7 @@ d:\STT 2026\
 │   ├── host_probe\
 │   │   └── host_sniffer.py            # Bắt lưu lượng mạng thật từ máy tính (Module cho run_system)
 │   └── simulator\
-│       └── esp32_simulator.py         # Giả lập phát traffic đa kịch bản (Module cho run_system)
+│       └── attack_traffic_generator.py # Module duy nhất bắn gói tin mạng thật (Raw Socket, điều khiển từ Web UI)
 ├── broker\
 │   ├── mosquitto.conf                 # Cấu hình chuẩn Eclipse Mosquitto
 │   ├── docker-compose.yml             # Chạy Mosquitto nhanh bằng Docker
