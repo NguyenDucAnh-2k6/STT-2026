@@ -103,608 +103,134 @@ static inline int tinyml_predict_anomaly(
 ) {
     if (!features || !out_class_idx || !out_anomaly_score) return -1;
 
-        if (features[31] <= -0.28199f) { // udp.stream <= -0.28
-            if (features[3] <= -0.25989f) { // icmp.seq_le <= -0.26
-                if (features[7] <= -0.14893f) { // http.content_length <= -0.15
-                    if (features[27] <= 2.18737f) { // tcp.payload <= 2.19
-                        if (features[22] <= -0.66543f) { // tcp.dstport <= -0.67
-                            if (features[15] <= 1.35186f) { // tcp.ack <= 1.35
-                                if (features[29] <= 1.50519f) { // tcp.srcport <= 1.51
-                                    if (features[29] <= 0.51110f) { // tcp.srcport <= 0.51
-                                        if (features[29] <= 0.43174f) { // tcp.srcport <= 0.43
-                                            if (features[2] <= -0.24387f) { // icmp.checksum <= -0.24
-                                                if (features[27] <= -0.21992f) { // tcp.payload <= -0.22
-                                                    if (features[0] <= 3.20773f) { // arp.opcode <= 3.21
-                                                        if (features[22] <= -0.68695f) { // tcp.dstport <= -0.69
-                                                            if (features[19] <= 1.37107f) { // tcp.connection.rst <= 1.37
-                                                                if (features[32] <= 5.12979f) { // udp.time_delta <= 5.13
-                                                                    *out_class_idx = 6; // MITM
-                                                                    *out_anomaly_score = 0.6455f;
+        if (features[31] <= -0.28183f) { // udp.stream <= -0.28
+            if (features[3] <= -0.25925f) { // icmp.seq_le <= -0.26
+                if (features[7] <= -0.14850f) { // http.content_length <= -0.15
+                    if (features[27] <= 2.14057f) { // tcp.payload <= 2.14
+                        if (features[22] <= -0.66718f) { // tcp.dstport <= -0.67
+                            if (features[15] <= 1.37340f) { // tcp.ack <= 1.37
+                                if (features[29] <= 1.51053f) { // tcp.srcport <= 1.51
+                                    if (features[29] <= 0.51294f) { // tcp.srcport <= 0.51
+                                        if (features[29] <= 0.44648f) { // tcp.srcport <= 0.45
+                                            if (features[29] <= -0.23746f) { // tcp.srcport <= -0.24
+                                                if (features[2] <= -0.07487f) { // icmp.checksum <= -0.07
+                                                    if (features[30] <= 7.18493f) { // udp.port <= 7.18
+                                                        if (features[0] <= 4.12989f) { // arp.opcode <= 4.13
+                                                            if (features[16] <= -0.45464f) { // tcp.ack_raw <= -0.45
+                                                                *out_class_idx = 10; // Ransomware
+                                                                *out_anomaly_score = 0.6461f;
+                                                                return 1;
+                                                            } else {
+                                                                if (features[15] <= -0.37972f) { // tcp.ack <= -0.38
+                                                                    *out_class_idx = 9; // Port_Scanning
+                                                                    *out_anomaly_score = 1.0000f;
                                                                     return 1;
                                                                 } else {
-                                                                    *out_class_idx = 7; // Normal
+                                                                    *out_class_idx = 3; // DDoS_TCP
                                                                     *out_anomaly_score = 1.0000f;
                                                                     return 1;
                                                                 }
-                                                            } else {
-                                                                *out_class_idx = 3; // DDoS_TCP
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
                                                             }
                                                         } else {
-                                                            if (features[15] <= -0.38214f) { // tcp.ack <= -0.38
+                                                            if (features[0] <= 12.54794f) { // arp.opcode <= 12.55
                                                                 *out_class_idx = 9; // Port_Scanning
-                                                                *out_anomaly_score = 1.0000f;
+                                                                *out_anomaly_score = 0.7826f;
                                                                 return 1;
                                                             } else {
-                                                                *out_class_idx = 3; // DDoS_TCP
-                                                                *out_anomaly_score = 1.0000f;
+                                                                *out_class_idx = 9; // Port_Scanning
+                                                                *out_anomaly_score = 0.7917f;
                                                                 return 1;
                                                             }
                                                         }
                                                     } else {
-                                                        if (features[0] <= 9.81162f) { // arp.opcode <= 9.81
-                                                            *out_class_idx = 9; // Port_Scanning
-                                                            *out_anomaly_score = 0.7654f;
-                                                            return 1;
-                                                        } else {
-                                                            *out_class_idx = 9; // Port_Scanning
-                                                            *out_anomaly_score = 0.7105f;
-                                                            return 1;
-                                                        }
+                                                        *out_class_idx = 6; // MITM
+                                                        *out_anomaly_score = 1.0000f;
+                                                        return 1;
                                                     }
                                                 } else {
-                                                    *out_class_idx = 6; // MITM
-                                                    *out_anomaly_score = 1.0000f;
-                                                    return 1;
-                                                }
-                                            } else {
-                                                if (features[3] <= -0.28139f) { // icmp.seq_le <= -0.28
-                                                    *out_class_idx = 5; // Fingerprinting
-                                                    *out_anomaly_score = 1.0000f;
-                                                    return 1;
-                                                } else {
-                                                    if (features[3] <= -0.26253f) { // icmp.seq_le <= -0.26
-                                                        *out_class_idx = 2; // DDoS_ICMP
+                                                    if (features[2] <= 4.35677f) { // icmp.checksum <= 4.36
+                                                        *out_class_idx = 5; // Fingerprinting
                                                         *out_anomaly_score = 1.0000f;
                                                         return 1;
                                                     } else {
                                                         *out_class_idx = 5; // Fingerprinting
-                                                        *out_anomaly_score = 1.0000f;
+                                                        *out_anomaly_score = 0.8333f;
                                                         return 1;
                                                     }
                                                 }
-                                            }
-                                        } else {
-                                            if (features[28] <= -0.26832f) { // tcp.seq <= -0.27
-                                                if (features[29] <= 0.44451f) { // tcp.srcport <= 0.44
-                                                    if (features[15] <= -0.38137f) { // tcp.ack <= -0.38
-                                                        if (features[28] <= -0.26909f) { // tcp.seq <= -0.27
-                                                            if (features[25] <= -0.01963f) { // tcp.len <= -0.02
-                                                                if (features[17] <= 1.63094f) { // tcp.checksum <= 1.63
-                                                                    if (features[29] <= 0.43583f) { // tcp.srcport <= 0.44
-                                                                        *out_class_idx = 14; // XSS
-                                                                        *out_anomaly_score = 0.7708f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 14; // XSS
-                                                                        *out_anomaly_score = 0.9082f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    *out_class_idx = 12; // Uploading
-                                                                    *out_anomaly_score = 0.8333f;
-                                                                    return 1;
-                                                                }
-                                                            } else {
-                                                                if (features[25] <= -0.01364f) { // tcp.len <= -0.01
-                                                                    *out_class_idx = 12; // Uploading
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                } else {
-                                                                    *out_class_idx = 1; // DDoS_HTTP
-                                                                    *out_anomaly_score = 0.7500f;
-                                                                    return 1;
-                                                                }
-                                                            }
-                                                        } else {
-                                                            *out_class_idx = 12; // Uploading
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        }
-                                                    } else {
-                                                        if (features[15] <= -0.37866f) { // tcp.ack <= -0.38
+                                            } else {
+                                                if (features[28] <= -0.28183f) { // tcp.seq <= -0.28
+                                                    if (features[17] <= 1.66148f) { // tcp.checksum <= 1.66
+                                                        if (features[28] <= -0.28242f) { // tcp.seq <= -0.28
                                                             *out_class_idx = 14; // XSS
                                                             *out_anomaly_score = 1.0000f;
                                                             return 1;
                                                         } else {
-                                                            *out_class_idx = 8; // Password
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        }
-                                                    }
-                                                } else {
-                                                    if (features[20] <= 1.11931f) { // tcp.connection.syn <= 1.12
-                                                        if (features[25] <= 0.08894f) { // tcp.len <= 0.09
-                                                            if (features[15] <= -0.38160f) { // tcp.ack <= -0.38
-                                                                if (features[25] <= 0.02492f) { // tcp.len <= 0.02
-                                                                    if (features[28] <= -0.26933f) { // tcp.seq <= -0.27
-                                                                        *out_class_idx = 12; // Uploading
-                                                                        *out_anomaly_score = 0.9267f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 12; // Uploading
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    *out_class_idx = 8; // Password
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                }
-                                                            } else {
-                                                                *out_class_idx = 8; // Password
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
-                                                            }
-                                                        } else {
-                                                            *out_class_idx = 1; // DDoS_HTTP
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        }
-                                                    } else {
-                                                        if (features[29] <= 0.45638f) { // tcp.srcport <= 0.46
-                                                            if (features[17] <= -0.71714f) { // tcp.checksum <= -0.72
-                                                                *out_class_idx = 1; // DDoS_HTTP
+                                                            if (features[15] <= -0.37839f) { // tcp.ack <= -0.38
+                                                                *out_class_idx = 12; // Uploading
                                                                 *out_anomaly_score = 0.7500f;
                                                                 return 1;
                                                             } else {
-                                                                if (features[29] <= 0.44889f) { // tcp.srcport <= 0.45
-                                                                    *out_class_idx = 12; // Uploading
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                } else {
-                                                                    if (features[29] <= 0.45032f) { // tcp.srcport <= 0.45
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.8333f;
+                                                                *out_class_idx = 14; // XSS
+                                                                *out_anomaly_score = 1.0000f;
+                                                                return 1;
+                                                            }
+                                                        }
+                                                    } else {
+                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                        *out_anomaly_score = 0.7500f;
+                                                        return 1;
+                                                    }
+                                                } else {
+                                                    *out_class_idx = 1; // DDoS_HTTP
+                                                    *out_anomaly_score = 1.0000f;
+                                                    return 1;
+                                                }
+                                            }
+                                        } else {
+                                            if (features[28] <= -0.28179f) { // tcp.seq <= -0.28
+                                                if (features[25] <= 0.04150f) { // tcp.len <= 0.04
+                                                    if (features[24] <= -0.29529f) { // tcp.flags.ack <= -0.30
+                                                        if (features[29] <= 0.46151f) { // tcp.srcport <= 0.46
+                                                            *out_class_idx = 12; // Uploading
+                                                            *out_anomaly_score = 1.0000f;
+                                                            return 1;
+                                                        } else {
+                                                            *out_class_idx = 1; // DDoS_HTTP
+                                                            *out_anomaly_score = 0.8000f;
+                                                            return 1;
+                                                        }
+                                                    } else {
+                                                        if (features[17] <= 0.54240f) { // tcp.checksum <= 0.54
+                                                            if (features[17] <= 0.40187f) { // tcp.checksum <= 0.40
+                                                                if (features[17] <= -0.06401f) { // tcp.checksum <= -0.06
+                                                                    if (features[29] <= 0.49544f) { // tcp.srcport <= 0.50
+                                                                        *out_class_idx = 12; // Uploading
+                                                                        *out_anomaly_score = 1.0000f;
                                                                         return 1;
                                                                     } else {
                                                                         *out_class_idx = 12; // Uploading
                                                                         *out_anomaly_score = 0.8750f;
                                                                         return 1;
                                                                     }
-                                                                }
-                                                            }
-                                                        } else {
-                                                            if (features[29] <= 0.50198f) { // tcp.srcport <= 0.50
-                                                                if (features[29] <= 0.48642f) { // tcp.srcport <= 0.49
-                                                                    if (features[29] <= 0.47115f) { // tcp.srcport <= 0.47
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.8529f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 12; // Uploading
-                                                                        *out_anomaly_score = 0.7778f;
-                                                                        return 1;
-                                                                    }
                                                                 } else {
-                                                                    if (features[17] <= -1.03699f) { // tcp.checksum <= -1.04
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.7500f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.8889f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                if (features[29] <= 0.50496f) { // tcp.srcport <= 0.50
-                                                                    *out_class_idx = 8; // Password
-                                                                    *out_anomaly_score = 0.8333f;
-                                                                    return 1;
-                                                                } else {
-                                                                    if (features[17] <= 0.06137f) { // tcp.checksum <= 0.06
-                                                                        *out_class_idx = 12; // Uploading
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                                    if (features[17] <= 0.11395f) { // tcp.checksum <= 0.11
+                                                                        *out_class_idx = 8; // Password
                                                                         *out_anomaly_score = 0.8333f;
                                                                         return 1;
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            } else {
-                                                *out_class_idx = 1; // DDoS_HTTP
-                                                *out_anomaly_score = 1.0000f;
-                                                return 1;
-                                            }
-                                        }
-                                    } else {
-                                        if (features[29] <= 0.96501f) { // tcp.srcport <= 0.97
-                                            if (features[15] <= -0.38124f) { // tcp.ack <= -0.38
-                                                if (features[28] <= -0.26832f) { // tcp.seq <= -0.27
-                                                    if (features[25] <= 0.13687f) { // tcp.len <= 0.14
-                                                        if (features[28] <= -0.26958f) { // tcp.seq <= -0.27
-                                                            if (features[28] <= -0.26958f) { // tcp.seq <= -0.27
-                                                                if (features[29] <= 0.60644f) { // tcp.srcport <= 0.61
-                                                                    if (features[17] <= 1.53258f) { // tcp.checksum <= 1.53
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.9426f;
-                                                                        return 1;
                                                                     } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.7778f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    if (features[17] <= -1.19131f) { // tcp.checksum <= -1.19
-                                                                        *out_class_idx = 11; // SQL_injection
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.7484f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                if (features[25] <= 0.08894f) { // tcp.len <= 0.09
-                                                                    if (features[23] <= 0.41177f) { // tcp.flags <= 0.41
-                                                                        *out_class_idx = 11; // SQL_injection
-                                                                        *out_anomaly_score = 0.8261f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    if (features[25] <= 0.11290f) { // tcp.len <= 0.11
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.7500f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            }
-                                                        } else {
-                                                            if (features[28] <= -0.26937f) { // tcp.seq <= -0.27
-                                                                if (features[17] <= -0.17708f) { // tcp.checksum <= -0.18
-                                                                    if (features[17] <= -0.20580f) { // tcp.checksum <= -0.21
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.7500f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    *out_class_idx = 8; // Password
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                }
-                                                            } else {
-                                                                *out_class_idx = 8; // Password
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
-                                                            }
-                                                        }
-                                                    } else {
-                                                        if (features[29] <= 0.60840f) { // tcp.srcport <= 0.61
-                                                            *out_class_idx = 1; // DDoS_HTTP
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        } else {
-                                                            if (features[25] <= 0.14061f) { // tcp.len <= 0.14
-                                                                if (features[29] <= 0.83783f) { // tcp.srcport <= 0.84
-                                                                    *out_class_idx = 11; // SQL_injection
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                } else {
-                                                                    if (features[29] <= 0.86513f) { // tcp.srcport <= 0.87
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 11; // SQL_injection
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                *out_class_idx = 11; // SQL_injection
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
-                                                            }
-                                                        }
-                                                    }
-                                                } else {
-                                                    if (features[19] <= 1.37107f) { // tcp.connection.rst <= 1.37
-                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                        *out_anomaly_score = 1.0000f;
-                                                        return 1;
-                                                    } else {
-                                                        if (features[28] <= -0.26636f) { // tcp.seq <= -0.27
-                                                            if (features[28] <= -0.26655f) { // tcp.seq <= -0.27
-                                                                *out_class_idx = 11; // SQL_injection
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
-                                                            } else {
-                                                                *out_class_idx = 11; // SQL_injection
-                                                                *out_anomaly_score = 0.8333f;
-                                                                return 1;
-                                                            }
-                                                        } else {
-                                                            *out_class_idx = 1; // DDoS_HTTP
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        }
-                                                    }
-                                                }
-                                            } else {
-                                                if (features[15] <= -0.38076f) { // tcp.ack <= -0.38
-                                                    *out_class_idx = 11; // SQL_injection
-                                                    *out_anomaly_score = 1.0000f;
-                                                    return 1;
-                                                } else {
-                                                    if (features[28] <= -0.26786f) { // tcp.seq <= -0.27
-                                                        *out_class_idx = 8; // Password
-                                                        *out_anomaly_score = 1.0000f;
-                                                        return 1;
-                                                    } else {
-                                                        if (features[22] <= -0.73207f) { // tcp.dstport <= -0.73
-                                                            *out_class_idx = 1; // DDoS_HTTP
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        } else {
-                                                            *out_class_idx = 13; // Vulnerability_scanner
-                                                            *out_anomaly_score = 0.7500f;
-                                                            return 1;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        } else {
-                                            if (features[15] <= -0.38233f) { // tcp.ack <= -0.38
-                                                if (features[28] <= -0.26953f) { // tcp.seq <= -0.27
-                                                    if (features[25] <= 0.08894f) { // tcp.len <= 0.09
-                                                        if (features[24] <= -0.28266f) { // tcp.flags.ack <= -0.28
-                                                            if (features[29] <= 1.37769f) { // tcp.srcport <= 1.38
-                                                                if (features[29] <= 1.13529f) { // tcp.srcport <= 1.14
-                                                                    if (features[29] <= 1.07434f) { // tcp.srcport <= 1.07
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.8735f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.7941f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    if (features[29] <= 1.18592f) { // tcp.srcport <= 1.19
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.7500f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.9839f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                if (features[29] <= 1.50220f) { // tcp.srcport <= 1.50
-                                                                    if (features[29] <= 1.47597f) { // tcp.srcport <= 1.48
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.8839f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.9412f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    *out_class_idx = 12; // Uploading
-                                                                    *out_anomaly_score = 0.9000f;
-                                                                    return 1;
-                                                                }
-                                                            }
-                                                        } else {
-                                                            if (features[29] <= 1.48620f) { // tcp.srcport <= 1.49
-                                                                if (features[29] <= 1.18666f) { // tcp.srcport <= 1.19
-                                                                    if (features[29] <= 1.06787f) { // tcp.srcport <= 1.07
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.9565f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.7593f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    if (features[29] <= 1.32701f) { // tcp.srcport <= 1.33
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.9886f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.8605f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                if (features[29] <= 1.50028f) { // tcp.srcport <= 1.50
-                                                                    *out_class_idx = 1; // DDoS_HTTP
-                                                                    *out_anomaly_score = 0.8750f;
-                                                                    return 1;
-                                                                } else {
-                                                                    *out_class_idx = 12; // Uploading
-                                                                    *out_anomaly_score = 0.9000f;
-                                                                    return 1;
-                                                                }
-                                                            }
-                                                        }
-                                                    } else {
-                                                        if (features[25] <= 0.26454f) { // tcp.len <= 0.26
-                                                            *out_class_idx = 1; // DDoS_HTTP
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        } else {
-                                                            *out_class_idx = 1; // DDoS_HTTP
-                                                            *out_anomaly_score = 0.7500f;
-                                                            return 1;
-                                                        }
-                                                    }
-                                                } else {
-                                                    if (features[24] <= -0.28266f) { // tcp.flags.ack <= -0.28
-                                                        if (features[29] <= 1.08932f) { // tcp.srcport <= 1.09
-                                                            if (features[28] <= -0.26766f) { // tcp.seq <= -0.27
-                                                                *out_class_idx = 13; // Vulnerability_scanner
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
-                                                            } else {
-                                                                *out_class_idx = 1; // DDoS_HTTP
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
-                                                            }
-                                                        } else {
-                                                            if (features[29] <= 1.26971f) { // tcp.srcport <= 1.27
-                                                                *out_class_idx = 13; // Vulnerability_scanner
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
-                                                            } else {
-                                                                *out_class_idx = 8; // Password
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
-                                                            }
-                                                        }
-                                                    } else {
-                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                        *out_anomaly_score = 1.0000f;
-                                                        return 1;
-                                                    }
-                                                }
-                                            } else {
-                                                if (features[28] <= -0.26835f) { // tcp.seq <= -0.27
-                                                    if (features[29] <= 1.50016f) { // tcp.srcport <= 1.50
-                                                        if (features[22] <= -0.73084f) { // tcp.dstport <= -0.73
-                                                            if (features[25] <= -0.04247f) { // tcp.len <= -0.04
-                                                                if (features[15] <= -0.37915f) { // tcp.ack <= -0.38
-                                                                    if (features[15] <= -0.38104f) { // tcp.ack <= -0.38
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 13; // Vulnerability_scanner
-                                                                        *out_anomaly_score = 0.7917f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    *out_class_idx = 8; // Password
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                }
-                                                            } else {
-                                                                *out_class_idx = 13; // Vulnerability_scanner
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
-                                                            }
-                                                        } else {
-                                                            *out_class_idx = 7; // Normal
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        }
-                                                    } else {
-                                                        if (features[29] <= 1.50487f) { // tcp.srcport <= 1.50
-                                                            *out_class_idx = 12; // Uploading
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        } else {
-                                                            *out_class_idx = 8; // Password
-                                                            *out_anomaly_score = 0.7500f;
-                                                            return 1;
-                                                        }
-                                                    }
-                                                } else {
-                                                    if (features[29] <= 1.22255f) { // tcp.srcport <= 1.22
-                                                        *out_class_idx = 13; // Vulnerability_scanner
-                                                        *out_anomaly_score = 1.0000f;
-                                                        return 1;
-                                                    } else {
-                                                        if (features[22] <= -0.73207f) { // tcp.dstport <= -0.73
-                                                            *out_class_idx = 1; // DDoS_HTTP
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        } else {
-                                                            *out_class_idx = 14; // XSS
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    if (features[15] <= -0.38112f) { // tcp.ack <= -0.38
-                                        if (features[15] <= -0.38209f) { // tcp.ack <= -0.38
-                                            if (features[28] <= -0.26845f) { // tcp.seq <= -0.27
-                                                if (features[25] <= 0.05562f) { // tcp.len <= 0.06
-                                                    if (features[25] <= -0.01963f) { // tcp.len <= -0.02
-                                                        if (features[25] <= -0.02750f) { // tcp.len <= -0.03
-                                                            if (features[15] <= -0.38233f) { // tcp.ack <= -0.38
-                                                                if (features[23] <= -1.03437f) { // tcp.flags <= -1.03
-                                                                    if (features[29] <= 1.50573f) { // tcp.srcport <= 1.51
                                                                         *out_class_idx = 12; // Uploading
                                                                         *out_anomaly_score = 1.0000f;
                                                                         return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 14; // XSS
-                                                                        *out_anomaly_score = 0.7729f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    if (features[23] <= 0.41177f) { // tcp.flags <= 0.41
-                                                                        *out_class_idx = 14; // XSS
-                                                                        *out_anomaly_score = 0.8309f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 5; // Fingerprinting
-                                                                        *out_anomaly_score = 0.7500f;
-                                                                        return 1;
                                                                     }
                                                                 }
                                                             } else {
-                                                                if (features[29] <= 1.52271f) { // tcp.srcport <= 1.52
-                                                                    *out_class_idx = 8; // Password
-                                                                    *out_anomaly_score = 0.7500f;
-                                                                    return 1;
-                                                                } else {
-                                                                    *out_class_idx = 8; // Password
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                }
+                                                                *out_class_idx = 8; // Password
+                                                                *out_anomaly_score = 0.7500f;
+                                                                return 1;
                                                             }
                                                         } else {
-                                                            *out_class_idx = 14; // XSS
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        }
-                                                    } else {
-                                                        if (features[25] <= -0.01514f) { // tcp.len <= -0.02
                                                             *out_class_idx = 12; // Uploading
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        } else {
-                                                            *out_class_idx = 14; // XSS
                                                             *out_anomaly_score = 1.0000f;
                                                             return 1;
                                                         }
@@ -719,8 +245,296 @@ static inline int tinyml_predict_anomaly(
                                                 *out_anomaly_score = 1.0000f;
                                                 return 1;
                                             }
+                                        }
+                                    } else {
+                                        if (features[29] <= 0.96858f) { // tcp.srcport <= 0.97
+                                            if (features[15] <= -0.37671f) { // tcp.ack <= -0.38
+                                                if (features[15] <= -0.37881f) { // tcp.ack <= -0.38
+                                                    if (features[25] <= 0.11683f) { // tcp.len <= 0.12
+                                                        if (features[25] <= -0.09870f) { // tcp.len <= -0.10
+                                                            if (features[23] <= -0.29538f) { // tcp.flags <= -0.30
+                                                                if (features[29] <= 0.79101f) { // tcp.srcport <= 0.79
+                                                                    if (features[29] <= 0.68808f) { // tcp.srcport <= 0.69
+                                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                                        *out_anomaly_score = 0.8103f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                                        *out_anomaly_score = 0.9667f;
+                                                                        return 1;
+                                                                    }
+                                                                } else {
+                                                                    if (features[29] <= 0.89489f) { // tcp.srcport <= 0.89
+                                                                        *out_class_idx = 11; // SQL_injection
+                                                                        *out_anomaly_score = 0.8200f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                                        *out_anomaly_score = 0.7407f;
+                                                                        return 1;
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                if (features[28] <= -0.28288f) { // tcp.seq <= -0.28
+                                                                    if (features[23] <= 0.40234f) { // tcp.flags <= 0.40
+                                                                        *out_class_idx = 11; // SQL_injection
+                                                                        *out_anomaly_score = 0.8068f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 8; // Password
+                                                                        *out_anomaly_score = 1.0000f;
+                                                                        return 1;
+                                                                    }
+                                                                } else {
+                                                                    if (features[29] <= 0.72074f) { // tcp.srcport <= 0.72
+                                                                        *out_class_idx = 8; // Password
+                                                                        *out_anomaly_score = 0.8750f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 8; // Password
+                                                                        *out_anomaly_score = 1.0000f;
+                                                                        return 1;
+                                                                    }
+                                                                }
+                                                            }
+                                                        } else {
+                                                            if (features[25] <= -0.05209f) { // tcp.len <= -0.05
+                                                                *out_class_idx = 1; // DDoS_HTTP
+                                                                *out_anomaly_score = 1.0000f;
+                                                                return 1;
+                                                            } else {
+                                                                if (features[25] <= 0.08401f) { // tcp.len <= 0.08
+                                                                    *out_class_idx = 8; // Password
+                                                                    *out_anomaly_score = 1.0000f;
+                                                                    return 1;
+                                                                } else {
+                                                                    *out_class_idx = 1; // DDoS_HTTP
+                                                                    *out_anomaly_score = 1.0000f;
+                                                                    return 1;
+                                                                }
+                                                            }
+                                                        }
+                                                    } else {
+                                                        if (features[25] <= 0.13323f) { // tcp.len <= 0.13
+                                                            if (features[17] <= 0.34687f) { // tcp.checksum <= 0.35
+                                                                *out_class_idx = 1; // DDoS_HTTP
+                                                                *out_anomaly_score = 0.7500f;
+                                                                return 1;
+                                                            } else {
+                                                                *out_class_idx = 11; // SQL_injection
+                                                                *out_anomaly_score = 1.0000f;
+                                                                return 1;
+                                                            }
+                                                        } else {
+                                                            *out_class_idx = 11; // SQL_injection
+                                                            *out_anomaly_score = 1.0000f;
+                                                            return 1;
+                                                        }
+                                                    }
+                                                } else {
+                                                    if (features[28] <= -0.27911f) { // tcp.seq <= -0.28
+                                                        *out_class_idx = 11; // SQL_injection
+                                                        *out_anomaly_score = 1.0000f;
+                                                        return 1;
+                                                    } else {
+                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                        *out_anomaly_score = 1.0000f;
+                                                        return 1;
+                                                    }
+                                                }
+                                            } else {
+                                                *out_class_idx = 8; // Password
+                                                *out_anomaly_score = 1.0000f;
+                                                return 1;
+                                            }
                                         } else {
-                                            if (features[15] <= -0.38160f) { // tcp.ack <= -0.38
+                                            if (features[15] <= -0.37280f) { // tcp.ack <= -0.37
+                                                if (features[15] <= -0.37992f) { // tcp.ack <= -0.38
+                                                    if (features[28] <= -0.28263f) { // tcp.seq <= -0.28
+                                                        if (features[29] <= 1.47923f) { // tcp.srcport <= 1.48
+                                                            if (features[29] <= 1.18139f) { // tcp.srcport <= 1.18
+                                                                if (features[29] <= 1.07681f) { // tcp.srcport <= 1.08
+                                                                    if (features[29] <= 1.05956f) { // tcp.srcport <= 1.06
+                                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                                        *out_anomaly_score = 0.7647f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                                        *out_anomaly_score = 1.0000f;
+                                                                        return 1;
+                                                                    }
+                                                                } else {
+                                                                    if (features[17] <= 1.55286f) { // tcp.checksum <= 1.55
+                                                                        *out_class_idx = 8; // Password
+                                                                        *out_anomaly_score = 0.6842f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 13; // Vulnerability_scanner
+                                                                        *out_anomaly_score = 1.0000f;
+                                                                        return 1;
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                if (features[29] <= 1.36746f) { // tcp.srcport <= 1.37
+                                                                    *out_class_idx = 8; // Password
+                                                                    *out_anomaly_score = 1.0000f;
+                                                                    return 1;
+                                                                } else {
+                                                                    if (features[29] <= 1.39083f) { // tcp.srcport <= 1.39
+                                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                                        *out_anomaly_score = 1.0000f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 8; // Password
+                                                                        *out_anomaly_score = 0.8000f;
+                                                                        return 1;
+                                                                    }
+                                                                }
+                                                            }
+                                                        } else {
+                                                            if (features[29] <= 1.50646f) { // tcp.srcport <= 1.51
+                                                                *out_class_idx = 1; // DDoS_HTTP
+                                                                *out_anomaly_score = 1.0000f;
+                                                                return 1;
+                                                            } else {
+                                                                *out_class_idx = 12; // Uploading
+                                                                *out_anomaly_score = 0.8333f;
+                                                                return 1;
+                                                            }
+                                                        }
+                                                    } else {
+                                                        if (features[23] <= -0.29538f) { // tcp.flags <= -0.30
+                                                            *out_class_idx = 1; // DDoS_HTTP
+                                                            *out_anomaly_score = 0.8000f;
+                                                            return 1;
+                                                        } else {
+                                                            *out_class_idx = 1; // DDoS_HTTP
+                                                            *out_anomaly_score = 1.0000f;
+                                                            return 1;
+                                                        }
+                                                    }
+                                                } else {
+                                                    if (features[28] <= -0.28170f) { // tcp.seq <= -0.28
+                                                        if (features[29] <= 1.48699f) { // tcp.srcport <= 1.49
+                                                            if (features[17] <= 1.43528f) { // tcp.checksum <= 1.44
+                                                                *out_class_idx = 8; // Password
+                                                                *out_anomaly_score = 1.0000f;
+                                                                return 1;
+                                                            } else {
+                                                                *out_class_idx = 1; // DDoS_HTTP
+                                                                *out_anomaly_score = 0.7500f;
+                                                                return 1;
+                                                            }
+                                                        } else {
+                                                            *out_class_idx = 8; // Password
+                                                            *out_anomaly_score = 0.7500f;
+                                                            return 1;
+                                                        }
+                                                    } else {
+                                                        if (features[29] <= 1.21495f) { // tcp.srcport <= 1.21
+                                                            *out_class_idx = 13; // Vulnerability_scanner
+                                                            *out_anomaly_score = 1.0000f;
+                                                            return 1;
+                                                        } else {
+                                                            *out_class_idx = 1; // DDoS_HTTP
+                                                            *out_anomaly_score = 0.9000f;
+                                                            return 1;
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                *out_class_idx = 13; // Vulnerability_scanner
+                                                *out_anomaly_score = 1.0000f;
+                                                return 1;
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    if (features[15] <= -0.37869f) { // tcp.ack <= -0.38
+                                        if (features[15] <= -0.37967f) { // tcp.ack <= -0.38
+                                            if (features[28] <= -0.28184f) { // tcp.seq <= -0.28
+                                                if (features[25] <= -0.02413f) { // tcp.len <= -0.02
+                                                    if (features[20] <= 1.12293f) { // tcp.connection.syn <= 1.12
+                                                        if (features[25] <= -0.03196f) { // tcp.len <= -0.03
+                                                            if (features[23] <= 0.61702f) { // tcp.flags <= 0.62
+                                                                if (features[28] <= -0.28288f) { // tcp.seq <= -0.28
+                                                                    if (features[17] <= 0.39132f) { // tcp.checksum <= 0.39
+                                                                        *out_class_idx = 14; // XSS
+                                                                        *out_anomaly_score = 0.8056f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 14; // XSS
+                                                                        *out_anomaly_score = 0.9062f;
+                                                                        return 1;
+                                                                    }
+                                                                } else {
+                                                                    *out_class_idx = 8; // Password
+                                                                    *out_anomaly_score = 0.8333f;
+                                                                    return 1;
+                                                                }
+                                                            } else {
+                                                                *out_class_idx = 5; // Fingerprinting
+                                                                *out_anomaly_score = 0.7500f;
+                                                                return 1;
+                                                            }
+                                                        } else {
+                                                            *out_class_idx = 14; // XSS
+                                                            *out_anomaly_score = 1.0000f;
+                                                            return 1;
+                                                        }
+                                                    } else {
+                                                        if (features[29] <= 1.51981f) { // tcp.srcport <= 1.52
+                                                            *out_class_idx = 12; // Uploading
+                                                            *out_anomaly_score = 0.8000f;
+                                                            return 1;
+                                                        } else {
+                                                            if (features[17] <= 1.55926f) { // tcp.checksum <= 1.56
+                                                                if (features[17] <= -0.84715f) { // tcp.checksum <= -0.85
+                                                                    if (features[29] <= 1.54712f) { // tcp.srcport <= 1.55
+                                                                        *out_class_idx = 14; // XSS
+                                                                        *out_anomaly_score = 0.8333f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 14; // XSS
+                                                                        *out_anomaly_score = 1.0000f;
+                                                                        return 1;
+                                                                    }
+                                                                } else {
+                                                                    if (features[29] <= 1.58068f) { // tcp.srcport <= 1.58
+                                                                        *out_class_idx = 14; // XSS
+                                                                        *out_anomaly_score = 0.7250f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 14; // XSS
+                                                                        *out_anomaly_score = 1.0000f;
+                                                                        return 1;
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                *out_class_idx = 1; // DDoS_HTTP
+                                                                *out_anomaly_score = 0.8750f;
+                                                                return 1;
+                                                            }
+                                                        }
+                                                    }
+                                                } else {
+                                                    if (features[17] <= -0.76958f) { // tcp.checksum <= -0.77
+                                                        *out_class_idx = 12; // Uploading
+                                                        *out_anomaly_score = 0.7500f;
+                                                        return 1;
+                                                    } else {
+                                                        *out_class_idx = 12; // Uploading
+                                                        *out_anomaly_score = 1.0000f;
+                                                        return 1;
+                                                    }
+                                                }
+                                            } else {
+                                                *out_class_idx = 1; // DDoS_HTTP
+                                                *out_anomaly_score = 1.0000f;
+                                                return 1;
+                                            }
+                                        } else {
+                                            if (features[15] <= -0.37917f) { // tcp.ack <= -0.38
                                                 *out_class_idx = 12; // Uploading
                                                 *out_anomaly_score = 1.0000f;
                                                 return 1;
@@ -731,20 +545,14 @@ static inline int tinyml_predict_anomaly(
                                             }
                                         }
                                     } else {
-                                        if (features[15] <= -0.38075f) { // tcp.ack <= -0.38
+                                        if (features[15] <= -0.37831f) { // tcp.ack <= -0.38
                                             *out_class_idx = 14; // XSS
                                             *out_anomaly_score = 1.0000f;
                                             return 1;
                                         } else {
-                                            if (features[15] <= -0.37866f) { // tcp.ack <= -0.38
-                                                *out_class_idx = 1; // DDoS_HTTP
-                                                *out_anomaly_score = 1.0000f;
-                                                return 1;
-                                            } else {
-                                                *out_class_idx = 8; // Password
-                                                *out_anomaly_score = 1.0000f;
-                                                return 1;
-                                            }
+                                            *out_class_idx = 8; // Password
+                                            *out_anomaly_score = 0.8000f;
+                                            return 1;
                                         }
                                     }
                                 }
@@ -754,78 +562,42 @@ static inline int tinyml_predict_anomaly(
                                 return 1;
                             }
                         } else {
-                            if (features[29] <= -0.89033f) { // tcp.srcport <= -0.89
-                                if (features[19] <= 1.37107f) { // tcp.connection.rst <= 1.37
-                                    if (features[15] <= -0.38147f) { // tcp.ack <= -0.38
-                                        if (features[22] <= 1.70790f) { // tcp.dstport <= 1.71
-                                            if (features[22] <= 0.69811f) { // tcp.dstport <= 0.70
-                                                if (features[22] <= 0.63197f) { // tcp.dstport <= 0.63
-                                                    if (features[13] <= 2.14750f) { // http.response <= 2.15
-                                                        if (features[15] <= -0.38164f) { // tcp.ack <= -0.38
-                                                            if (features[28] <= -0.26821f) { // tcp.seq <= -0.27
-                                                                if (features[15] <= -0.38199f) { // tcp.ack <= -0.38
-                                                                    if (features[23] <= 0.41177f) { // tcp.flags <= 0.41
+                            if (features[29] <= -0.86240f) { // tcp.srcport <= -0.86
+                                if (features[22] <= -0.26761f) { // tcp.dstport <= -0.27
+                                    if (features[15] <= -0.37972f) { // tcp.ack <= -0.38
+                                        *out_class_idx = 9; // Port_Scanning
+                                        *out_anomaly_score = 1.0000f;
+                                        return 1;
+                                    } else {
+                                        *out_class_idx = 3; // DDoS_TCP
+                                        *out_anomaly_score = 1.0000f;
+                                        return 1;
+                                    }
+                                } else {
+                                    if (features[19] <= 1.39729f) { // tcp.connection.rst <= 1.40
+                                        if (features[15] <= -0.37904f) { // tcp.ack <= -0.38
+                                            if (features[22] <= 1.69051f) { // tcp.dstport <= 1.69
+                                                if (features[22] <= 0.70728f) { // tcp.dstport <= 0.71
+                                                    if (features[22] <= 0.62636f) { // tcp.dstport <= 0.63
+                                                        if (features[25] <= -0.04650f) { // tcp.len <= -0.05
+                                                            if (features[28] <= -0.28160f) { // tcp.seq <= -0.28
+                                                                if (features[15] <= -0.37957f) { // tcp.ack <= -0.38
+                                                                    if (features[17] <= -0.03381f) { // tcp.checksum <= -0.03
                                                                         *out_class_idx = 14; // XSS
-                                                                        *out_anomaly_score = 1.0000f;
+                                                                        *out_anomaly_score = 0.8333f;
                                                                         return 1;
                                                                     } else {
                                                                         *out_class_idx = 14; // XSS
-                                                                        *out_anomaly_score = 0.8500f;
+                                                                        *out_anomaly_score = 1.0000f;
                                                                         return 1;
                                                                     }
                                                                 } else {
-                                                                    if (features[15] <= -0.38197f) { // tcp.ack <= -0.38
-                                                                        *out_class_idx = 12; // Uploading
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 14; // XSS
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                if (features[17] <= 1.59913f) { // tcp.checksum <= 1.60
-                                                                    *out_class_idx = 14; // XSS
+                                                                    *out_class_idx = 12; // Uploading
                                                                     *out_anomaly_score = 1.0000f;
                                                                     return 1;
-                                                                } else {
-                                                                    *out_class_idx = 8; // Password
-                                                                    *out_anomaly_score = 0.7500f;
-                                                                    return 1;
-                                                                }
-                                                            }
-                                                        } else {
-                                                            *out_class_idx = 8; // Password
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        }
-                                                    } else {
-                                                        *out_class_idx = 12; // Uploading
-                                                        *out_anomaly_score = 1.0000f;
-                                                        return 1;
-                                                    }
-                                                } else {
-                                                    if (features[15] <= -0.38180f) { // tcp.ack <= -0.38
-                                                        if (features[15] <= -0.38202f) { // tcp.ack <= -0.38
-                                                            if (features[28] <= -0.26958f) { // tcp.seq <= -0.27
-                                                                if (features[17] <= -0.96475f) { // tcp.checksum <= -0.96
-                                                                    *out_class_idx = 8; // Password
-                                                                    *out_anomaly_score = 0.8333f;
-                                                                    return 1;
-                                                                } else {
-                                                                    if (features[17] <= -0.10537f) { // tcp.checksum <= -0.11
-                                                                        *out_class_idx = 12; // Uploading
-                                                                        *out_anomaly_score = 0.9545f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 12; // Uploading
-                                                                        *out_anomaly_score = 0.8429f;
-                                                                        return 1;
-                                                                    }
                                                                 }
                                                             } else {
-                                                                *out_class_idx = 8; // Password
+                                                                *out_class_idx = 14; // XSS
                                                                 *out_anomaly_score = 1.0000f;
                                                                 return 1;
                                                             }
@@ -835,447 +607,247 @@ static inline int tinyml_predict_anomaly(
                                                             return 1;
                                                         }
                                                     } else {
-                                                        *out_class_idx = 8; // Password
-                                                        *out_anomaly_score = 1.0000f;
-                                                        return 1;
-                                                    }
-                                                }
-                                            } else {
-                                                if (features[15] <= -0.38233f) { // tcp.ack <= -0.38
-                                                    if (features[22] <= 1.16522f) { // tcp.dstport <= 1.17
-                                                        if (features[22] <= 0.80356f) { // tcp.dstport <= 0.80
-                                                            if (features[22] <= 0.77992f) { // tcp.dstport <= 0.78
-                                                                if (features[17] <= -0.60615f) { // tcp.checksum <= -0.61
-                                                                    *out_class_idx = 8; // Password
+                                                        if (features[15] <= -0.37937f) { // tcp.ack <= -0.38
+                                                            if (features[15] <= -0.37974f) { // tcp.ack <= -0.38
+                                                                if (features[22] <= 0.67538f) { // tcp.dstport <= 0.68
+                                                                    *out_class_idx = 12; // Uploading
                                                                     *out_anomaly_score = 1.0000f;
                                                                     return 1;
                                                                 } else {
-                                                                    if (features[17] <= -0.36147f) { // tcp.checksum <= -0.36
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 1.0000f;
+                                                                    *out_class_idx = 8; // Password
+                                                                    *out_anomaly_score = 0.9000f;
+                                                                    return 1;
+                                                                }
+                                                            } else {
+                                                                *out_class_idx = 12; // Uploading
+                                                                *out_anomaly_score = 1.0000f;
+                                                                return 1;
+                                                            }
+                                                        } else {
+                                                            *out_class_idx = 8; // Password
+                                                            *out_anomaly_score = 1.0000f;
+                                                            return 1;
+                                                        }
+                                                    }
+                                                } else {
+                                                    if (features[15] <= -0.37992f) { // tcp.ack <= -0.38
+                                                        if (features[22] <= 1.15345f) { // tcp.dstport <= 1.15
+                                                            if (features[17] <= -0.04564f) { // tcp.checksum <= -0.05
+                                                                if (features[22] <= 0.82982f) { // tcp.dstport <= 0.83
+                                                                    *out_class_idx = 8; // Password
+                                                                    *out_anomaly_score = 0.8333f;
+                                                                    return 1;
+                                                                } else {
+                                                                    if (features[17] <= -1.14589f) { // tcp.checksum <= -1.15
+                                                                        *out_class_idx = 8; // Password
+                                                                        *out_anomaly_score = 0.7500f;
                                                                         return 1;
                                                                     } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.9286f;
+                                                                        *out_class_idx = 11; // SQL_injection
+                                                                        *out_anomaly_score = 1.0000f;
                                                                         return 1;
                                                                     }
                                                                 }
                                                             } else {
-                                                                if (features[17] <= 0.45718f) { // tcp.checksum <= 0.46
+                                                                if (features[17] <= 0.01624f) { // tcp.checksum <= 0.02
+                                                                    *out_class_idx = 8; // Password
+                                                                    *out_anomaly_score = 1.0000f;
+                                                                    return 1;
+                                                                } else {
+                                                                    if (features[22] <= 0.92203f) { // tcp.dstport <= 0.92
+                                                                        *out_class_idx = 11; // SQL_injection
+                                                                        *out_anomaly_score = 1.0000f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 11; // SQL_injection
+                                                                        *out_anomaly_score = 0.7500f;
+                                                                        return 1;
+                                                                    }
+                                                                }
+                                                            }
+                                                        } else {
+                                                            if (features[22] <= 1.40005f) { // tcp.dstport <= 1.40
+                                                                if (features[22] <= 1.23511f) { // tcp.dstport <= 1.24
                                                                     *out_class_idx = 1; // DDoS_HTTP
-                                                                    *out_anomaly_score = 0.9000f;
+                                                                    *out_anomaly_score = 0.8333f;
+                                                                    return 1;
+                                                                } else {
+                                                                    *out_class_idx = 13; // Vulnerability_scanner
+                                                                    *out_anomaly_score = 1.0000f;
+                                                                    return 1;
+                                                                }
+                                                            } else {
+                                                                if (features[17] <= 1.43793f) { // tcp.checksum <= 1.44
+                                                                    if (features[17] <= 0.98353f) { // tcp.checksum <= 0.98
+                                                                        *out_class_idx = 8; // Password
+                                                                        *out_anomaly_score = 0.8333f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 8; // Password
+                                                                        *out_anomaly_score = 1.0000f;
+                                                                        return 1;
+                                                                    }
+                                                                } else {
+                                                                    *out_class_idx = 1; // DDoS_HTTP
+                                                                    *out_anomaly_score = 1.0000f;
+                                                                    return 1;
+                                                                }
+                                                            }
+                                                        }
+                                                    } else {
+                                                        if (features[22] <= 1.53214f) { // tcp.dstport <= 1.53
+                                                            if (features[17] <= -0.44172f) { // tcp.checksum <= -0.44
+                                                                if (features[17] <= -0.60205f) { // tcp.checksum <= -0.60
+                                                                    *out_class_idx = 8; // Password
+                                                                    *out_anomaly_score = 1.0000f;
                                                                     return 1;
                                                                 } else {
                                                                     *out_class_idx = 8; // Password
                                                                     *out_anomaly_score = 0.7500f;
                                                                     return 1;
                                                                 }
-                                                            }
-                                                        } else {
-                                                            if (features[22] <= 0.82184f) { // tcp.dstport <= 0.82
-                                                                *out_class_idx = 11; // SQL_injection
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
                                                             } else {
-                                                                if (features[17] <= -0.16601f) { // tcp.checksum <= -0.17
-                                                                    if (features[17] <= -0.66348f) { // tcp.checksum <= -0.66
-                                                                        *out_class_idx = 11; // SQL_injection
-                                                                        *out_anomaly_score = 0.8333f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 11; // SQL_injection
-                                                                        *out_anomaly_score = 0.9107f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    if (features[17] <= -0.12200f) { // tcp.checksum <= -0.12
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.9000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 11; // SQL_injection
-                                                                        *out_anomaly_score = 0.7817f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    } else {
-                                                        if (features[22] <= 1.38189f) { // tcp.dstport <= 1.38
-                                                            if (features[22] <= 1.26643f) { // tcp.dstport <= 1.27
-                                                                if (features[17] <= -0.31072f) { // tcp.checksum <= -0.31
-                                                                    if (features[17] <= -0.90951f) { // tcp.checksum <= -0.91
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.7857f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    if (features[22] <= 1.24213f) { // tcp.dstport <= 1.24
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.9000f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                if (features[17] <= 1.03201f) { // tcp.checksum <= 1.03
-                                                                    if (features[22] <= 1.30702f) { // tcp.dstport <= 1.31
-                                                                        *out_class_idx = 13; // Vulnerability_scanner
-                                                                        *out_anomaly_score = 0.8636f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.7692f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    if (features[17] <= 1.27916f) { // tcp.checksum <= 1.28
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.8000f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            }
-                                                        } else {
-                                                            if (features[22] <= 1.64953f) { // tcp.dstport <= 1.65
-                                                                if (features[22] <= 1.55028f) { // tcp.dstport <= 1.55
-                                                                    *out_class_idx = 8; // Password
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                } else {
-                                                                    if (features[22] <= 1.55809f) { // tcp.dstport <= 1.56
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.7500f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.9474f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                if (features[22] <= 1.65319f) { // tcp.dstport <= 1.65
-                                                                    *out_class_idx = 1; // DDoS_HTTP
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                } else {
-                                                                    if (features[17] <= 1.49570f) { // tcp.checksum <= 1.50
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.9286f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.8333f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                } else {
-                                                    if (features[22] <= 1.52884f) { // tcp.dstport <= 1.53
-                                                        if (features[22] <= 1.27312f) { // tcp.dstport <= 1.27
-                                                            *out_class_idx = 8; // Password
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        } else {
-                                                            if (features[22] <= 1.27873f) { // tcp.dstport <= 1.28
-                                                                *out_class_idx = 8; // Password
-                                                                *out_anomaly_score = 0.8000f;
-                                                                return 1;
-                                                            } else {
-                                                                if (features[15] <= -0.38148f) { // tcp.ack <= -0.38
-                                                                    if (features[22] <= 1.52169f) { // tcp.dstport <= 1.52
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.9891f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.9000f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    if (features[22] <= 1.37894f) { // tcp.dstport <= 1.38
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.8000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    } else {
-                                                        if (features[22] <= 1.58252f) { // tcp.dstport <= 1.58
-                                                            if (features[28] <= -0.26958f) { // tcp.seq <= -0.27
-                                                                if (features[25] <= 0.01519f) { // tcp.len <= 0.02
-                                                                    if (features[15] <= -0.38150f) { // tcp.ack <= -0.38
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.9649f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    *out_class_idx = 8; // Password
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                }
-                                                            } else {
-                                                                if (features[15] <= -0.38206f) { // tcp.ack <= -0.38
-                                                                    *out_class_idx = 1; // DDoS_HTTP
-                                                                    *out_anomaly_score = 0.8333f;
-                                                                    return 1;
-                                                                } else {
-                                                                    if (features[15] <= -0.38157f) { // tcp.ack <= -0.38
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.8750f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            }
-                                                        } else {
-                                                            if (features[22] <= 1.70545f) { // tcp.dstport <= 1.71
                                                                 *out_class_idx = 8; // Password
                                                                 *out_anomaly_score = 1.0000f;
                                                                 return 1;
+                                                            }
+                                                        } else {
+                                                            if (features[22] <= 1.56421f) { // tcp.dstport <= 1.56
+                                                                *out_class_idx = 1; // DDoS_HTTP
+                                                                *out_anomaly_score = 0.9000f;
+                                                                return 1;
                                                             } else {
-                                                                if (features[23] <= 0.41177f) { // tcp.flags <= 0.41
-                                                                    *out_class_idx = 8; // Password
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                } else {
-                                                                    *out_class_idx = 12; // Uploading
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                }
+                                                                *out_class_idx = 8; // Password
+                                                                *out_anomaly_score = 1.0000f;
+                                                                return 1;
                                                             }
                                                         }
                                                     }
                                                 }
-                                            }
-                                        } else {
-                                            if (features[28] <= -0.26785f) { // tcp.seq <= -0.27
-                                                if (features[15] <= -0.38199f) { // tcp.ack <= -0.38
-                                                    if (features[15] <= -0.38203f) { // tcp.ack <= -0.38
-                                                        if (features[15] <= -0.38233f) { // tcp.ack <= -0.38
-                                                            if (features[17] <= 0.36661f) { // tcp.checksum <= 0.37
-                                                                if (features[17] <= -0.66737f) { // tcp.checksum <= -0.67
-                                                                    if (features[17] <= -1.01352f) { // tcp.checksum <= -1.01
-                                                                        *out_class_idx = 14; // XSS
-                                                                        *out_anomaly_score = 0.7500f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 14; // XSS
-                                                                        *out_anomaly_score = 0.9242f;
-                                                                        return 1;
-                                                                    }
+                                            } else {
+                                                if (features[28] <= -0.28126f) { // tcp.seq <= -0.28
+                                                    if (features[15] <= -0.37957f) { // tcp.ack <= -0.38
+                                                        if (features[28] <= -0.28289f) { // tcp.seq <= -0.28
+                                                            if (features[22] <= 1.75269f) { // tcp.dstport <= 1.75
+                                                                if (features[17] <= -0.63869f) { // tcp.checksum <= -0.64
+                                                                    *out_class_idx = 12; // Uploading
+                                                                    *out_anomaly_score = 0.8333f;
+                                                                    return 1;
                                                                 } else {
-                                                                    if (features[22] <= 1.72768f) { // tcp.dstport <= 1.73
-                                                                        *out_class_idx = 12; // Uploading
-                                                                        *out_anomaly_score = 0.8125f;
+                                                                    if (features[22] <= 1.72166f) { // tcp.dstport <= 1.72
+                                                                        *out_class_idx = 14; // XSS
+                                                                        *out_anomaly_score = 1.0000f;
                                                                         return 1;
                                                                     } else {
                                                                         *out_class_idx = 14; // XSS
-                                                                        *out_anomaly_score = 0.7979f;
+                                                                        *out_anomaly_score = 0.7188f;
                                                                         return 1;
                                                                     }
                                                                 }
                                                             } else {
-                                                                if (features[17] <= 1.16545f) { // tcp.checksum <= 1.17
-                                                                    if (features[22] <= 1.78759f) { // tcp.dstport <= 1.79
+                                                                if (features[17] <= 0.78988f) { // tcp.checksum <= 0.79
+                                                                    if (features[22] <= 1.76886f) { // tcp.dstport <= 1.77
                                                                         *out_class_idx = 14; // XSS
-                                                                        *out_anomaly_score = 0.8846f;
+                                                                        *out_anomaly_score = 1.0000f;
                                                                         return 1;
                                                                     } else {
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.7500f;
+                                                                        *out_class_idx = 14; // XSS
+                                                                        *out_anomaly_score = 0.8000f;
                                                                         return 1;
                                                                     }
                                                                 } else {
-                                                                    if (features[17] <= 1.25781f) { // tcp.checksum <= 1.26
-                                                                        *out_class_idx = 8; // Password
-                                                                        *out_anomaly_score = 0.7778f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 14; // XSS
-                                                                        *out_anomaly_score = 0.8378f;
-                                                                        return 1;
-                                                                    }
+                                                                    *out_class_idx = 5; // Fingerprinting
+                                                                    *out_anomaly_score = 0.6250f;
+                                                                    return 1;
                                                                 }
                                                             }
                                                         } else {
-                                                            *out_class_idx = 8; // Password
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        }
-                                                    } else {
-                                                        *out_class_idx = 14; // XSS
-                                                        *out_anomaly_score = 1.0000f;
-                                                        return 1;
-                                                    }
-                                                } else {
-                                                    if (features[15] <= -0.38197f) { // tcp.ack <= -0.38
-                                                        *out_class_idx = 12; // Uploading
-                                                        *out_anomaly_score = 1.0000f;
-                                                        return 1;
-                                                    } else {
-                                                        if (features[15] <= -0.38176f) { // tcp.ack <= -0.38
                                                             *out_class_idx = 14; // XSS
                                                             *out_anomaly_score = 1.0000f;
                                                             return 1;
-                                                        } else {
-                                                            *out_class_idx = 8; // Password
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        }
-                                                    }
-                                                }
-                                            } else {
-                                                if (features[28] <= -0.26436f) { // tcp.seq <= -0.26
-                                                    *out_class_idx = 14; // XSS
-                                                    *out_anomaly_score = 1.0000f;
-                                                    return 1;
-                                                } else {
-                                                    *out_class_idx = 8; // Password
-                                                    *out_anomaly_score = 1.0000f;
-                                                    return 1;
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        if (features[22] <= 1.16061f) { // tcp.dstport <= 1.16
-                                            if (features[15] <= -0.37997f) { // tcp.ack <= -0.38
-                                                if (features[22] <= 0.79492f) { // tcp.dstport <= 0.79
-                                                    if (features[22] <= 0.72416f) { // tcp.dstport <= 0.72
-                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                        *out_anomaly_score = 1.0000f;
-                                                        return 1;
-                                                    } else {
-                                                        if (features[22] <= 0.72853f) { // tcp.dstport <= 0.73
-                                                            *out_class_idx = 1; // DDoS_HTTP
-                                                            *out_anomaly_score = 0.7500f;
-                                                            return 1;
-                                                        } else {
-                                                            *out_class_idx = 1; // DDoS_HTTP
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        }
-                                                    }
-                                                } else {
-                                                    if (features[28] <= -0.26873f) { // tcp.seq <= -0.27
-                                                        if (features[13] <= 2.14750f) { // http.response <= 2.15
-                                                            if (features[15] <= -0.38086f) { // tcp.ack <= -0.38
-                                                                if (features[15] <= -0.38132f) { // tcp.ack <= -0.38
-                                                                    if (features[15] <= -0.38139f) { // tcp.ack <= -0.38
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.8750f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 1.0000f;
-                                                                        return 1;
-                                                                    }
-                                                                } else {
-                                                                    if (features[15] <= -0.38120f) { // tcp.ack <= -0.38
-                                                                        *out_class_idx = 11; // SQL_injection
-                                                                        *out_anomaly_score = 0.9643f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 11; // SQL_injection
-                                                                        *out_anomaly_score = 0.8621f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                if (features[15] <= -0.38041f) { // tcp.ack <= -0.38
-                                                                    *out_class_idx = 1; // DDoS_HTTP
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                } else {
-                                                                    if (features[15] <= -0.38025f) { // tcp.ack <= -0.38
-                                                                        *out_class_idx = 11; // SQL_injection
-                                                                        *out_anomaly_score = 0.8214f;
-                                                                        return 1;
-                                                                    } else {
-                                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                                        *out_anomaly_score = 0.9062f;
-                                                                        return 1;
-                                                                    }
-                                                                }
-                                                            }
-                                                        } else {
-                                                            *out_class_idx = 11; // SQL_injection
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
                                                         }
                                                     } else {
-                                                        if (features[28] <= -0.26733f) { // tcp.seq <= -0.27
-                                                            *out_class_idx = 11; // SQL_injection
+                                                        if (features[15] <= -0.37954f) { // tcp.ack <= -0.38
+                                                            *out_class_idx = 12; // Uploading
                                                             *out_anomaly_score = 1.0000f;
                                                             return 1;
                                                         } else {
-                                                            *out_class_idx = 1; // DDoS_HTTP
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        }
-                                                    }
-                                                }
-                                            } else {
-                                                if (features[15] <= -0.37861f) { // tcp.ack <= -0.38
-                                                    *out_class_idx = 1; // DDoS_HTTP
-                                                    *out_anomaly_score = 1.0000f;
-                                                    return 1;
-                                                } else {
-                                                    *out_class_idx = 1; // DDoS_HTTP
-                                                    *out_anomaly_score = 0.7500f;
-                                                    return 1;
-                                                }
-                                            }
-                                        } else {
-                                            if (features[28] <= -0.26731f) { // tcp.seq <= -0.27
-                                                if (features[22] <= 1.45979f) { // tcp.dstport <= 1.46
-                                                    if (features[22] <= 1.29314f) { // tcp.dstport <= 1.29
-                                                        if (features[22] <= 1.26427f) { // tcp.dstport <= 1.26
-                                                            *out_class_idx = 1; // DDoS_HTTP
-                                                            *out_anomaly_score = 1.0000f;
-                                                            return 1;
-                                                        } else {
-                                                            if (features[22] <= 1.27204f) { // tcp.dstport <= 1.27
-                                                                *out_class_idx = 13; // Vulnerability_scanner
+                                                            if (features[15] <= -0.37935f) { // tcp.ack <= -0.38
+                                                                *out_class_idx = 14; // XSS
                                                                 *out_anomaly_score = 1.0000f;
                                                                 return 1;
                                                             } else {
-                                                                if (features[17] <= -0.26781f) { // tcp.checksum <= -0.27
-                                                                    *out_class_idx = 13; // Vulnerability_scanner
-                                                                    *out_anomaly_score = 0.8333f;
-                                                                    return 1;
-                                                                } else {
-                                                                    *out_class_idx = 1; // DDoS_HTTP
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                }
+                                                                *out_class_idx = 8; // Password
+                                                                *out_anomaly_score = 1.0000f;
+                                                                return 1;
                                                             }
                                                         }
+                                                    }
+                                                } else {
+                                                    if (features[15] <= -0.37921f) { // tcp.ack <= -0.38
+                                                        *out_class_idx = 14; // XSS
+                                                        *out_anomaly_score = 1.0000f;
+                                                        return 1;
+                                                    } else {
+                                                        *out_class_idx = 8; // Password
+                                                        *out_anomaly_score = 1.0000f;
+                                                        return 1;
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            if (features[22] <= 1.16499f) { // tcp.dstport <= 1.16
+                                                if (features[22] <= 0.77690f) { // tcp.dstport <= 0.78
+                                                    *out_class_idx = 1; // DDoS_HTTP
+                                                    *out_anomaly_score = 1.0000f;
+                                                    return 1;
+                                                } else {
+                                                    if (features[15] <= -0.37751f) { // tcp.ack <= -0.38
+                                                        if (features[28] <= -0.28208f) { // tcp.seq <= -0.28
+                                                            if (features[13] <= 2.14573f) { // http.response <= 2.15
+                                                                if (features[15] <= -0.37854f) { // tcp.ack <= -0.38
+                                                                    if (features[22] <= 1.04039f) { // tcp.dstport <= 1.04
+                                                                        *out_class_idx = 11; // SQL_injection
+                                                                        *out_anomaly_score = 1.0000f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                                        *out_anomaly_score = 0.7500f;
+                                                                        return 1;
+                                                                    }
+                                                                } else {
+                                                                    if (features[22] <= 1.10947f) { // tcp.dstport <= 1.11
+                                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                                        *out_anomaly_score = 1.0000f;
+                                                                        return 1;
+                                                                    } else {
+                                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                                        *out_anomaly_score = 0.7500f;
+                                                                        return 1;
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                *out_class_idx = 11; // SQL_injection
+                                                                *out_anomaly_score = 1.0000f;
+                                                                return 1;
+                                                            }
+                                                        } else {
+                                                            *out_class_idx = 11; // SQL_injection
+                                                            *out_anomaly_score = 1.0000f;
+                                                            return 1;
+                                                        }
+                                                    } else {
+                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                        *out_anomaly_score = 1.0000f;
+                                                        return 1;
+                                                    }
+                                                }
+                                            } else {
+                                                if (features[22] <= 1.46078f) { // tcp.dstport <= 1.46
+                                                    if (features[22] <= 1.25737f) { // tcp.dstport <= 1.26
+                                                        *out_class_idx = 1; // DDoS_HTTP
+                                                        *out_anomaly_score = 0.8750f;
+                                                        return 1;
                                                     } else {
                                                         *out_class_idx = 13; // Vulnerability_scanner
                                                         *out_anomaly_score = 1.0000f;
@@ -1286,168 +858,116 @@ static inline int tinyml_predict_anomaly(
                                                     *out_anomaly_score = 1.0000f;
                                                     return 1;
                                                 }
-                                            } else {
-                                                if (features[29] <= -0.89896f) { // tcp.srcport <= -0.90
-                                                    *out_class_idx = 13; // Vulnerability_scanner
-                                                    *out_anomaly_score = 1.0000f;
-                                                    return 1;
-                                                } else {
-                                                    *out_class_idx = 14; // XSS
-                                                    *out_anomaly_score = 0.8333f;
-                                                    return 1;
-                                                }
                                             }
                                         }
-                                    }
-                                } else {
-                                    if (features[15] <= -0.38214f) { // tcp.ack <= -0.38
-                                        if (features[16] <= -1.30678f) { // tcp.ack_raw <= -1.31
-                                            if (features[28] <= -0.26820f) { // tcp.seq <= -0.27
-                                                if (features[28] <= -0.26923f) { // tcp.seq <= -0.27
-                                                    if (features[17] <= -0.07572f) { // tcp.checksum <= -0.08
-                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                        *out_anomaly_score = 1.0000f;
-                                                        return 1;
-                                                    } else {
-                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                        *out_anomaly_score = 0.7500f;
-                                                        return 1;
-                                                    }
-                                                } else {
+                                    } else {
+                                        if (features[24] <= -0.29529f) { // tcp.flags.ack <= -0.30
+                                            if (features[28] <= -0.28159f) { // tcp.seq <= -0.28
+                                                if (features[17] <= 0.30351f) { // tcp.checksum <= 0.30
                                                     *out_class_idx = 12; // Uploading
                                                     *out_anomaly_score = 1.0000f;
                                                     return 1;
-                                                }
-                                            } else {
-                                                if (features[22] <= 1.35389f) { // tcp.dstport <= 1.35
-                                                    if (features[22] <= 0.62819f) { // tcp.dstport <= 0.63
-                                                        *out_class_idx = 14; // XSS
-                                                        *out_anomaly_score = 1.0000f;
-                                                        return 1;
-                                                    } else {
-                                                        *out_class_idx = 1; // DDoS_HTTP
-                                                        *out_anomaly_score = 0.7500f;
-                                                        return 1;
-                                                    }
                                                 } else {
-                                                    *out_class_idx = 14; // XSS
-                                                    *out_anomaly_score = 1.0000f;
+                                                    *out_class_idx = 12; // Uploading
+                                                    *out_anomaly_score = 0.9000f;
                                                     return 1;
                                                 }
+                                            } else {
+                                                *out_class_idx = 14; // XSS
+                                                *out_anomaly_score = 1.0000f;
+                                                return 1;
                                             }
                                         } else {
-                                            *out_class_idx = 9; // Port_Scanning
+                                            *out_class_idx = 3; // DDoS_TCP
                                             *out_anomaly_score = 1.0000f;
                                             return 1;
                                         }
-                                    } else {
-                                        *out_class_idx = 3; // DDoS_TCP
-                                        *out_anomaly_score = 1.0000f;
-                                        return 1;
                                     }
                                 }
                             } else {
-                                if (features[22] <= -0.63458f) { // tcp.dstport <= -0.63
+                                if (features[22] <= -0.63367f) { // tcp.dstport <= -0.63
                                     *out_class_idx = 7; // Normal
                                     *out_anomaly_score = 1.0000f;
                                     return 1;
                                 } else {
-                                    if (features[29] <= -0.80291f) { // tcp.srcport <= -0.80
-                                        if (features[22] <= 1.97918f) { // tcp.dstport <= 1.98
-                                            *out_class_idx = 7; // Normal
-                                            *out_anomaly_score = 1.0000f;
-                                            return 1;
-                                        } else {
-                                            *out_class_idx = 5; // Fingerprinting
-                                            *out_anomaly_score = 0.7500f;
-                                            return 1;
-                                        }
+                                    if (features[29] <= -0.80541f) { // tcp.srcport <= -0.81
+                                        *out_class_idx = 7; // Normal
+                                        *out_anomaly_score = 1.0000f;
+                                        return 1;
                                     } else {
-                                        if (features[29] <= 1.39521f) { // tcp.srcport <= 1.40
-                                            if (features[22] <= 1.59681f) { // tcp.dstport <= 1.60
-                                                if (features[29] <= -0.75302f) { // tcp.srcport <= -0.75
-                                                    *out_class_idx = 12; // Uploading
-                                                    *out_anomaly_score = 1.0000f;
-                                                    return 1;
-                                                } else {
-                                                    if (features[22] <= -0.58393f) { // tcp.dstport <= -0.58
+                                        if (features[22] <= 1.77887f) { // tcp.dstport <= 1.78
+                                            if (features[29] <= 1.40008f) { // tcp.srcport <= 1.40
+                                                if (features[22] <= 1.58237f) { // tcp.dstport <= 1.58
+                                                    if (features[29] <= -0.75534f) { // tcp.srcport <= -0.76
                                                         *out_class_idx = 12; // Uploading
                                                         *out_anomaly_score = 1.0000f;
                                                         return 1;
                                                     } else {
-                                                        if (features[28] <= -0.26958f) { // tcp.seq <= -0.27
-                                                            if (features[29] <= 0.74909f) { // tcp.srcport <= 0.75
-                                                                *out_class_idx = 0; // Backdoor
-                                                                *out_anomaly_score = 0.0000f;
-                                                                return 0;
-                                                            } else {
-                                                                *out_class_idx = 10; // Ransomware
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
-                                                            }
-                                                        } else {
-                                                            if (features[19] <= 1.37107f) { // tcp.connection.rst <= 1.37
-                                                                *out_class_idx = 10; // Ransomware
-                                                                *out_anomaly_score = 1.0000f;
-                                                                return 1;
-                                                            } else {
-                                                                if (features[22] <= 0.94079f) { // tcp.dstport <= 0.94
-                                                                    *out_class_idx = 0; // Backdoor
-                                                                    *out_anomaly_score = 0.0000f;
-                                                                    return 0;
-                                                                } else {
-                                                                    *out_class_idx = 10; // Ransomware
-                                                                    *out_anomaly_score = 1.0000f;
-                                                                    return 1;
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            } else {
-                                                if (features[28] <= 1.01094f) { // tcp.seq <= 1.01
-                                                    if (features[15] <= -0.38234f) { // tcp.ack <= -0.38
-                                                        *out_class_idx = 5; // Fingerprinting
-                                                        *out_anomaly_score = 1.0000f;
-                                                        return 1;
-                                                    } else {
-                                                        if (features[29] <= -0.75302f) { // tcp.srcport <= -0.75
+                                                        if (features[22] <= -0.58324f) { // tcp.dstport <= -0.58
                                                             *out_class_idx = 12; // Uploading
                                                             *out_anomaly_score = 1.0000f;
                                                             return 1;
                                                         } else {
-                                                            *out_class_idx = 0; // Backdoor
-                                                            *out_anomaly_score = 0.0000f;
-                                                            return 0;
+                                                            if (features[17] <= -0.97569f) { // tcp.checksum <= -0.98
+                                                                if (features[17] <= -0.99122f) { // tcp.checksum <= -0.99
+                                                                    *out_class_idx = 10; // Ransomware
+                                                                    *out_anomaly_score = 1.0000f;
+                                                                    return 1;
+                                                                } else {
+                                                                    *out_class_idx = 0; // Backdoor
+                                                                    *out_anomaly_score = 0.5000f;
+                                                                    return 0;
+                                                                }
+                                                            } else {
+                                                                *out_class_idx = 10; // Ransomware
+                                                                *out_anomaly_score = 1.0000f;
+                                                                return 1;
+                                                            }
                                                         }
                                                     }
                                                 } else {
-                                                    *out_class_idx = 7; // Normal
-                                                    *out_anomaly_score = 1.0000f;
-                                                    return 1;
+                                                    if (features[29] <= -0.75534f) { // tcp.srcport <= -0.76
+                                                        *out_class_idx = 12; // Uploading
+                                                        *out_anomaly_score = 1.0000f;
+                                                        return 1;
+                                                    } else {
+                                                        *out_class_idx = 0; // Backdoor
+                                                        *out_anomaly_score = 0.0000f;
+                                                        return 0;
+                                                    }
+                                                }
+                                            } else {
+                                                if (features[22] <= -0.53014f) { // tcp.dstport <= -0.53
+                                                    if (features[22] <= -0.58324f) { // tcp.dstport <= -0.58
+                                                        *out_class_idx = 12; // Uploading
+                                                        *out_anomaly_score = 1.0000f;
+                                                        return 1;
+                                                    } else {
+                                                        *out_class_idx = 0; // Backdoor
+                                                        *out_anomaly_score = 0.0000f;
+                                                        return 0;
+                                                    }
+                                                } else {
+                                                    if (features[28] <= -0.21060f) { // tcp.seq <= -0.21
+                                                        *out_class_idx = 5; // Fingerprinting
+                                                        *out_anomaly_score = 1.0000f;
+                                                        return 1;
+                                                    } else {
+                                                        *out_class_idx = 7; // Normal
+                                                        *out_anomaly_score = 1.0000f;
+                                                        return 1;
+                                                    }
                                                 }
                                             }
                                         } else {
-                                            if (features[22] <= -0.55589f) { // tcp.dstport <= -0.56
-                                                if (features[22] <= -0.58393f) { // tcp.dstport <= -0.58
-                                                    *out_class_idx = 12; // Uploading
-                                                    *out_anomaly_score = 1.0000f;
-                                                    return 1;
-                                                } else {
-                                                    *out_class_idx = 0; // Backdoor
-                                                    *out_anomaly_score = 0.0000f;
-                                                    return 0;
-                                                }
+                                            if (features[22] <= 1.80775f) { // tcp.dstport <= 1.81
+                                                *out_class_idx = 7; // Normal
+                                                *out_anomaly_score = 1.0000f;
+                                                return 1;
                                             } else {
-                                                if (features[15] <= 0.14477f) { // tcp.ack <= 0.14
-                                                    *out_class_idx = 5; // Fingerprinting
-                                                    *out_anomaly_score = 1.0000f;
-                                                    return 1;
-                                                } else {
-                                                    *out_class_idx = 7; // Normal
-                                                    *out_anomaly_score = 1.0000f;
-                                                    return 1;
-                                                }
+                                                *out_class_idx = 5; // Fingerprinting
+                                                *out_anomaly_score = 0.7500f;
+                                                return 1;
                                             }
                                         }
                                     }
@@ -1455,7 +975,7 @@ static inline int tinyml_predict_anomaly(
                             }
                         }
                     } else {
-                        if (features[24] <= -0.28266f) { // tcp.flags.ack <= -0.28
+                        if (features[44] <= 0.18620f) { // mqtt.len <= 0.19
                             *out_class_idx = 3; // DDoS_TCP
                             *out_anomaly_score = 1.0000f;
                             return 1;
@@ -1466,68 +986,44 @@ static inline int tinyml_predict_anomaly(
                         }
                     }
                 } else {
-                    if (features[15] <= -0.38159f) { // tcp.ack <= -0.38
-                        if (features[25] <= 0.22747f) { // tcp.len <= 0.23
-                            if (features[7] <= 0.23643f) { // http.content_length <= 0.24
-                                *out_class_idx = 13; // Vulnerability_scanner
+                    if (features[15] <= -0.37568f) { // tcp.ack <= -0.38
+                        if (features[25] <= 0.22198f) { // tcp.len <= 0.22
+                            if (features[29] <= 1.00120f) { // tcp.srcport <= 1.00
+                                *out_class_idx = 8; // Password
                                 *out_anomaly_score = 1.0000f;
                                 return 1;
                             } else {
-                                if (features[29] <= 1.03504f) { // tcp.srcport <= 1.04
+                                if (features[25] <= 0.09706f) { // tcp.len <= 0.10
                                     *out_class_idx = 8; // Password
                                     *out_anomaly_score = 1.0000f;
                                     return 1;
                                 } else {
-                                    if (features[25] <= 0.09905f) { // tcp.len <= 0.10
-                                        *out_class_idx = 8; // Password
-                                        *out_anomaly_score = 1.0000f;
-                                        return 1;
-                                    } else {
-                                        *out_class_idx = 13; // Vulnerability_scanner
-                                        *out_anomaly_score = 1.0000f;
-                                        return 1;
-                                    }
+                                    *out_class_idx = 13; // Vulnerability_scanner
+                                    *out_anomaly_score = 1.0000f;
+                                    return 1;
                                 }
                             }
                         } else {
-                            if (features[22] <= 0.61872f) { // tcp.dstport <= 0.62
-                                *out_class_idx = 13; // Vulnerability_scanner
-                                *out_anomaly_score = 0.7500f;
+                            if (features[15] <= -0.37945f) { // tcp.ack <= -0.38
+                                *out_class_idx = 14; // XSS
+                                *out_anomaly_score = 1.0000f;
                                 return 1;
                             } else {
-                                if (features[15] <= -0.38191f) { // tcp.ack <= -0.38
-                                    *out_class_idx = 14; // XSS
-                                    *out_anomaly_score = 1.0000f;
-                                    return 1;
-                                } else {
-                                    *out_class_idx = 13; // Vulnerability_scanner
+                                if (features[15] <= -0.37757f) { // tcp.ack <= -0.38
+                                    *out_class_idx = 1; // DDoS_HTTP
                                     *out_anomaly_score = 0.7500f;
-                                    return 1;
-                                }
-                            }
-                        }
-                    } else {
-                        if (features[28] <= -0.26897f) { // tcp.seq <= -0.27
-                            if (features[15] <= -0.38099f) { // tcp.ack <= -0.38
-                                if (features[22] <= 1.45692f) { // tcp.dstport <= 1.46
-                                    *out_class_idx = 13; // Vulnerability_scanner
-                                    *out_anomaly_score = 1.0000f;
                                     return 1;
                                 } else {
                                     *out_class_idx = 1; // DDoS_HTTP
                                     *out_anomaly_score = 1.0000f;
                                     return 1;
                                 }
-                            } else {
-                                *out_class_idx = 1; // DDoS_HTTP
-                                *out_anomaly_score = 1.0000f;
-                                return 1;
                             }
-                        } else {
-                            *out_class_idx = 13; // Vulnerability_scanner
-                            *out_anomaly_score = 1.0000f;
-                            return 1;
                         }
+                    } else {
+                        *out_class_idx = 13; // Vulnerability_scanner
+                        *out_anomaly_score = 1.0000f;
+                        return 1;
                     }
                 }
             } else {
@@ -1536,21 +1032,9 @@ static inline int tinyml_predict_anomaly(
                 return 1;
             }
         } else {
-            if (features[33] <= -0.08897f) { // dns.qry.name <= -0.09
-                *out_class_idx = 4; // DDoS_UDP
-                *out_anomaly_score = 1.0000f;
-                return 1;
-            } else {
-                if (features[33] <= 1.23492f) { // dns.qry.name <= 1.23
-                    *out_class_idx = 4; // DDoS_UDP
-                    *out_anomaly_score = 0.7500f;
-                    return 1;
-                } else {
-                    *out_class_idx = 4; // DDoS_UDP
-                    *out_anomaly_score = 1.0000f;
-                    return 1;
-                }
-            }
+            *out_class_idx = 4; // DDoS_UDP
+            *out_anomaly_score = 1.0000f;
+            return 1;
         }
 }
 

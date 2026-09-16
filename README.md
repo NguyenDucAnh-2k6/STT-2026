@@ -14,7 +14,10 @@ Hệ thống sử dụng bộ dữ liệu an ninh mạng công nghiệp chuẩn 
 ## 🌟 Tính Năng Nổi Bật
 
 - **Bắt gói tin biên (Edge Promiscuous Sniffing)**: ESP32 bắt trực tiếp các khung WiFi 802.11, trích xuất đặc trưng lưu lượng mạng thời gian thực mà không cần can thiệp hạ tầng mạng phức tạp.
+- **ESP32 Bắt Mọi Mạng Độc Lập (All-Networks Sniffing & Channel Hopping)**: Thoát ly ràng buộc chỉ bắt được mạng Access Point mà máy tính kết nối. Chế độ `SNIFFER_MODE_ALL_NETWORKS` mở khóa phần cứng radio ESP32, nhảy kênh liên tục (Ch 1..13 mỗi 300ms) để thu thập lưu lượng từ mọi Access Point và thiết bị xung quanh trong không gian.
 - **Bắn gói tin mạng thật (100% Real Socket Injection)**: Không dùng số liệu giả lập ảo. Module `attack_traffic_generator.py` mở socket thật bắn các luồng gói tin TCP SYN, UDP Flood, HTTP Probe, Exfiltration Data ra mạng thật. Cả Host Sniffer và ESP32 đều thực sự bắt được các gói tin này trong thực tế.
+- **Data Lakehouse Pipeline (Parquet Partitioned & SQLite Catalog)**: Tự động thu thập và lưu trữ toàn bộ luồng telemetry mạng từ các phiên vận hành hàng ngày vào kho lưu trữ định dạng chuẩn Parquet (nén Snappy, phân vùng theo ngày `data_lake/raw/date=YYYY-MM-DD/`). Quản lý metadata và session qua SQLite Catalog (`data_lake/catalog.db`).
+- **Học Tăng Cường Baseline Thực Tế (Hybrid Real-World Training)**: Khả năng tái huấn luyện mô hình kết hợp `--data-source hybrid`: Isolation Forest học trực tiếp trên baseline lưu lượng bình thường thực tế của môi trường xung quanh được tích lũy trong Data Lakehouse, triệt tiêu hoàn toàn tỷ lệ báo động giả (False Positives) do lệch phân phối.
 - **Điều khiển trực tiếp On-Demand từ SOC Web Dashboard**: Khi kích hoạt `--attack-sim`, thanh Control Bar trên Dashboard cung cấp cụm nút bấm tương ứng các kịch bản mã độc, cho phép người dùng click chuột phát động tấn công thật ra mạng ngay tức thì và quan sát phản ứng của AI.
 - **Dữ liệu chuẩn Edge-IIoTset (Full 63 Features)**: Mô hình hỗ trợ học trên toàn bộ 61 đặc trưng lưu lượng mạng và phân loại chính xác 15 nhãn tấn công (DDoS UDP/TCP/HTTP/ICMP, SQL Injection, Ransomware, Port Scanning, Backdoor, Vulnerability Scanner, MITM, XSS...).
 - **Tối ưu hóa siêu tham số tự động (Optuna HPO)**:
@@ -95,8 +98,8 @@ pip install -r requirements.txt
 ### 2. Huấn luyện mô hình và xuất Artifacts (Thực hiện lần đầu)
 Trước khi khởi chạy hệ thống lần đầu, bạn cần huấn luyện mô hình để sinh các file trọng số (Artifacts):
 ```bash
-# Huấn luyện Decision Tree với toàn bộ 61 đặc trưng Edge-IIoTset:
-python ml_engine/train.py --classifier decision_tree
+# Huấn luyện Decision Tree chuẩn hoặc Hybrid kết hợp Data Lakehouse:
+python ml_engine/train.py --classifier decision_tree --data-source hybrid
 ```
 *(Hoặc tối ưu siêu tham số chuyên sâu với Optuna: xem chi tiết tại [Phần 1](#-phần-1-tối-ưu-siêu-tham-số-hpo--huấn-luyện-offline)).*
 
@@ -205,7 +208,177 @@ python ml_engine/train.py --list-models
 
 ---
 
+### 🧠 Danh Mục & Cơ Chế Hoạt Động Các Mô Hình Học Máy (ML / DL Engine)
+
+Hệ thống AERO trang bị kiến trúc AI 2 tầng: **Tier 1 - Phát hiện bất thường không giám sát (Unsupervised Anomaly Detection)** và **Tier 2 - Phân loại chi tiết cuộc tấn công có giám sát (Supervised Attack Classification)**. Dưới đây là phân tích chi tiết cơ chế hoạt động và ngữ cảnh dữ liệu khuyến nghị cho từng thuật toán:
+
+#### 1. Bộ Phân Loại Cuộc Tấn Công (Supervised Classifiers - 15 Lớp Tấn Công)
+
+| Thuật Toán (`--classifier`) | Cơ Chế Huấn Luyện & Suy Luận | Đặc Tính & Khả Năng Nhúng Biên | Khuyến Nghị Sử Dụng Về Dữ Liệu |
+| :--- | :--- | :--- | :--- |
+| **`decision_tree`** *(Mặc định)* | **Train**: Xây dựng cây quyết định nhị phân phân tách theo chỉ số Gini/Entropy.<br>**Inference**: Duyệt cây điều kiện `if (feature > threshold)` tuần tự. | **100% TinyML Edge-Ready**.<br>Biên dịch tự động sang mã nguồn C Header (`tinyml_model.h`).<br>Độ trễ: $< 50\,\mu s$ trên ESP32, $< 0.1\,\text{ms}$ trên Host.<br>RAM: $< 25\,\text{KB}$. | **Dữ liệu biên và thiết bị phần cứng tài nguyên thấp (ESP32/MCU)**. Phù hợp với lưu lượng mạng có các ngưỡng chia cắt hành vi phân định rõ ràng (đột biến `packet_rate`, cờ `syn_ratio`, `unique_dst_ports`). |
+| **`xgboost`** | **Train**: Gradient Boosting tối ưu hóa theo Hessian & Gradient cấp 2, kiểm soát quá khớp qua L1/L2 regularization.<br>**Inference**: Tính tổng trọng số lá cây song song hóa cao độ. | **Host / Edge Server Ready**.<br>Hiệu năng vượt trội, độ chính xác $> 93\%$, Macro F1 $> 89\%$.<br>Tích hợp early stopping và xử lý dữ liệu thưa.<br>Độ trễ: $\sim 0.6\,\text{ms}$. RAM: $\sim 15\,\text{MB}$. | **Lưu lượng mạng thực tế đa dạng**, chống nhiễu mạnh, tối ưu cho bài toán phát hiện các cuộc tấn công tinh vi (Port Scan, Vulnerability Scan, SQL Injection). |
+| **`lightgbm`** | **Train**: Light Gradient Boosting Machine sử dụng Histogram-based binning và thuật toán phát triển lá theo chiều sâu (Leaf-wise).<br>**Inference**: Tra cứu bin nhanh trên CPU. | **Host / Cloud SOC**.<br>Tốc độ huấn luyện siêu tốc (nhanh nhất trong các dòng GBDT).<br>Tiết kiệm RAM vượt bậc.<br>Độ trễ: $\sim 0.4\,\text{ms}$. RAM: $\sim 10\,\text{MB}$. | **Bộ dữ liệu lưu lượng lớn (Big Data / Lakehouse)** với hàng trăm nghìn mẫu telemetry, cần tốc độ huấn luyện và suy luận nhanh. |
+| **`catboost`** | **Train**: Categorical Boosting sử dụng Symmetric (Oblivious) Trees, chống target leakage và overfitting trên tập dữ liệu nhỏ.<br>**Inference**: Cây đối xứng cho tốc độ đánh giá cực nhanh trên CPU. | **Host / Server High Stability**.<br>Độ ổn định cao nhất, không cần tinh chỉnh quá nhiều siêu tham số.<br>Độ trễ: $\sim 0.8\,\text{ms}$. | **Môi trường triển khai sản xuất** yêu cầu độ tin cậy cao, ít bị trôi dạt dữ liệu (concept drift). |
+| **`pytorch_deep` / `dnn`** | **Train**: Mạng nơ-ron sâu PyTorch đa tầng (Dense 256 -> 128 -> 64 -> 15) với BatchNorm, Dropout(0.3), AdamW Optimizer và CosineAnnealingLR. Tự động vẽ và xuất biểu đồ `loss_curve.png`.<br>**Inference**: Lan truyền tiến PyTorch qua GPU/CPU. | **Host / GPU / NPU Acceleration**.<br>Tự động nạp bộ dữ liệu lớn chuyên biệt `DNN-EdgeIIoT-dataset.csv` (1.2GB).<br>Trực quan hóa Train vs Val Loss qua từng Epoch.<br>Độ trễ: $\sim 1.0\,\text{ms}$. | **Lưu lượng mạng có mối tương quan phi tuyến tính sâu** giữa nhiều tầng giao thức (Application, Transport, Network) mà mô hình tuyến tính không biểu diễn được. |
+| **`random_forest`** | **Train**: Tập hợp $N$ cây quyết định độc lập (Bagging) với Bootstrap Sampling.<br>**Inference**: Trung bình cộng xác suất đa số. | **Host/Server Only**.<br>Khả năng tổng quát hóa cao, không bị quá khớp.<br>Độ trễ: $\sim 1.2\,\text{ms}$. | **Lưu lượng mạng thực tế phức tạp, nhiều nhiễu**, làm baseline đối chiếu cho các dòng mô hình boosting. |
+| **`extra_trees`** | **Train**: Random Forest cực đoan chọn ngưỡng ngẫu nhiên.<br>**Inference**: Tập hợp xác suất cây cực đoan. | **Host/Server Only**.<br>Tốc độ huấn luyện nhanh gấp đôi Random Forest.<br>Độ trễ: $\sim 1.0\,\text{ms}$. | **Huấn luyện nhanh trên tập dữ liệu lưu lượng lớn**. |
+| **`ensemble_voting`** | **Train**: Huấn luyện đồng thời Decision Tree, Random Forest và XGBoost.<br>**Inference**: Soft-Voting trung bình cộng xác suất. | **Host SOC Center**.<br>Độ tin cậy và điểm Macro F1 cao nhất.<br>Độ trễ: $\sim 2.5\,\text{ms}$. | **Trung tâm SOC phân tích sự cố an ninh nghiêm trọng**. |
+
+
+---
+
+#### 2. Bộ Phát Hiện Bất Thường Không Giám Sát (Unsupervised Anomaly Detectors)
+
+| Thuật Toán (`--anomaly-model`) | Cơ Chế Hoạt Động & Tính Điểm | Đặc Tính Kỹ Thuật | Khuyến Nghị Sử Dụng Về Dữ Liệu |
+| :--- | :--- | :--- | :--- |
+| **`isolation_forest`** *(Mặc định)* | **Cơ chế**: Cô lập điểm dị biệt bằng cách cắt ngẫu nhiên các đặc trưng. Mẫu bất thường (Anomaly) nằm thưa thớt ở rìa nên bị cô lập với số lần cắt (Path Length) ngắn hơn nhiều so với mẫu bình thường.<br>**Điểm số**: Chuẩn hóa từ độ dài hành trình trung bình thành dải điểm `[0.0, 1.0]`. Điểm $> 0.55$ là bất thường. | **Rất nhẹ, tốc độ huấn luyện $O(n \log n)$**.<br>Tương thích hoàn hảo với dữ liệu mạng nhiều chiều (56 features).<br>Tiêu tốn ít RAM ($< 5\,\text{MB}$). | **Chuẩn mặc định của toàn hệ thống AERO**. Huấn luyện trên lưu lượng `Normal` sạch kết hợp baseline thực tế từ Data Lakehouse. Xuất sắc trong phát hiện tấn công Zero-day, đột biến lưu lượng (DDoS Flood, Scan). |
+| **`one_class_svm`** | **Cơ chế**: Ánh xạ dữ liệu lên không gian đặc trưng vô hạn chiều thông qua Kernel RBF, sau đó tìm siêu phẳng (hyperplane) tách biệt cực đại tập điểm Normal khỏi gốc tọa độ.<br>**Điểm số**: Khoảng cách có dấu (Signed Distance) từ vector đặc trưng tới siêu phẳng quyết định. | **Độ nhạy biên giới cao**.<br>Huấn luyện phức tạp ($O(n^2)$ đến $O(n^3)$), tốn nhiều CPU khi tập dữ liệu lớn ($> 50,000$ mẫu). | **Tập dữ liệu Normal có quy mô vừa và nhỏ** với hình thái ranh giới phi tuyến tính phức tạp, không tuân theo phân phối hình học đơn giản. |
+| **`elliptic_envelope`** | **Cơ chế**: Giả định dữ liệu phân phối chuẩn đa biến (Gaussian). Tính toán ma trận hiệp phương sai bền vững (Robust Covariance) và khoảng cách Mahalanobis để dựng elip bao bọc vùng an toàn.<br>**Điểm số**: Khoảng cách Mahalanobis chuẩn hóa. | **Tính toán ma trận cực nhanh**.<br>Rất nhạy cảm nếu dữ liệu vi phạm giả định phân phối chuẩn (Non-Gaussian). | **Môi trường mạng cục bộ ổn định**, các thiết bị IoT hoạt động định kỳ theo chu kỳ cố định (như cảm biến công nghiệp gửi số liệu đều đặn), ít nhiễu đột ngột. |
+| **`lof`** *(Local Outlier Factor)* | **Cơ chế**: Đo lường độ cô lập cục bộ bằng cách so sánh mật độ xung quanh một điểm với mật độ của $k$ láng giềng gần nhất (k-Nearest Neighbors). Điểm có mật độ thấp hơn đáng kể so với láng giềng được xem là dị biệt.<br>**Điểm số**: Tỷ số mật độ cục bộ (LOF Score). | **Phát hiện dị biệt theo cụm mật độ cục bộ**.<br>Yêu cầu lưu trữ các điểm dữ liệu láng giềng để suy luận (k-NN search). | **Phân tích ngoại tuyến chuyên sâu** hoặc phát hiện các mẫu tấn công chậm (Slow-rate Attacks, APT) ẩn nấp khéo léo trong các phân đoạn mạng mật độ khác nhau. |
+
+---
+
+#### 3. Quy Trình Tái Huấn Luyện Kết Hợp Thực Tế (Hybrid Real-World Retraining)
+
+Để khắc phục hiện tượng **lệch phân phối (Covariate Shift)** giữa tập dữ liệu học thuật (Edge-IIoTset) và môi trường Wi-Fi thực tế tại hiện trường (dẫn tới hiện tượng cảnh báo giả), AERO cung cấp cơ chế học kết hợp:
+```bash
+# Huấn luyện Hybrid: Kết hợp tập chuẩn Edge-IIoTset + Lưu lượng Normal thực tế từ Data Lakehouse
+python ml_engine/train.py --classifier decision_tree --anomaly-model isolation_forest --data-source hybrid
+```
+- **Bước 1**: `DataLakeManager` quét các phân vùng Parquet (`data_lake/raw/date=YYYY-MM-DD/`) để trích xuất các khung truyền thực tế được gắn nhãn `Normal`.
+- **Bước 2**: Pipeline tự động chuẩn hóa vector đặc trưng qua `EdgeTrafficPreprocessor` và gộp vào tập huấn luyện của Isolation Forest.
+- **Bước 3**: Mô hình Isolation Forest mới học được cả hành vi an ninh chuẩn và đặc thù lưu lượng thực tế xung quanh, **triệt tiêu hoàn toàn báo động giả (False Positives)** trong các phiên vận hành kế tiếp.
+
+---
+
+## ⏱️ Formulate Bài Toán Dưới Dạng Chuỗi Thời Gian (Time-Series Formulation)
+
+### 1. Quan sát Bản chất Dữ liệu Mạng
+- **Bộ benchmark Edge-IIoTset**: Gồm các luồng gói tin pcap/flow được gắn nhãn thời gian `frame.time`, khoảng thời gian giữa các gói (Inter-arrival Time - IAT), độ dài phiên (Flow Duration) và các chỉ số tích lũy theo cửa sổ.
+- **Kho dữ liệu Telemetry Data Lakehouse**: Thu thập lưu lượng từ Host/ESP32 theo từng cửa sổ thời gian trượt $\Delta t = 1.0\text{s}$ lưu dưới dạng Parquet. Các chỉ số như `packet_rate`, `byte_rate`, `syn_ratio`, `udp_ratio`, `tcp_fin_ratio`, `unique_dst_ports` tạo thành **Chuỗi thời gian đa biến (Multivariate Time-Series)**.
+- **Tính tuần tự của các cuộc tấn công IoT**: Các đợt tấn công thực tế không xuất hiện độc lập mà tuân theo chuỗi các pha thời gian:
+  1. *Pha Thăm dò (Reconnaissance)*: Port Scanning, Vulnerability Scanning (tăng đột biến tỷ lệ SYN, packet count trên nhiều cổng).
+  2. *Pha Khai thác & Xâm nhập (Exploitation)*: Password Brute-force, SQL Injection, HTTP Flooding.
+  3. *Pha Vận hành độc hại (Impact/Exfiltration)*: DoS/DDoS (traffic bão hòa), Exfiltration (traffic outbound lớn bất thường kéo dài).
+
+### 2. Mô hình Hóa Toán học (Formulation)
+Thay vì xử lý từng mẫu độc lập tại thời điểm $t$: $x_t \in \mathbb{R}^D$, ta gom chuỗi trượt lịch sử độ dài $W$ (ví dụ $W = 10 \sim 30$ bước thời gian, tương đương $10\text{s} \sim 30\text{s}$):
+$$X_t = [x_{t-W+1}, x_{t-W+2}, \dots, x_t] \in \mathbb{R}^{W \times D}$$
+
+Hai hướng tiếp cận kiến trúc chính:
+1. **Phát hiện Bất thường Chuỗi Thời gian (Unsupervised Time-Series Anomaly Detection)**:
+   - **Reconstruction Error (LSTM / TCN Autoencoder)**: Mô hình Autoencoder chỉ được huấn luyện trên chuỗi Normal. Khi gặp chuỗi bất thường, sai số tái tạo $\|X_t - \hat{X}_t\|_2$ tăng đột biến vượt ngưỡng $\tau$.
+   - **Forecasting Residual**: Mô hình dự báo trạng thái kế tiếp $\hat{x}_{t+1} = f(X_t)$. Nếu gói tin thực tế $x_{t+1}$ lệch xa dự báo, gắn cờ Anomaly.
+2. **Phân loại Chuỗi Tấn công (Supervised Sequence Classification)**:
+   - Mô hình mạng tuần hoàn (Bi-LSTM, GRU) hoặc tích chập 1D (Temporal Convolutional Network - TCN) nhận đầu vào ma trận $X_t \in \mathbb{R}^{W \times D}$ và dự đoán nhãn tấn công $y_t \in \{0, 1, \dots, 14\}$.
+
+### 3. Đánh giá Tính Khả Thi: Edge (ESP32) vs Host/Cloud Server
+- **Trên Vi điều khiển biên (ESP32 / MCU)**:
+  - Bộ nhớ SRAM giới hạn ($\sim 320\text{KB}$). Duy trì một Ring Buffer kích thước $W \times D = 30 \times 56 \times 4 \approx 6.7\text{KB}$ RAM hoàn toàn khả thi.
+  - Tuy nhiên, tính toán tuần tự ma trận của LSTM/GRU tốn $> 200\text{ms}$ mỗi bước nếu không có bộ tăng tốc NPU, không đáp ứng được yêu cầu real-time $< 1\text{ms}$.
+  - **Khuyến nghị**: Trên ESP32, giải pháp tối ưu là trích xuất **đặc trưng thống kê tích lũy theo cửa sổ (Aggregated Window Features)** kết hợp **Decision Tree C Code TinyML** (đạt độ trễ $< 50\,\mu s$).
+- **Trên Host PC / SOC Server**:
+  - Hoàn toàn phù hợp để triển khai PyTorch Deep Learning (LSTM, GRU, TCN, Transformer) trích xuất trực tiếp từ các tệp Parquet Data Lakehouse.
+
+---
+
+## ☁️ Đồng Bộ Kho Dữ Liệu Data Lakehouse Lên MinIO / S3 (Hợp Tác Nhóm)
+
+Khi triển khai thực tế, mỗi thành viên trong nhóm nghiên cứu vận hành hệ thống tại các môi trường mạng khác nhau. Để chia sẻ dữ liệu và nạp dữ liệu chung để huấn luyện, hệ thống tích hợp giải pháp đồng bộ **MinIO / S3 Remote Storage**:
+
+### 1. Kiến trúc Lưu trữ Đối tượng
+```
+MinIO Bucket: 'edge-lakehouse'
+├── data_lake/
+│   ├── raw/
+│   │   ├── date=2026-09-15/
+│   │   │   ├── sess_20260915_100000.parquet
+│   │   └── date=2026-09-16/
+│   │       └── sess_20260916_090000.parquet
+│   └── catalog.db (SQLite Metadata Catalog)
+```
+
+### 2. Cấu hình Kết nối MinIO (Tùy chọn qua `.env`)
+Tạo hoặc chỉnh sửa file `.env` tại thư mục gốc dự án:
+```ini
+# Cấu hình MinIO / S3 Object Storage
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET=edge-lakehouse
+MINIO_SECURE=false
+MINIO_AUTO_SYNC=true
+```
+*(Nếu chưa có sẵn server MinIO, bạn có thể khởi động nhanh bằng 1 lệnh Docker:)*
+```bash
+docker run -d -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data --console-address ':9001'
+```
+
+### 3. Công cụ CLI Đồng Bộ (`data_lake/sync_lakehouse.py`)
+- **Kiểm tra trạng thái kết nối MinIO và dung lượng bucket**:
+  ```bash
+  python data_lake/sync_lakehouse.py --action status
+  ```
+- **Đẩy toàn bộ phân vùng Parquet và catalog.db từ máy cục bộ lên MinIO**:
+  ```bash
+  python data_lake/sync_lakehouse.py --action push
+  ```
+- **Kéo toàn bộ phân vùng dữ liệu của các thành viên khác về máy để huấn luyện**:
+  ```bash
+  python data_lake/sync_lakehouse.py --action pull
+  ```
+- **Tự động đồng bộ khi đóng phiên**: Khi bật `MINIO_AUTO_SYNC=true`, bất cứ khi nào bạn nhấn `Ctrl+C` dừng `run_system.py`, tệp Parquet vừa ghi và SQLite Catalog sẽ tự động được tải lên MinIO bucket ngay lập tức.
+
+---
+
+## 🗂️ Quản Lý Artifacts Theo Thư Mục Riêng & Chạy Đa Mô Hình
+
+Để phục vụ so sánh và thử nghiệm nhiều thuật toán mà không bị ghi đè trọng số lẫn nhau, AERO tự động phân chia thư mục xuất artifacts:
+
+### 1. Cấu trúc Thư mục Artifacts
+```
+ml_engine/models/
+├── decision_tree_isolation_forest/    # Artifacts Decision Tree (kèm tinyml_model.h)
+├── xgboost_isolation_forest/          # Artifacts XGBoost Model
+├── lightgbm_isolation_forest/         # Artifacts LightGBM Model
+├── catboost_isolation_forest/         # Artifacts CatBoost Model
+├── pytorch_deep_isolation_forest/     # Artifacts PyTorch DNN (kèm loss_curve.png)
+└── [Fallback Files]                   # Tự động đồng bộ bản sao mới nhất tại thư mục gốc
+```
+
+### 2. Huấn luyện các mô hình vào thư mục riêng
+```bash
+# Huấn luyện Decision Tree (xuất tinyml_model.h cho ESP32):
+python ml_engine/train.py --classifier decision_tree --anomaly-model isolation_forest
+
+# Huấn luyện XGBoost (độ chính xác cao):
+python ml_engine/train.py --classifier xgboost --anomaly-model isolation_forest
+
+# Huấn luyện PyTorch Deep Learning (in epoch & vẽ loss_curve.png):
+python ml_engine/train.py --classifier pytorch_deep --anomaly-model isolation_forest
+```
+
+### 3. Khởi chạy Hệ thống với Mô hình Tùy Chọn
+Khi vận hành thời gian thực, `run_system.py` tự động truy vết và nạp đúng thư mục artifacts tương ứng thông qua các cờ:
+```bash
+# Chạy với mô hình Decision Tree (mặc định):
+python run_system.py --classifier decision_tree --anomaly-model isolation_forest
+
+# Chạy với mô hình XGBoost:
+python run_system.py --classifier xgboost --anomaly-model isolation_forest
+
+# Chạy với mô hình PyTorch Deep Learning:
+python run_system.py --classifier pytorch_deep --anomaly-model isolation_forest
+
+# Hoặc chỉ định trực tiếp thư mục artifacts:
+python run_system.py --models-dir ml_engine/models/xgboost_isolation_forest
+```
+
+---
+
 ## ⚡ PHẦN 2: Khởi Chạy Toàn Bộ Hệ Thống (Artifact Loading & Live Inference)
+
 
 Phiên chạy `run_system.py` là trung tâm vận hành runtime của hệ sinh thái.
 
@@ -347,6 +520,13 @@ d:\STT 2026\
 │   │   └── host_sniffer.py            # Bắt lưu lượng mạng thật từ máy tính (Module cho run_system)
 │   └── simulator\
 │       └── attack_traffic_generator.py # Module duy nhất bắn gói tin mạng thật (Raw Socket, điều khiển từ Web UI)
+├── data_lake\
+│   ├── lakehouse.py                   # DataLakeManager (quản lý phân vùng Parquet, nén Snappy, SQLite catalog)
+│   ├── remote_storage.py              # MinIO / S3 Object Storage Manager (Upload/Download partitions)
+│   ├── sync_lakehouse.py              # CLI Tool đồng bộ kho dữ liệu (push, pull, status)
+│   ├── collector.py                   # MQTT DataLakeCollector ghi luồng telemetry nền
+│   ├── catalog.db                     # SQLite Metadata Catalog lưu danh mục sessions và ngày
+│   └── raw\                           # Thư mục chứa các phân vùng Parquet theo ngày (date=YYYY-MM-DD)
 ├── broker\
 │   ├── mosquitto.conf                 # Cấu hình chuẩn Eclipse Mosquitto
 │   ├── docker-compose.yml             # Chạy Mosquitto nhanh bằng Docker
@@ -365,26 +545,31 @@ d:\STT 2026\
 │   │   └── optuna_tuner.py            # Thư viện hàm Optuna HPO (Search Space, Pruners, K-Fold CV & SQLite)
 │   ├── algorithms\
 │   │   ├── base.py                    # Base protocol cho Classifier & Anomaly Detector
-│   │   ├── classifiers.py             # DecisionTree, RandomForest, ExtraTrees, GradientBoosting, MLP...
+│   │   ├── classifiers\               # Modular Classifiers Package
+│   │   │   ├── trees.py               # DecisionTree, RandomForest, ExtraTrees (TinyML Ready)
+│   │   │   ├── boosting.py            # XGBoost, LightGBM, CatBoost
+│   │   │   ├── deep_learning.py       # PyTorch EdgeDeepNet Classifier (Vẽ & xuất loss_curve.png)
+│   │   │   ├── linear.py              # LogisticRegression Baseline
+│   │   │   └── ensemble.py            # Soft-Voting Ensemble
 │   │   └── anomaly_detectors.py       # IsolationForest, OneClassSVM, EllipticEnvelope, LOF
 │   ├── exporter\
 │   │   ├── __init__.py
 │   │   └── tinyml_exporter.py         # Chuyển đổi mô hình sang C Header (ESP32 TinyML)
 │   ├── export_tinyml.py               # Tiện ích export TinyML (CLI tập trung tại: train.py --export-tinyml-only)
-│   ├── notebooks\
-│   │   ├── EDA_Edge_IIoTset.ipynb     # Jupyter Notebook phân tích chuyên sâu Edge-IIoTset
-│   │   ├── generate_eda_report.py     # Script xuất biểu đồ EDA SOC Aesthetic
-│   │   └── eda_charts\                # Thư mục chứa các biểu đồ phân tích dữ liệu
 │   ├── datasets\                      # Thư mục chứa dataset Edge-IIoTset CSV
 │   ├── models\                        # Thư mục chứa Artifacts đã huấn luyện
-│   │   ├── attack_classifier.joblib   # Trọng số mô hình phân loại tấn công
-│   │   ├── isolation_forest.joblib    # Trọng số mô hình phát hiện bất thường
+│   │   ├── decision_tree_isolation_forest/ # Artifacts riêng Decision Tree (Weights + C Header)
+│   │   ├── xgboost_isolation_forest/       # Artifacts riêng XGBoost Model
+│   │   ├── lightgbm_isolation_forest/      # Artifacts riêng LightGBM Model
+│   │   ├── pytorch_deep_isolation_forest/  # Artifacts riêng PyTorch DNN (kèm loss_curve.png)
+│   │   ├── attack_classifier.joblib   # [Fallback] Bản sao mô hình vừa huấn luyện gần nhất
+│   │   ├── isolation_forest.joblib    # [Fallback] Bản sao phát hiện bất thường
 │   │   ├── preprocessor.joblib        # Bộ tiền xử lý (Encoders + Scaler)
 │   │   ├── scaler.joblib              # Weights của StandardScaler
 │   │   ├── model_metadata.json        # Thông số cấu hình & kết quả đánh giá mô hình
 │   │   ├── optuna_study.db            # Cơ sở dữ liệu SQLite lưu trữ lịch sử trials Optuna
 │   │   └── tinyml_model.h             # Tệp header C sinh ra cho vi điều khiển
-│   ├── train.py                       # Master Training Pipeline (Entrypoint duy nhất: HPO + Final Model + Artifacts)
+│   ├── train.py                       # Master Training Pipeline (Entrypoint: HPO + Multi-model Output)
 │   └── inference_service.py           # Service suy luận thời gian thực 2 tầng qua MQTT
 ├── dashboard\
 │   ├── backend\

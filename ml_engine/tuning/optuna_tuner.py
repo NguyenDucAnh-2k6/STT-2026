@@ -74,22 +74,51 @@ def get_search_space(model_type: str, trial: optuna.Trial) -> Dict[str, Any]:
             "random_state": 42,
             "n_jobs": -1
         }
-    elif model_type == "gradient_boosting":
+    elif model_type in ("xgboost", "xgb"):
         return {
-            "n_estimators": trial.suggest_int("n_estimators", 30, 120, step=10),
+            "n_estimators": trial.suggest_int("n_estimators", 40, 180, step=20),
+            "max_depth": trial.suggest_int("max_depth", 4, 10),
             "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.25, log=True),
-            "max_depth": trial.suggest_int("max_depth", 3, 8),
             "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+            "random_state": 42,
+            "n_jobs": -1
+        }
+    elif model_type in ("lightgbm", "lgb"):
+        return {
+            "n_estimators": trial.suggest_int("n_estimators", 40, 180, step=20),
+            "max_depth": trial.suggest_int("max_depth", 4, 12),
+            "num_leaves": trial.suggest_int("num_leaves", 15, 127),
+            "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.25, log=True),
+            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+            "random_state": 42,
+            "n_jobs": -1,
+            "verbose": -1
+        }
+    elif model_type == "catboost":
+        return {
+            "iterations": trial.suggest_int("iterations", 40, 180, step=20),
+            "depth": trial.suggest_int("depth", 4, 9),
+            "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.25, log=True),
+            "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1.0, 10.0),
+            "random_seed": 42,
+            "verbose": 0,
+            "thread_count": -1
+        }
+    elif model_type in ("pytorch_deep", "mlp", "deep_learning", "pytorch"):
+        return {
+            "lr": trial.suggest_float("lr", 3e-4, 8e-3, log=True),
+            "dropout": trial.suggest_float("dropout", 0.1, 0.35),
+            "batch_size": trial.suggest_categorical("batch_size", [128, 256]),
+            "epochs": 15,
             "random_state": 42
         }
-    elif model_type == "mlp":
-        hidden_layer_sizes = trial.suggest_categorical("hidden_layer_sizes", [(64, 32), (128, 64), (128, 64, 32)])
+    elif model_type == "gradient_boosting":
         return {
-            "hidden_layer_sizes": hidden_layer_sizes,
-            "activation": trial.suggest_categorical("activation", ["relu", "tanh"]),
-            "alpha": trial.suggest_float("alpha", 1e-5, 1e-2, log=True),
-            "learning_rate_init": trial.suggest_float("learning_rate_init", 1e-4, 1e-2, log=True),
-            "max_iter": 200,
+            "n_estimators": trial.suggest_int("n_estimators", 30, 100, step=10),
+            "learning_rate": trial.suggest_float("learning_rate", 0.03, 0.25, log=True),
+            "max_depth": trial.suggest_int("max_depth", 3, 6),
+            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
             "random_state": 42
         }
     elif model_type == "ensemble_voting":
@@ -98,9 +127,9 @@ def get_search_space(model_type: str, trial: optuna.Trial) -> Dict[str, Any]:
             "rf_max_depth": trial.suggest_int("rf_max_depth", 5, 14),
             "et_n_estimators": trial.suggest_int("et_n_estimators", 30, 80, step=10),
             "et_max_depth": trial.suggest_int("et_max_depth", 5, 14),
-            "gb_n_estimators": trial.suggest_int("gb_n_estimators", 30, 80, step=10),
-            "gb_max_depth": trial.suggest_int("gb_max_depth", 3, 6),
-            "gb_learning_rate": trial.suggest_float("gb_learning_rate", 0.03, 0.2, log=True),
+            "xgb_n_estimators": trial.suggest_int("xgb_n_estimators", 30, 80, step=10),
+            "xgb_max_depth": trial.suggest_int("xgb_max_depth", 3, 6),
+            "xgb_learning_rate": trial.suggest_float("xgb_learning_rate", 0.03, 0.2, log=True),
             "random_state": 42
         }
     else:

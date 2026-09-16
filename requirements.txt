@@ -10,4 +10,4 @@ requests
 scapy
 psutil
 pyserial
-
+minio

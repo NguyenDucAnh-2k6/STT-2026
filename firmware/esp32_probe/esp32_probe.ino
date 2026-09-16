@@ -157,6 +157,36 @@ void checkUdpDiscovery() {
 }
 
 void setupWiFi() {
+#if SNIFFER_MODE_ALL_NETWORKS
+  Serial.println(F("\n=================================================="));
+  Serial.println(F(" [Sniffer] CHE DO FULL-SPECTRUM ALL-NETWORKS"));
+  Serial.println(F("  * Khong rang buoc AP, radio tu do nhay 13 kenh!"));
+  Serial.println(F("  * Bat tron moi goi tin tu tat ca router & thiet bi xung quanh!"));
+  Serial.println(F("  * Telemetry duoc day ve Data Lake qua cap USB Serial 115200 baud."));
+  Serial.println(F("=================================================="));
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+#if ENABLE_OLED
+  if (oledReady) {
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.println(F("AERO EDGE AI SOC"));
+    display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
+    display.setCursor(0, 14);
+    display.println(F("ALL-NETWORKS MODE"));
+    display.setCursor(0, 26);
+    display.println(F("HOPPING CH 1..13"));
+    display.setCursor(0, 38);
+    display.println(F("Uplink: USB Serial"));
+    display.display();
+    delay(1000);
+  }
+#endif
+  return;
+#endif
+
   Serial.println(F("\n[WiFi] Khoi dong WiFiMulti tu dong ket noi AP tot nhat..."));
 #if ENABLE_OLED
   if (oledReady) {
@@ -353,7 +383,16 @@ void loop() {
   }
 #endif
 
-  // Duy trì kết nối WiFi đa mạng qua WiFiMulti và Auto-Discovery Broker
+#if SNIFFER_MODE_ALL_NETWORKS
+  // Chế độ All-Networks: Luôn nhảy tuần tự liên tục 13 kênh (CH 1..13) với tốc độ cao
+  if (millis() - lastHopTime > FAST_HOP_INTERVAL_MS) {
+    lastHopTime = millis();
+    currentChannel++;
+    if (currentChannel > 13) currentChannel = 1;
+    esp_wifi_set_channel(currentChannel, WIFI_SECOND_CHAN_NONE);
+  }
+#else
+  // Chế độ AP-Locked: Duy trì kết nối WiFi đa mạng qua WiFiMulti và Auto-Discovery Broker
   if (wifiMulti.run() == WL_CONNECTED) {
     if (!mqttClient.connected()) {
       checkUdpDiscovery();
@@ -364,13 +403,13 @@ void loop() {
   }
 
   // Nhảy kênh WiFi nếu được bật và khi KHÔNG có kết nối WiFi Station
-  // (Khi đã kết nối WiFi, radio phải giữ nguyên kênh của Access Point để gửi/nhận MQTT)
   if (WiFi.status() != WL_CONNECTED && ENABLE_CHANNEL_HOP && (millis() - lastHopTime > HOP_INTERVAL_MS)) {
     lastHopTime = millis();
     currentChannel++;
     if (currentChannel > 13) currentChannel = 1;
     esp_wifi_set_channel(currentChannel, WIFI_SECOND_CHAN_NONE);
   }
+#endif
 
   // Hết chu kỳ lấy mẫu -> Đóng gói telemetry và publish
   if (millis() - lastSampleTime >= SAMPLING_WINDOW_MS) {
@@ -396,9 +435,15 @@ void loop() {
     // Đóng gói JSON
     StaticJsonDocument<512> doc;
     doc["device_id"] = MQTT_CLIENT_ID;
-    doc["device_ip"] = WiFi.localIP().toString();
+    doc["device_ip"] = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : "0.0.0.0";
     doc["timestamp"] = millis();
-    doc["channel"] = currentChannel;
+#if SNIFFER_MODE_ALL_NETWORKS
+    doc["channel"] = "HOP(1-13)";
+    doc["sniffer_mode"] = "all-networks";
+#else
+    doc["channel"] = String(currentChannel);
+    doc["sniffer_mode"] = "ap-locked";
+#endif
     doc["packet_rate"] = round(packet_rate * 100) / 100.0;
     doc["byte_rate"] = round(byte_rate * 100) / 100.0;
     doc["avg_packet_size"] = round(avg_packet_size * 10) / 10.0;
@@ -490,7 +535,11 @@ void loop() {
       // Bố cục chuẩn cho màn hình 128x64 pixels (0.96 inch)
       display.setTextSize(1);
       display.setCursor(0, 0);
+#if SNIFFER_MODE_ALL_NETWORKS
+      display.printf("ALL-NET | HOP 1..13");
+#else
       display.printf("CH%d | %s", currentChannel, (WiFi.status() == WL_CONNECTED) ? "ONLINE" : "OFFLINE");
+#endif
       display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
 
       // Thông số lưu lượng mạng thời gian thực
@@ -516,7 +565,11 @@ void loop() {
       // Bố cục tinh gọn cho màn hình nhỏ 128x32 pixels (0.91 inch)
       display.setTextSize(1);
       display.setCursor(0, 0);
+#if SNIFFER_MODE_ALL_NETWORKS
+      display.printf("HOP 1-13|%.0fp/s|ALL", packet_rate);
+#else
       display.printf("CH%d|%.0fp/s|%s", currentChannel, packet_rate, (WiFi.status() == WL_CONNECTED) ? "ON" : "OFF");
+#endif
       display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
 
       display.setCursor(0, 12);
@@ -533,7 +586,11 @@ void loop() {
 #endif
 
     // In Serial giám sát
+#if SNIFFER_MODE_ALL_NETWORKS
+    const char* connStatus = "[ALL-NETWORKS HOPPING 1..13]";
+#else
     const char* connStatus = (WiFi.status() == WL_CONNECTED) ? ((mqttClient.connected()) ? "[ONLINE - MQTT OK]" : "[ONLINE - MQTT WAITING]") : "[OFFLINE - NO WIFI]";
+#endif
     Serial.printf("[Telemetry] %s Pkts/s: %.1f | Bytes/s: %.0f | SYN: %.2f | Ports: %d | Threat: %s\n",
                   connStatus, packet_rate, byte_rate, syn_ratio, snap.unique_ports_count, local_attack);
     // Luôn gửi bản tin JSON ra cổng Serial với tag ESP32_TELEMETRY: để máy tính đọc qua cáp USB khi mất WiFi

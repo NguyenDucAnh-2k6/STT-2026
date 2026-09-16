@@ -142,3 +142,27 @@ async def set_threshold(req: ThresholdRequest):
             pass
         return {"status": "success", "anomaly_threshold": state.anomaly_threshold}
     return JSONResponse(status_code=400, content={"status": "error", "message": "Nguong threshold hop le: 0.10 - 0.99"})
+
+
+@router.get("/data-lake/summary")
+async def get_data_lake_summary():
+    """Lấy thống kê tổng quan của Data Lakehouse (Parquet/SQLite)."""
+    try:
+        from data_lake.lakehouse import get_lakehouse_manager
+        lake = get_lakehouse_manager()
+        return lake.get_summary_stats()
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+
+@router.get("/data-lake/sessions")
+async def get_data_lake_sessions():
+    """Lấy danh sách các session thu thập gần đây từ Data Lakehouse."""
+    try:
+        from data_lake.lakehouse import get_lakehouse_manager
+        lake = get_lakehouse_manager()
+        stats = lake.get_summary_stats()
+        return stats.get("recent_sessions", [])
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+

@@ -16,8 +16,18 @@ import numpy as np
 class BaseAttackClassifier(ABC):
     """Giao diện chuẩn cho tất cả các mô hình phân loại tấn công mạng."""
 
+    plot_path: Optional[str] = None
+    is_deep_learning: bool = False
+
     @abstractmethod
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "BaseAttackClassifier":
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        X_val: Optional[np.ndarray] = None,
+        y_val: Optional[np.ndarray] = None,
+        **kwargs
+    ) -> "BaseAttackClassifier":
         """Huấn luyện mô hình phân loại đa lớp."""
         pass
 

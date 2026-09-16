@@ -1,5 +1,5 @@
 {
-  "timestamp": 1789530849,
+  "timestamp": 1789530794,
   "features_count": 56,
   "features": [
     "arp.opcode",
@@ -77,29 +77,29 @@
     "Vulnerability_scanner",
     "XSS"
   ],
-  "classifier_type": "xgboost",
+  "classifier_type": "decision_tree",
   "anomaly_detector_type": "isolation_forest",
   "data_source": "hybrid",
   "data_lake_records_used": 1488,
-  "classifier_accuracy": 0.934,
-  "classifier_macro_f1": 0.892,
+  "classifier_accuracy": 0.922,
+  "classifier_macro_f1": 0.8674,
   "classification_report": {
     "Backdoor": {
-      "precision": 1.0,
+      "precision": 0.9838709677419355,
       "recall": 0.9384615384615385,
-      "f1-score": 0.9682539682539683,
+      "f1-score": 0.9606299212598425,
       "support": 65.0
     },
     "DDoS_HTTP": {
-      "precision": 0.890625,
-      "recall": 0.8507462686567164,
-      "f1-score": 0.8702290076335878,
+      "precision": 0.8333333333333334,
+      "recall": 0.8208955223880597,
+      "f1-score": 0.8270676691729323,
       "support": 67.0
     },
     "DDoS_ICMP": {
-      "precision": 0.9887640449438202,
-      "recall": 0.9887640449438202,
-      "f1-score": 0.9887640449438202,
+      "precision": 0.978021978021978,
+      "recall": 1.0,
+      "f1-score": 0.9888888888888889,
       "support": 89.0
     },
     "DDoS_TCP": {
@@ -110,14 +110,14 @@
     },
     "DDoS_UDP": {
       "precision": 1.0,
-      "recall": 0.9891304347826086,
-      "f1-score": 0.994535519125683,
+      "recall": 1.0,
+      "f1-score": 1.0,
       "support": 92.0
     },
     "Fingerprinting": {
-      "precision": 0.8571428571428571,
-      "recall": 1.0,
-      "f1-score": 0.9230769230769231,
+      "precision": 0.8,
+      "recall": 0.6666666666666666,
+      "f1-score": 0.7272727272727273,
       "support": 6.0
     },
     "MITM": {
@@ -133,9 +133,9 @@
       "support": 154.0
     },
     "Password": {
-      "precision": 0.896551724137931,
-      "recall": 0.8253968253968254,
-      "f1-score": 0.859504132231405,
+      "precision": 0.7833333333333333,
+      "recall": 0.746031746031746,
+      "f1-score": 0.7642276422764228,
       "support": 63.0
     },
     "Port_Scanning": {
@@ -151,40 +151,40 @@
       "support": 69.0
     },
     "SQL_injection": {
-      "precision": 0.875,
+      "precision": 0.8615384615384616,
       "recall": 0.8615384615384616,
-      "f1-score": 0.8682170542635659,
+      "f1-score": 0.8615384615384616,
       "support": 65.0
     },
     "Uploading": {
-      "precision": 0.8405797101449275,
-      "recall": 0.8923076923076924,
-      "f1-score": 0.8656716417910447,
+      "precision": 0.8484848484848485,
+      "recall": 0.8615384615384616,
+      "f1-score": 0.8549618320610687,
       "support": 65.0
     },
     "Vulnerability_scanner": {
-      "precision": 0.9545454545454546,
-      "recall": 0.984375,
-      "f1-score": 0.9692307692307692,
+      "precision": 0.9508196721311475,
+      "recall": 0.90625,
+      "f1-score": 0.928,
       "support": 64.0
     },
     "XSS": {
-      "precision": 0.8688524590163934,
-      "recall": 0.828125,
-      "f1-score": 0.848,
+      "precision": 0.8870967741935484,
+      "recall": 0.859375,
+      "f1-score": 0.873015873015873,
       "support": 64.0
     },
-    "accuracy": 0.934,
+    "accuracy": 0.922,
     "macro avg": {
-      "precision": 0.9269775533281595,
-      "recall": 0.8894744168231854,
-      "f1-score": 0.8920246376283429,
+      "precision": 0.9106067612513064,
+      "recall": 0.8562685588590034,
+      "f1-score": 0.867365967957373,
       "support": 1000.0
     },
     "weighted avg": {
-      "precision": 0.9364303141686632,
-      "recall": 0.934,
-      "f1-score": 0.9325393469265618,
+      "precision": 0.9236797457745487,
+      "recall": 0.922,
+      "f1-score": 0.9203205739873054,
       "support": 1000.0
     }
   },
@@ -195,5 +195,5 @@
   "best_params": {},
   "cv_folds": null,
   "sqlite_storage": null,
-  "can_export_tinyml": false
+  "can_export_tinyml": true
 }

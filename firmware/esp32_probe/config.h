@@ -27,7 +27,15 @@
 // Cửa sổ lấy mẫu thống kê gói tin (milliseconds)
 #define SAMPLING_WINDOW_MS 2000
 
-// Kênh WiFi cần lắng nghe (1 - 13). 0 = tự động nhảy kênh (Channel Hopping)
+// --- Chế độ dò sóng mạng (Sniffer Mode) ---
+// SNIFFER_MODE_ALL_NETWORKS:
+//  - true : Thoát ly hoàn toàn khỏi AP, radio nhảy liên tục 13 kênh (1..13) bắt mọi mạng Wi-Fi xung quanh.
+//           Dữ liệu telemetry truyền liên tục qua cáp USB Serial về Data Lake & ML Engine.
+//  - false: Kết nối vào AP WiFi cụ thể để gửi MQTT không dây (bị khóa vào kênh của AP).
+#define SNIFFER_MODE_ALL_NETWORKS true
+#define FAST_HOP_INTERVAL_MS 300       // Chu kỳ nhảy kênh nhanh khi quét toàn bộ mạng (300ms/kênh)
+
+// Kênh WiFi cần lắng nghe (1 - 13) khi không nhảy kênh
 #define WIFI_CHANNEL 1
 #define ENABLE_CHANNEL_HOP true
 #define HOP_INTERVAL_MS 5000

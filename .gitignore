@@ -31,6 +31,9 @@ broker/log/
 *.swp
 *.swo
 
+#Model artifacts
+catboost_info/
+
 # OS files
 .DS_Store
 Thumbs.db

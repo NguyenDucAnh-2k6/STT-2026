@@ -297,13 +297,19 @@ def load_and_preprocess_dataset(
         print(f"[Preprocessor] Dang nap tap du lieu Edge-IIoTset tu: {path}")
         df = pd.read_csv(path, low_memory=False)
         total_rows = len(df)
-        print(f"  -> Tong so dong goc: {total_rows:,} dong x {df.shape[1]} cot")
         if sample_size is not None and 0 < sample_size < total_rows:
-            frac = sample_size / total_rows
             target_col_temp = "Attack_type" if "Attack_type" in df.columns else df.columns[-1]
-            _, df = train_test_split(
-                df, test_size=frac, random_state=random_state, stratify=df[target_col_temp]
-            )
+            try:
+                frac = sample_size / total_rows
+                _, df = train_test_split(
+                    df, test_size=frac, random_state=random_state, stratify=df[target_col_temp]
+                )
+            except Exception:
+                # Nếu một số lớp quá hiếm khi lấy tỷ lệ nhỏ, nhóm groupby đảm bảo tối thiểu 2 mẫu mỗi lớp
+                def _sample_group(g):
+                    n = max(2, int(len(g) * sample_size / total_rows))
+                    return g.sample(min(len(g), n), random_state=random_state)
+                df = df.groupby(target_col_temp, group_keys=False).apply(_sample_group)
             df = df.reset_index(drop=True)
             print(f"  -> Da lay mau phan tang (Stratified Sample): {len(df):,} dong x {df.shape[1]} cot")
     else:

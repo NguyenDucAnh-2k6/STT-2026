@@ -13,8 +13,27 @@ export class HeaderComponent {
     this.connectionStatus = document.getElementById("connection-status");
     this.activeNodesBadge = document.getElementById("active-nodes-badge");
     this.btnAudioToggle = document.getElementById("btn-audio-toggle");
+    this.dataLakeBadge = document.getElementById("data-lake-badge");
 
     this.initEventListeners();
+    this.pollDataLake();
+    setInterval(() => this.pollDataLake(), 5000);
+  }
+
+  async pollDataLake() {
+    if (!this.dataLakeBadge) return;
+    try {
+      const res = await fetch("/api/data-lake/summary");
+      if (res.ok) {
+        const data = await res.json();
+        const total = data.total_records || 0;
+        const kb = data.total_storage_kb || 0;
+        this.dataLakeBadge.innerText = `Data Lake: ${total.toLocaleString()} rows (${kb} KB)`;
+        this.dataLakeBadge.title = `Sessions: ${data.total_sessions} | Normal: ${data.normal_records.toLocaleString()} | Attacks: ${data.attack_records.toLocaleString()} | Storage: ${kb} KB`;
+      }
+    } catch (e) {
+      // Ignore network errors during reconnection
+    }
   }
 
   initEventListeners() {
