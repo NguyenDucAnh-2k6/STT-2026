@@ -280,12 +280,14 @@ class EdgeTrafficPreprocessor:
 def load_and_preprocess_dataset(
     dataset_path: Optional[str] = None,
     sample_size: Optional[int] = None,
-    test_size: float = 0.25,
+    sample_ratio: Optional[float] = None,
+    test_size: float = 0.0,
     random_state: int = 42
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, EdgeTrafficPreprocessor]:
+) -> Tuple[np.ndarray, Optional[np.ndarray], np.ndarray, Optional[np.ndarray], EdgeTrafficPreprocessor]:
     """
     Hàm cấp cao nạp và tiền xử lý toàn diện tập dữ liệu Edge-IIoTset.
     Duy trì full 63 đặc trưng (61 đầu vào + labels). Không drop đặc trưng nào.
+    Hỗ trợ lấy mẫu phân tầng theo tỉ lệ sample_ratio cân bằng chính xác phân phối các lớp.
 
     Returns:
     --------
@@ -297,26 +299,29 @@ def load_and_preprocess_dataset(
         print(f"[Preprocessor] Dang nap tap du lieu Edge-IIoTset tu: {path}")
         df = pd.read_csv(path, low_memory=False)
         total_rows = len(df)
-        if sample_size is not None and 0 < sample_size < total_rows:
+        ratio = sample_ratio
+        if ratio is None and sample_size is not None and total_rows > 0:
+            ratio = min(1.0, max(0.0, sample_size / total_rows))
+
+        if ratio is not None and 0.0 < ratio < 1.0:
             target_col_temp = "Attack_type" if "Attack_type" in df.columns else df.columns[-1]
             try:
-                frac = sample_size / total_rows
                 _, df = train_test_split(
-                    df, test_size=frac, random_state=random_state, stratify=df[target_col_temp]
+                    df, test_size=ratio, random_state=random_state, stratify=df[target_col_temp]
                 )
             except Exception:
                 # Nếu một số lớp quá hiếm khi lấy tỷ lệ nhỏ, nhóm groupby đảm bảo tối thiểu 2 mẫu mỗi lớp
                 def _sample_group(g):
-                    n = max(2, int(len(g) * sample_size / total_rows))
+                    n = max(2, int(len(g) * ratio))
                     return g.sample(min(len(g), n), random_state=random_state)
                 df = df.groupby(target_col_temp, group_keys=False).apply(_sample_group)
             df = df.reset_index(drop=True)
-            print(f"  -> Da lay mau phan tang (Stratified Sample): {len(df):,} dong x {df.shape[1]} cot")
+            print(f"  -> Da lay mau phan tang (Stratified Sample ratio={ratio:.4f}): {len(df):,} dong x {df.shape[1]} cot")
     else:
         print(f"[Preprocessor] [Canh bao] Khong tim thay file {path}. Tao tap du lieu mau Edge-IIoTset...")
         # Fallback tạo dataframe giả lập đúng schema 61 đặc trưng
         rows = []
-        n_samples = sample_size if sample_size else DEFAULT_DATASET_SAMPLES
+        n_samples = sample_size if sample_size else (int(DEFAULT_DATASET_SAMPLES * (sample_ratio or 1.0)))
         for i in range(n_samples):
             row = {feat: float(np.random.rand() * 100.0) for feat in EDGE_IIOTSET_FEATURES}
             row["frame.time"] = f"2026-09-09 21:00:{i%60:02d}"
@@ -358,16 +363,19 @@ def load_and_preprocess_dataset(
 def load_full_dataset(
     dataset_path: Optional[str] = None,
     sample_size: Optional[int] = None,
+    sample_ratio: Optional[float] = None,
     random_state: int = 42
 ) -> Tuple[np.ndarray, np.ndarray, EdgeTrafficPreprocessor]:
     """
     Nạp và tiền xử lý toàn bộ tập dữ liệu (không chia test split riêng).
-    Toàn bộ dữ liệu được dùng cho Stratified K-Fold CV và train Final Model.
+    Toàn bộ dữ liệu được dùng cho Stratified K-Fold CV và train Final Model trên 100% data.
     """
     X, _, y, _, preprocessor = load_and_preprocess_dataset(
         dataset_path=dataset_path,
         sample_size=sample_size,
+        sample_ratio=sample_ratio,
         test_size=0.0,
         random_state=random_state
     )
     return X, y, preprocessor
+

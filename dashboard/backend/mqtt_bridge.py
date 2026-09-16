@@ -120,8 +120,14 @@ def on_mqtt_message(client, userdata, msg):
             "class_probabilities": payload.get("class_probabilities", {}),
             "edge_prediction": payload.get("edge_prediction") or raw.get("edge_prediction", "Normal"),
             "edge_flag": bool(payload.get("edge_flag") or raw.get("edge_flag", False)),
-            "latency_ms": payload.get("latency_ms", 0.0)
+            "latency_ms": payload.get("latency_ms", 0.0),
+            "scanned_networks": raw.get("scanned_networks", [])
         }
+
+        # Cập nhật danh sách mạng WiFi bắt được từ ESP32 / Host
+        scanned_nets = raw.get("scanned_networks", [])
+        if scanned_nets:
+            state.update_wifi_networks(scanned_nets)
 
         state.add_telemetry(data_point)
 
@@ -130,10 +136,24 @@ def on_mqtt_message(client, userdata, msg):
                 "type": "TELEMETRY_UPDATE",
                 "data": data_point,
                 "total_packets": state.total_packets_inspected,
-                "total_threats": state.total_threats_detected
+                "total_threats": state.total_threats_detected,
+                "detected_wifi_networks": state.detected_wifi_networks
             }),
             main_loop
         )
+
+    elif topic == "edge/telemetry/traffic":
+        # Hỗ trợ nhận trực tiếp scanned_networks nếu chưa qua inference service
+        scanned_nets = payload.get("scanned_networks", [])
+        if scanned_nets:
+            state.update_wifi_networks(scanned_nets)
+            asyncio.run_coroutine_threadsafe(
+                manager.broadcast({
+                    "type": "WIFI_NETWORKS_UPDATE",
+                    "networks": state.detected_wifi_networks
+                }),
+                main_loop
+            )
 
     elif topic == "edge/alerts/high_priority":
         raw_alert = payload.get("raw_telemetry", {})

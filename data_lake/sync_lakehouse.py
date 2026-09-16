@@ -28,12 +28,12 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     except Exception:
         pass
 
-from data_lake.remote_storage import MinIOStorageManager, get_minio_storage_manager
+from data_lake.remote_storage import RemoteStorageManager, get_remote_storage_manager
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Data Lakehouse MinIO / S3 Remote Sync CLI Tool",
+        description="Data Lakehouse Cloudflare R2 / S3 / MinIO Remote Sync CLI Tool",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
@@ -45,36 +45,32 @@ def main():
     parser.add_argument(
         "--endpoint",
         default=None,
-        help="MinIO Endpoint (ví dụ: 192.168.1.50:9000 hoặc s3.amazonaws.com)"
+        help="Remote Endpoint (ví dụ: <account_id>.r2.cloudflarestorage.com hoặc 192.168.1.50:9000)"
     )
     parser.add_argument(
         "--bucket",
         default=None,
-        help="Tên bucket trên MinIO / S3 (mặc định: edge-lakehouse hoặc từ file .env)"
+        help="Tên bucket (mặc định: edge-lakehouse hoặc từ file .env)"
     )
     parser.add_argument(
         "--access-key",
         default=None,
-        help="MinIO Access Key"
+        help="Access Key ID (R2 / S3 / MinIO)"
     )
     parser.add_argument(
         "--secret-key",
         default=None,
-        help="MinIO Secret Key"
+        help="Secret Access Key"
     )
     parser.add_argument(
         "--secure",
         action="store_true",
-        help="Bật HTTPS (mặc định: HTTP thông thường cho local MinIO)"
+        help="Bật HTTPS (mặc định: tự động bật cho Cloudflare R2)"
     )
 
     args = parser.parse_args()
 
-    print("=" * 68)
-    print("   DATA LAKEHOUSE MINIO / S3 REMOTE STORAGE SYNC TOOL")
-    print("=" * 68)
-
-    mgr = MinIOStorageManager(
+    mgr = RemoteStorageManager(
         endpoint=args.endpoint,
         access_key=args.access_key,
         secret_key=args.secret_key,
@@ -82,6 +78,10 @@ def main():
         secure=args.secure if args.secure else None
     )
 
+    print("=" * 68)
+    print(f"   DATA LAKEHOUSE REMOTE STORAGE SYNC TOOL ({mgr._provider_name.upper()})")
+    print("=" * 68)
+    print(f" * Provider    : {mgr._provider_name}")
     print(f" * Endpoint    : {mgr.endpoint}")
     print(f" * Bucket Name : {mgr.bucket_name}")
     print(f" * SSL/TLS     : {'BẬT (HTTPS)' if mgr.secure else 'TẮT (HTTP)'}")
@@ -90,20 +90,21 @@ def main():
 
     available, msg = mgr.is_configured_and_available()
     if not available:
-        print(f"\n[!] CẢNH BÁO KẾT NỐI MINIO:")
+        print(f"\n[!] CẢNH BÁO KẾT NỐI {mgr._provider_name.upper()}:")
         print(f"    {msg}\n")
-        print("  -> Hướng dẫn khởi tạo MinIO cho Team:")
-        print("     1. Khởi động MinIO Server (Docker hoặc Binary):")
-        print("        docker run -d -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data --console-address ':9001'")
-        print("     2. Cấu hình file .env tại thư mục gốc dự án:")
-        print("        MINIO_ENDPOINT=localhost:9000")
-        print("        MINIO_ACCESS_KEY=minioadmin")
-        print("        MINIO_SECRET_KEY=minioadmin")
-        print("        MINIO_BUCKET=edge-lakehouse")
+        print("  -> Hướng dẫn cấu hình Cloudflare R2 cho Team (Khuyến nghị 0đ phí Egress):")
+        print("     1. Tạo bucket 'edge-lakehouse' tại Cloudflare Dashboard: https://dash.cloudflare.com/ -> R2")
+        print("     2. Tạo API Token: R2 -> Manage R2 API Tokens -> Create API Token (Quyền: Object Read & Write)")
+        print("     3. Cấu hình file .env tại thư mục gốc dự án:")
+        print("        R2_ENDPOINT=<account_id>.r2.cloudflarestorage.com")
+        print("        R2_ACCESS_KEY_ID=<your_r2_access_key_id>")
+        print("        R2_SECRET_ACCESS_KEY=<your_r2_secret_access_key>")
+        print("        R2_BUCKET=edge-lakehouse")
         print("=" * 68 + "\n")
         sys.exit(1)
 
     print(f"[OK] {msg}\n")
+
 
     if args.action == "status":
         print("-> Trạng thái: MinIO Server sẵn sàng hoạt động.")

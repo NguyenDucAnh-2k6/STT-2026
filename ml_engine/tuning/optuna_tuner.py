@@ -30,13 +30,12 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
         pass
 
 import numpy as np
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, TimeSeriesSplit, GroupKFold, StratifiedGroupKFold
 from sklearn.metrics import f1_score
 
 try:
     import optuna
-    # Thiết lập mức log chuẩn INFO để Optuna hiển thị log màu xanh thông thường
-    optuna.logging.set_verbosity(optuna.logging.INFO)
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
 except ImportError:
     print("[LỖI] Thư viện Optuna chưa được cài đặt. Hãy chạy: pip install optuna")
     sys.exit(1)
@@ -105,13 +104,22 @@ def get_search_space(model_type: str, trial: optuna.Trial) -> Dict[str, Any]:
             "verbose": 0,
             "thread_count": -1
         }
-    elif model_type in ("pytorch_deep", "mlp", "deep_learning", "pytorch"):
+    elif model_type in ("pytorch_deep", "mlp", "deep_learning", "pytorch", "dnn"):
+        arch_pattern = trial.suggest_categorical("arch_pattern", ["128-64-32", "256-128-64", "128-64"])
+        dims_map = {
+            "128-64-32": (128, 64, 32),
+            "256-128-64": (256, 128, 64),
+            "128-64": (128, 64)
+        }
         return {
-            "lr": trial.suggest_float("lr", 3e-4, 8e-3, log=True),
-            "dropout": trial.suggest_float("dropout", 0.1, 0.35),
+            "lr": trial.suggest_float("lr", 1e-4, 5e-3, log=True),
+            "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True),
+            "dropout": trial.suggest_float("dropout", 0.1, 0.4),
             "batch_size": trial.suggest_categorical("batch_size", [128, 256]),
-            "epochs": 15,
-            "random_state": 42
+            "hidden_dims": dims_map[arch_pattern],
+            "epochs": trial.suggest_int("epochs", 10, 15),
+            "random_state": 42,
+            "verbose": True
         }
     elif model_type == "gradient_boosting":
         return {
@@ -163,40 +171,22 @@ def optimize_hyperparameters(
     pruner_type: str = "median",
     startup_trials: int = 3,
     warmup_steps: int = 1,
-    random_state: int = 42
+    random_state: int = 42,
+    use_timeseries: bool = False,
+    groups: Optional[np.ndarray] = None
 ) -> Tuple[Dict[str, Any], float, optuna.Study]:
     """
-    Tìm kiếm bộ siêu tham số tối ưu bằng Optuna qua K-Fold Stratified Cross-Validation.
-    Lưu trữ trials vào SQLite database và hiển thị log chuẩn màu xanh của Optuna.
-
-    Parameters:
-    -----------
-    model_type : str
-        Tên kiến trúc mô hình (decision_tree, random_forest, v.v.).
-    X : np.ndarray
-        Ma trận đặc trưng số (full 61 đặc trưng).
-    y : np.ndarray
-        Vector nhãn số nguyên.
-    n_trials : int
-        Số lượng trial thử nghiệm của Optuna.
-    n_splits : int
-        Số fold cho Stratified K-Fold CV (--cv [N]).
-    db_path : str, optional
-        Đường dẫn đến file SQLite database lưu study.
-    pruner_type : str
-        Thuật toán cắt tỉa: median, percentile, hyperband, none.
-    startup_trials : int
-        Số trial khởi động không bị cắt tỉa.
-    warmup_steps : int
-        Số fold tối thiểu trước khi xét cắt tỉa.
-    random_state : int
-        Hạt giống ngẫu nhiên.
-
-    Returns:
-    --------
-    Tuple: (best_params, best_macro_f1, study)
+    Tìm kiếm bộ siêu tham số tối ưu bằng Optuna qua K-Fold Cross-Validation.
+    Hỗ trợ:
+      - Stratified K-Fold CV (cho dữ liệu tabular thường)
+      - TimeSeriesSplit / Walk-Forward CV (cho chuỗi thời gian)
+      - GroupKFold / StratifiedGroupKFold (nếu có thông tin nhóm groups)
+    Lưu trữ trials vào SQLite database và in tiến trình trials theo định dạng người dùng yêu cầu.
     """
-    print(f"\n[Optuna HPO] Khoi dong HPO cho '{model_type}' | {n_trials} Trials | {n_splits}-Fold Stratified CV | Pruner: {pruner_type.upper()}")
+    cv_strategy_name = "TimeSeriesSplit (Walk-Forward CV)" if use_timeseries else (
+        "StratifiedGroupKFold" if groups is not None else "StratifiedKFold"
+    )
+    print(f"\n[Optuna HPO] Khoi dong HPO cho '{model_type}' | {n_trials} Trials | {n_splits}-Fold {cv_strategy_name} | Pruner: {pruner_type.upper()}")
 
     # Cấu hình SQLite storage cho Optuna study
     if db_path is None:
@@ -218,13 +208,26 @@ def optimize_hyperparameters(
     )
     print(f"[Optuna HPO] Su dung SQLite Storage tai: {db_path} (Study: '{study_name}')")
 
-    cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    # Xác định chiến lược phân chia CV
+    if groups is not None and not use_timeseries:
+        try:
+            cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+            splits = list(cv.split(X, y, groups=groups))
+        except Exception:
+            cv = GroupKFold(n_splits=n_splits)
+            splits = list(cv.split(X, y, groups=groups))
+    elif use_timeseries:
+        cv = TimeSeriesSplit(n_splits=n_splits)
+        splits = list(cv.split(X))
+    else:
+        cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        splits = list(cv.split(X, y))
 
     def objective(trial: optuna.Trial) -> float:
         params = get_search_space(model_type, trial)
         fold_scores = []
 
-        for step, (train_idx, val_idx) in enumerate(cv.split(X, y)):
+        for step, (train_idx, val_idx) in enumerate(splits):
             X_tr, X_val = X[train_idx], X[val_idx]
             y_tr, y_val = y[train_idx], y[val_idx]
 
@@ -241,23 +244,41 @@ def optimize_hyperparameters(
 
             # Cắt tỉa sớm nếu trial không khả quan
             if trial.should_prune():
-                print(f"  [Optuna Pruner] ✂️ Trial {trial.number} BI CAT TIA (TrialPruned) tai fold {step + 1}/{n_splits} | F1 trung gian: {current_mean * 100:.2f}%")
                 raise optuna.TrialPruned()
 
         return float(np.mean(fold_scores))
 
+    def trial_progress_callback(cur_study: optuna.Study, trial: optuna.Trial) -> None:
+        params_str = ", ".join(f"'{k}': {v}" for k, v in trial.params.items())
+        if trial.state == optuna.trial.TrialState.COMPLETE:
+            best_trial = cur_study.best_trial
+            print(f"[Optuna] Trial {trial.number} với {{{params_str}}} ends with value Macro F1 = {trial.value:.4f} => Best is trial {best_trial.number} with value: {best_trial.value:.4f}")
+        elif trial.state == optuna.trial.TrialState.PRUNED:
+            print(f"[Optuna] Trial {trial.number} với {{{params_str}}} bị cắt tỉa sớm (Pruned)")
+
     # Chạy tối ưu hóa với log tiêu chuẩn của Optuna
     t0 = time.perf_counter()
-    study.optimize(objective, n_trials=n_trials)
+    study.optimize(objective, n_trials=n_trials, callbacks=[trial_progress_callback])
     elapsed = time.perf_counter() - t0
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
 
+    best_params = dict(study.best_params)
+    if "arch_pattern" in best_params:
+        dims_map = {
+            "128-64-32": (128, 64, 32),
+            "256-128-64": (256, 128, 64),
+            "128-64": (128, 64)
+        }
+        best_params["hidden_dims"] = dims_map.get(best_params["arch_pattern"], (128, 64, 32))
+    best_params.pop("verbose", None)
+
     print(f"\n[Optuna HPO] Hoan tat {len(study.trials)} trials trong {elapsed:.2f}s!")
     print(f"  -> Trials hoan thanh (Complete) : {len(complete_trials)}")
     print(f"  -> Trials bi cat tia (Pruned)   : {len(pruned_trials)} (Tiet kiem {(len(pruned_trials) / max(1, len(study.trials)) * 100):.1f}% thoi gian)")
     print(f"  -> Best Macro F1 ({n_splits}-Fold CV): {study.best_value * 100:.2f}%")
-    print(f"  -> Best Hyperparameters: {json.dumps(study.best_params, indent=2)}\n")
+    print(f"  -> Best Hyperparameters: {json.dumps(best_params, indent=2, default=str)}\n")
 
-    return study.best_params, float(study.best_value), study
+    return best_params, float(study.best_value), study
+

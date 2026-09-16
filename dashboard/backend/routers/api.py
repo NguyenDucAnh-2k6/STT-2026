@@ -59,6 +59,16 @@ async def get_nodes():
     return list(state.connected_nodes.values())
 
 
+@router.get("/wifi/networks")
+async def get_wifi_networks():
+    """Lấy danh sách các mạng WiFi (SSID) ESP-32 hoặc Host Probe bắt được qua sóng."""
+    return {
+        "status": "success",
+        "count": len(state.detected_wifi_networks),
+        "networks": state.detected_wifi_networks
+    }
+
+
 @router.get("/attack/status")
 async def get_attack_status():
     """Lấy trạng thái hiện tại của bộ phát sinh tấn công mạng thật."""
@@ -165,4 +175,36 @@ async def get_data_lake_sessions():
         return stats.get("recent_sessions", [])
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+
+@router.get("/remote-storage/status")
+async def get_remote_storage_status():
+    """Kiểm tra trạng thái kết nối Cloudflare R2 / S3."""
+    try:
+        from data_lake.remote_storage import get_remote_storage_manager
+        mgr = get_remote_storage_manager()
+        available, msg = mgr.is_configured_and_available()
+        return {
+            "status": "success",
+            "available": available,
+            "message": msg,
+            "provider": mgr._provider_name,
+            "endpoint": mgr.endpoint,
+            "bucket": mgr.bucket_name
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "available": False, "message": str(e)})
+
+
+@router.post("/remote-storage/push")
+async def trigger_remote_push():
+    """Kích hoạt đẩy toàn bộ dữ liệu Parquet và catalog lên Cloudflare R2 / S3 tức thì."""
+    try:
+        from data_lake.remote_storage import get_remote_storage_manager
+        mgr = get_remote_storage_manager()
+        res = mgr.sync_lake_to_remote()
+        return res
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "message": str(e)})
+
 

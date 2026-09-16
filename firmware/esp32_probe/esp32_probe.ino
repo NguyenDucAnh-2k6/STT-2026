@@ -56,6 +56,17 @@ struct TrafficWindowStats {
 
 static TrafficWindowStats currentStats = {0, 0, 0, 0, 0, 0, 0, 0};
 
+// Bảng lưu trữ các mạng WiFi (SSID) ESP-32 bắt được over-the-air qua Beacon / Probe
+#define MAX_DETECTED_SSIDS 16
+struct DetectedWifiNetwork {
+  char ssid[33];
+  int8_t rssi;
+  uint8_t channel;
+  uint32_t last_seen_ms;
+};
+static DetectedWifiNetwork detectedWifiNetworks[MAX_DETECTED_SSIDS];
+static volatile uint8_t detectedWifiCount = 0;
+
 // Tracking ports đơn giản để tính entropy/unique ports mà không tốn RAM
 #define PORT_BITMAP_SIZE 256
 static uint8_t portHashBitmap[PORT_BITMAP_SIZE / 8];
@@ -77,6 +88,56 @@ void IRAM_ATTR wifi_promiscuous_rx_cb(void* buf, wifi_promiscuous_pkt_type_t typ
 
   currentStats.total_packets++;
   currentStats.total_bytes += len;
+
+  // ------------------------------------------------------------------
+  // 1. Trích xuất Tên Mạng WiFi (SSID) từ các khung Management (Beacon / Probe)
+  // ------------------------------------------------------------------
+  if (type == WIFI_PKT_MGMT && len >= 38) {
+    uint8_t frameControl = payload[0];
+    // Subtype 0x80 (Beacon) hoặc 0x50 (Probe Response)
+    if ((frameControl & 0xFC) == 0x80 || (frameControl & 0xFC) == 0x50) {
+      // Offset 36 là Tagged Parameter 0 (SSID parameter set)
+      if (payload[36] == 0) {
+        uint8_t ssidLen = payload[37];
+        if (ssidLen > 0 && ssidLen <= 32 && (38 + ssidLen <= len)) {
+          char tempSsid[33];
+          bool validAscii = true;
+          for (uint8_t i = 0; i < ssidLen; i++) {
+            char c = (char)payload[38 + i];
+            if (c < 32 || c > 126) {
+              validAscii = false;
+              break;
+            }
+            tempSsid[i] = c;
+          }
+          tempSsid[ssidLen] = '\0';
+
+          if (validAscii && strlen(tempSsid) > 0) {
+            int foundIdx = -1;
+            for (uint8_t i = 0; i < detectedWifiCount; i++) {
+              if (strcmp(detectedWifiNetworks[i].ssid, tempSsid) == 0) {
+                foundIdx = i;
+                break;
+              }
+            }
+            if (foundIdx >= 0) {
+              detectedWifiNetworks[foundIdx].rssi = pkt->rx_ctrl.rssi;
+              detectedWifiNetworks[foundIdx].channel = pkt->rx_ctrl.channel;
+              detectedWifiNetworks[foundIdx].last_seen_ms = millis();
+            } else if (detectedWifiCount < MAX_DETECTED_SSIDS) {
+              uint8_t idx = detectedWifiCount++;
+              strncpy(detectedWifiNetworks[idx].ssid, tempSsid, 32);
+              detectedWifiNetworks[idx].ssid[32] = '\0';
+              detectedWifiNetworks[idx].rssi = pkt->rx_ctrl.rssi;
+              detectedWifiNetworks[idx].channel = pkt->rx_ctrl.channel;
+              detectedWifiNetworks[idx].last_seen_ms = millis();
+            }
+          }
+        }
+      }
+    }
+    return; // Khung MGMT không chứa dữ liệu IP -> Kết thúc sớm
+  }
 
   // Khung 802.11 Data Packet chứa LLC/SNAP và IP header
   // Thông thường Header 802.11 chiếm khoảng 24-30 bytes
@@ -359,7 +420,7 @@ void setup() {
   // Kết nối WiFi & cấu hình MQTT
   setupWiFi();
   mqttClient.setServer(currentBrokerHost, MQTT_BROKER_PORT);
-  mqttClient.setBufferSize(512);
+  mqttClient.setBufferSize(1024);
 
   // Cấu hình ESP32 Promiscuous Mode (Packet Sniffer)
   esp_wifi_set_promiscuous(true);
@@ -433,7 +494,7 @@ void loop() {
     float icmp_ratio = (snap.total_packets > 0) ? ((float)snap.icmp_packets / snap.total_packets) : 0.0;
 
     // Đóng gói JSON
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<1024> doc;
     doc["device_id"] = MQTT_CLIENT_ID;
     doc["device_ip"] = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : "0.0.0.0";
     doc["timestamp"] = millis();
@@ -455,6 +516,17 @@ void loop() {
     doc["tcp_count"] = snap.tcp_packets;
     doc["udp_count"] = snap.udp_packets;
     doc["icmp_count"] = snap.icmp_packets;
+
+    // Đóng gói danh sách mạng WiFi (SSID) ESP-32 bắt được
+    JsonArray netArr = doc.createNestedArray("scanned_networks");
+    uint8_t exportCount = (detectedWifiCount < 12) ? detectedWifiCount : 12;
+    for (uint8_t i = 0; i < exportCount; i++) {
+      JsonObject nObj = netArr.createNestedObject();
+      nObj["ssid"] = detectedWifiNetworks[i].ssid;
+      nObj["rssi"] = detectedWifiNetworks[i].rssi;
+      nObj["channel"] = detectedWifiNetworks[i].channel;
+    }
+    doc["wifi_networks_count"] = detectedWifiCount;
 
     // -------------------------------------------------------------
     // -------------------------------------------------------------
@@ -506,7 +578,7 @@ void loop() {
     doc["edge_anomaly_score"] = tinyml_anomaly_score;
     doc["edge_model"] = "TinyML-EdgeTree-v1";
 
-    char jsonBuffer[512];
+    char jsonBuffer[1024];
     serializeJson(doc, jsonBuffer);
 
     // -------------------------------------------------------------
@@ -591,8 +663,8 @@ void loop() {
 #else
     const char* connStatus = (WiFi.status() == WL_CONNECTED) ? ((mqttClient.connected()) ? "[ONLINE - MQTT OK]" : "[ONLINE - MQTT WAITING]") : "[OFFLINE - NO WIFI]";
 #endif
-    Serial.printf("[Telemetry] %s Pkts/s: %.1f | Bytes/s: %.0f | SYN: %.2f | Ports: %d | Threat: %s\n",
-                  connStatus, packet_rate, byte_rate, syn_ratio, snap.unique_ports_count, local_attack);
+    Serial.printf("[Telemetry] %s Pkts/s: %.1f | Bytes/s: %.0f | WiFi Nets: %d | Threat: %s\n",
+                  connStatus, packet_rate, byte_rate, detectedWifiCount, local_attack);
     // Luôn gửi bản tin JSON ra cổng Serial với tag ESP32_TELEMETRY: để máy tính đọc qua cáp USB khi mất WiFi
     Serial.print(F("ESP32_TELEMETRY:"));
     Serial.println(jsonBuffer);

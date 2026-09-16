@@ -14,6 +14,7 @@ export class HeaderComponent {
     this.activeNodesBadge = document.getElementById("active-nodes-badge");
     this.btnAudioToggle = document.getElementById("btn-audio-toggle");
     this.dataLakeBadge = document.getElementById("data-lake-badge");
+    this.btnCloudSync = document.getElementById("btn-cloud-sync");
 
     this.initEventListeners();
     this.pollDataLake();
@@ -51,7 +52,42 @@ export class HeaderComponent {
         }
       });
     }
+
+    // Nút Cloud Sync
+    if (this.btnCloudSync) {
+      this.btnCloudSync.addEventListener("click", async () => {
+        this.btnCloudSync.innerText = "⏳ Đang Sync...";
+        this.btnCloudSync.disabled = true;
+        try {
+          const res = await fetch("/api/remote-storage/push", { method: "POST" });
+          const data = await res.json();
+          if (data.success) {
+            this.btnCloudSync.innerText = `✅ Đã Push (${data.uploaded_count || 0})`;
+            this.btnCloudSync.style.borderColor = "#10b981";
+            this.btnCloudSync.style.color = "#10b981";
+            setTimeout(() => {
+              this.btnCloudSync.innerText = "☁️ Sync R2 / Cloud";
+              this.btnCloudSync.style.borderColor = "#3b82f6";
+              this.btnCloudSync.style.color = "#60a5fa";
+              this.btnCloudSync.disabled = false;
+            }, 3000);
+          } else {
+            alert(`Lưu ý Remote Storage: ${data.message || "Không thể kết nối"}`);
+            this.btnCloudSync.innerText = "⚠️ Chưa cấu hình";
+            setTimeout(() => {
+              this.btnCloudSync.innerText = "☁️ Sync R2 / Cloud";
+              this.btnCloudSync.disabled = false;
+            }, 3000);
+          }
+        } catch (e) {
+          alert(`Lỗi kết nối tới Server Backend: ${e}`);
+          this.btnCloudSync.innerText = "☁️ Sync R2 / Cloud";
+          this.btnCloudSync.disabled = false;
+        }
+      });
+    }
   }
+
 
   renderAudioButton() {
     if (!this.btnAudioToggle) return;

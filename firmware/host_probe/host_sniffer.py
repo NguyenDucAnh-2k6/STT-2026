@@ -28,7 +28,8 @@ import json
 import socket
 import struct
 import threading
-from typing import Dict, Any, Tuple, Set, Optional
+import subprocess
+from typing import Dict, Any, Tuple, Set, Optional, List
 
 # Đảm bảo UTF-8 an toàn cho Windows console
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
@@ -42,6 +43,69 @@ try:
     HAS_PSUTIL = True
 except ImportError:
     HAS_PSUTIL = False
+
+_cached_scanned_networks: List[Dict[str, Any]] = []
+
+def _wifi_scanner_worker():
+    """Luồng ngầm định kỳ quét các mạng WiFi xung quanh để cung cấp cho Dashboard."""
+    global _cached_scanned_networks
+    while True:
+        try:
+            networks = []
+            if sys.platform.startswith("win"):
+                out = subprocess.check_output(
+                    ["netsh", "wlan", "show", "networks", "mode=bssid"],
+                    stderr=subprocess.DEVNULL,
+                    timeout=3.0
+                ).decode("utf-8", errors="ignore")
+                curr_ssid = None
+                curr_rssi = -70
+                curr_ch = 1
+                for line in out.splitlines():
+                    line = line.strip()
+                    if line.startswith("SSID") and ":" in line:
+                        parts = line.split(":", 1)
+                        name = parts[1].strip()
+                        if name:
+                            curr_ssid = name
+                    elif "Signal" in line and ":" in line:
+                        sig_str = line.split(":", 1)[1].replace("%", "").strip()
+                        try:
+                            sig_pct = int(sig_str)
+                            curr_rssi = int(-100 + (sig_pct / 2))
+                        except Exception:
+                            curr_rssi = -65
+                    elif "Channel" in line and ":" in line:
+                        try:
+                            curr_ch = int(line.split(":", 1)[1].strip())
+                        except Exception:
+                            curr_ch = 1
+                        if curr_ssid:
+                            if not any(n["ssid"] == curr_ssid for n in networks):
+                                networks.append({"ssid": curr_ssid, "rssi": curr_rssi, "channel": curr_ch})
+                            curr_ssid = None
+            elif sys.platform.startswith("linux"):
+                out = subprocess.check_output(
+                    ["nmcli", "-t", "-f", "SSID,SIGNAL,CHAN", "dev", "wifi"],
+                    stderr=subprocess.DEVNULL,
+                    timeout=3.0
+                ).decode("utf-8", errors="ignore")
+                for line in out.splitlines():
+                    parts = line.strip().split(":")
+                    if len(parts) >= 3 and parts[0]:
+                        try:
+                            rssi = int(-100 + (int(parts[1]) / 2))
+                        except Exception:
+                            rssi = -65
+                        ch = int(parts[2]) if parts[2].isdigit() else 1
+                        if not any(n["ssid"] == parts[0] for n in networks):
+                            networks.append({"ssid": parts[0], "rssi": rssi, "channel": ch})
+
+            if networks:
+                _cached_scanned_networks = networks[:15]
+        except Exception:
+            pass
+        time.sleep(6.0)
 
 try:
     import paho.mqtt.client as mqtt
@@ -474,6 +538,10 @@ def run_host_sniffer(
         except Exception as e:
             print(f"[HostSniffer] [Canh bao] Chua the ket noi MQTT Broker: {e}")
 
+    # Khởi động luồng quét WiFi xung quanh
+    t_wifi = threading.Thread(target=_wifi_scanner_worker, daemon=True)
+    t_wifi.start()
+
     windows_count = 0
     try:
         while True:
@@ -486,6 +554,9 @@ def run_host_sniffer(
                 stats.reset()
             else:
                 telemetry = psutil_engine.sample_features(attack_context=attack_context)
+
+            telemetry["scanned_networks"] = list(_cached_scanned_networks)
+            telemetry["wifi_networks_count"] = len(_cached_scanned_networks)
 
             payload_str = json.dumps(telemetry)
 

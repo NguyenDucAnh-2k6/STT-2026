@@ -53,6 +53,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
 
 processes = []
 lake_collector: Optional[DataLakeCollector] = None
+enable_remote_push: bool = False
 
 
 
@@ -94,8 +95,23 @@ def cleanup(sig=None, frame=None):
                     p.wait(timeout=2.0)
                 except subprocess.TimeoutExpired:
                     p.kill()
+
+    global enable_remote_push
+    if enable_remote_push:
+        try:
+            from data_lake.remote_storage import get_remote_storage_manager
+            print("  [RemoteStorage] Dang dong bo toan bo phien lam viec len Cloudflare R2 / S3...")
+            res = get_remote_storage_manager().sync_lake_to_remote()
+            if res.get("success"):
+                print(f"  [RemoteStorage] [OK] {res.get('message')}")
+            else:
+                print(f"  [RemoteStorage] {res.get('message')}")
+        except Exception as e:
+            print(f"  [RemoteStorage] Canh bao dong bo: {e}")
+
     print("   [OK] Tat ca tien trinh da dung an toan. Tam biet!\n")
     sys.exit(0)
+
 
 
 def resolve_models_dir(root_dir: str, classifier: str, anomaly_model: str, custom_dir: Optional[str] = None) -> Tuple[str, str]:
@@ -221,6 +237,11 @@ def main():
         help="Chi dinh truc tiep thu muc chua artifacts mo hinh (mac dinh: tu dong tim kiem)"
     )
     parser.add_argument(
+        "--push-remote",
+        action="store_true",
+        help="Tu dong dong bo toan bo phan vung Parquet len Cloudflare R2 / S3 khi he thong van hanh"
+    )
+    parser.add_argument(
         "--no-record",
         dest="record_lake",
         action="store_false",
@@ -228,6 +249,10 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Thiết lập trạng thái remote push toàn cục
+    global enable_remote_push
+    enable_remote_push = getattr(args, "push_remote", False) or (os.getenv("R2_AUTO_SYNC", "false").lower() in ("true", "1", "yes"))
 
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
@@ -250,6 +275,8 @@ def main():
     print("   EDGE AI NETWORK ANOMALY DETECTION SYSTEM - RUNTIME LAUNCHER")
     print(f"   [Mode: INFERENCE ONLY] | [Probe: {probe_mode.upper()}]")
     print(f"   [Target Models: Classifier='{args.classifier}', Anomaly='{args.anomaly_model}']")
+    if enable_remote_push:
+        print("   [Cloud Sync: KICH HOAT (Tu dong push len Cloudflare R2 / S3)]")
     if args.attack_sim:
         print("   [Attack Simulator: KICH HOAT (Ban goi tin mang that, dieu khien tu Web UI)]")
     if args.flash:
@@ -298,11 +325,34 @@ def main():
         except Exception as e:
             print(f"  [DataLake] Canh bao: Khong the khoi dong Data Lake Collector: {e}")
 
+    # 1.2 Khoi dong Periodic Cloud Sync neu bat --push-remote
+    if enable_remote_push:
+        try:
+            from data_lake.remote_storage import get_remote_storage_manager
+            r_mgr = get_remote_storage_manager()
+            ok_r, msg_r = r_mgr.is_configured_and_available()
+            if ok_r:
+                print(f"  -> Remote Storage ({r_mgr._provider_name}): DA SAN SANG ({r_mgr.endpoint} | Bucket: {r_mgr.bucket_name})")
+                def _periodic_sync_worker():
+                    while True:
+                        time.sleep(300)
+                        try:
+                            r_mgr.sync_lake_to_remote()
+                        except Exception:
+                            pass
+                t_r = threading.Thread(target=_periodic_sync_worker, daemon=True)
+                t_r.start()
+            else:
+                print(f"  [RemoteStorage] Canh bao: {msg_r}")
+        except Exception as e:
+            print(f"  [RemoteStorage] Canh bao khoi tao: {e}")
+
     # 2. Kiem tra Model Artifacts theo co --classifier & --anomaly-model
     models_dir, models_source = resolve_models_dir(root_dir, args.classifier, args.anomaly_model, args.models_dir)
     print("\n[2/5] Kiem tra Artifacts mo hinh Machine Learning...")
     print(f"  * Thu muc nguon : {models_dir}")
     print(f"  * Chi tiet nguon: {models_source}")
+
 
     model_path = os.path.join(models_dir, "attack_classifier.joblib")
     iso_path = os.path.join(models_dir, "isolation_forest.joblib")
@@ -451,7 +501,6 @@ def main():
             time.sleep(1)
     except KeyboardInterrupt:
         cleanup()
-
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()

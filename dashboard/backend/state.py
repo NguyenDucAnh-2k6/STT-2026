@@ -27,6 +27,19 @@ class SystemState:
         self.attack_target_ip: str = "127.0.0.1"
         self.attack_auto_cycle: bool = False
 
+        # Danh sách các mạng WiFi phát hiện được (ESP-32 Sniffer & Host Probe)
+        self.detected_wifi_networks: List[dict] = []
+
+    def update_wifi_networks(self, networks: list):
+        if not networks:
+            return
+        existing_map = {n.get("ssid"): n for n in self.detected_wifi_networks if n.get("ssid")}
+        for net in networks:
+            ssid = net.get("ssid")
+            if ssid:
+                existing_map[ssid] = net
+        self.detected_wifi_networks = list(existing_map.values())[-20:]
+
     def add_telemetry(self, data_point: dict):
         self.telemetry_history.append(data_point)
         if len(self.telemetry_history) > 200:
@@ -48,6 +61,7 @@ class SystemState:
             "total_threats": self.total_threats_detected,
             "anomaly_threshold": self.anomaly_threshold,
             "broker_connected": self.broker_connected,
+            "detected_wifi_networks": self.detected_wifi_networks,
             "attack_status": {
                 "status": self.attack_status,
                 "scenario": self.attack_scenario,

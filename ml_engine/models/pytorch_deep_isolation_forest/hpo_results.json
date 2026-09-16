@@ -1,0 +1,23 @@
+{
+  "model_type": "pytorch_deep",
+  "best_macro_f1_cv": 0.3264518769604754,
+  "best_params": {
+    "arch_pattern": "256-128-64",
+    "lr": 0.0010401663679887319,
+    "weight_decay": 4.2079886696066345e-06,
+    "dropout": 0.1467983561008608,
+    "batch_size": 256,
+    "epochs": 13,
+    "hidden_dims": [
+      256,
+      128,
+      64
+    ]
+  },
+  "n_trials": 2,
+  "cv_folds": 2,
+  "pruner_type": "median",
+  "sqlite_db": "D:\\STT 2026\\ml_engine\\models\\pytorch_deep_isolation_forest\\optuna_study.db",
+  "timestamp": 1789546903,
+  "features_count": 56
+}

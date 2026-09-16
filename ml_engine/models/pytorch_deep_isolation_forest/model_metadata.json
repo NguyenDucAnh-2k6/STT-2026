@@ -1,0 +1,199 @@
+{
+  "timestamp": 1789546909,
+  "features_count": 56,
+  "features": [
+    "arp.opcode",
+    "arp.hw.size",
+    "icmp.checksum",
+    "icmp.seq_le",
+    "icmp.transmit_timestamp",
+    "icmp.unused",
+    "http.file_data",
+    "http.content_length",
+    "http.request.uri.query",
+    "http.request.method",
+    "http.referer",
+    "http.request.full_uri",
+    "http.request.version",
+    "http.response",
+    "http.tls_port",
+    "tcp.ack",
+    "tcp.ack_raw",
+    "tcp.checksum",
+    "tcp.connection.fin",
+    "tcp.connection.rst",
+    "tcp.connection.syn",
+    "tcp.connection.synack",
+    "tcp.dstport",
+    "tcp.flags",
+    "tcp.flags.ack",
+    "tcp.len",
+    "tcp.options",
+    "tcp.payload",
+    "tcp.seq",
+    "tcp.srcport",
+    "udp.port",
+    "udp.stream",
+    "udp.time_delta",
+    "dns.qry.name",
+    "dns.qry.name.len",
+    "dns.qry.qu",
+    "dns.qry.type",
+    "dns.retransmission",
+    "dns.retransmit_request",
+    "dns.retransmit_request_in",
+    "mqtt.conack.flags",
+    "mqtt.conflag.cleansess",
+    "mqtt.conflags",
+    "mqtt.hdrflags",
+    "mqtt.len",
+    "mqtt.msg_decoded_as",
+    "mqtt.msg",
+    "mqtt.msgtype",
+    "mqtt.proto_len",
+    "mqtt.protoname",
+    "mqtt.topic",
+    "mqtt.topic_len",
+    "mqtt.ver",
+    "mbtcp.len",
+    "mbtcp.trans_id",
+    "mbtcp.unit_id"
+  ],
+  "labels_count": 13,
+  "labels": [
+    "Backdoor",
+    "DDoS_HTTP",
+    "DDoS_ICMP",
+    "DDoS_TCP",
+    "DDoS_UDP",
+    "Normal",
+    "Password",
+    "Port_Scanning",
+    "Ransomware",
+    "SQL_injection",
+    "Uploading",
+    "Vulnerability_scanner",
+    "XSS"
+  ],
+  "classifier_type": "pytorch_deep",
+  "anomaly_detector_type": "isolation_forest",
+  "data_source": "hybrid",
+  "data_lake_records_used": 1499,
+  "classifier_accuracy": 0.87,
+  "classifier_macro_f1": 0.3634,
+  "classification_report": {
+    "Backdoor": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "DDoS_HTTP": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 2.0
+    },
+    "DDoS_ICMP": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "DDoS_TCP": {
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "f1-score": 0.8,
+      "support": 2.0
+    },
+    "DDoS_UDP": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Normal": {
+      "precision": 0.8588235294117647,
+      "recall": 1.0,
+      "f1-score": 0.9240506329113924,
+      "support": 73.0
+    },
+    "Password": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 2.0
+    },
+    "Port_Scanning": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Ransomware": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "SQL_injection": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 3.0
+    },
+    "Uploading": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 2.0
+    },
+    "Vulnerability_scanner": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "XSS": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "accuracy": 0.87,
+    "macro avg": {
+      "precision": 0.34811463046757163,
+      "recall": 0.38461538461538464,
+      "f1-score": 0.3633885102239533,
+      "support": 100.0
+    },
+    "weighted avg": {
+      "precision": 0.7602745098039214,
+      "recall": 0.87,
+      "f1-score": 0.8105569620253165,
+      "support": 100.0
+    }
+  },
+  "anomaly_f1_score": 0.95,
+  "isolation_score_min": -0.6400955181253455,
+  "isolation_score_max": -0.31708966949053236,
+  "loss_curve_path": "D:\\STT 2026\\ml_engine\\models\\pytorch_deep_isolation_forest\\loss_curve.png",
+  "timeseries": false,
+  "window_size": null,
+  "best_params": {
+    "arch_pattern": "256-128-64",
+    "lr": 0.0010401663679887319,
+    "weight_decay": 4.2079886696066345e-06,
+    "dropout": 0.1467983561008608,
+    "batch_size": 256,
+    "epochs": 13,
+    "hidden_dims": [
+      256,
+      128,
+      64
+    ]
+  },
+  "cv_folds": 2,
+  "sqlite_storage": "D:\\STT 2026\\ml_engine\\models\\pytorch_deep_isolation_forest\\optuna_study.db",
+  "can_export_tinyml": false
+}

@@ -281,15 +281,50 @@ Hai hướng tiếp cận kiến trúc chính:
 - **Trên Host PC / SOC Server**:
   - Hoàn toàn phù hợp để triển khai PyTorch Deep Learning (LSTM, GRU, TCN, Transformer) trích xuất trực tiếp từ các tệp Parquet Data Lakehouse.
 
+### 4. Kết Quả Thực Nghiệm So Sánh: Dữ Liệu Tĩnh (Tabular) vs Chuỗi Thời Gian (Time-Series)
+
+Để kiểm chứng hiệu quả thực tế, hệ thống hỗ trợ so sánh trực tiếp 2 phương pháp trên cùng bộ dữ liệu thực nghiệm Edge-IIoTset và Telemetry Data Lakehouse:
+
+| Thuật Toán | Formulation Dữ Liệu | Số Đặc Trưng Đầu Vào | Accuracy | Macro F1 | Thời Gian Train | Khả Năng Triển Khai (Deployment) |
+| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
+| **Decision Tree** | **Tabular Baseline** (Không Time-Series) | 56 | **92.20%** | **86.74%** | **4.63s** | **100% TinyML ESP32 Ready** (C Header `< 50µs`) |
+| **Decision Tree** | **Time-Series Sliding Window** ($W=10$) | 336 (6 nhóm động) | **90.89%** | **84.16%** | **5.16s** | **100% TinyML ESP32 Ready** (C Header `< 60µs`) |
+| **XGBoost** | **Time-Series Sliding Window** ($W=10$) | 336 (6 nhóm động) | **92.39%** | **85.91%** | **15.27s** | **Host SOC Server** (Độ ổn định & chống nhiễu cao) |
+| **PyTorch Bi-LSTM** | **3D Sequential Tensor** ($W=10, D=56$) | $10 \times 56$ | **91.29%** | **89.27% (Weighted)** | **63.17s** | **Host GPU / SOC Server** (Học quan hệ thời gian sâu) |
+
+> [!NOTE]
+> **Nhận xét kiến trúc**:
+> - Với các mô hình cây (Decision Tree, XGBoost), hàm `extract_window_dynamic_features()` tổng hợp 6 nhóm đặc trưng động học ($x_t$, Mean, Std, Delta tức thời $\Delta_{\text{step}}$, Delta cửa sổ $\Delta_{\text{window}}$, và Peak-to-Peak Range) giúp mô hình nắm bắt được **vận tốc và gia tốc biến thiên** của lưu lượng mà vẫn giữ nguyên khả năng biên dịch sang C Header cho vi điều khiển ESP32.
+> - Với PyTorch Deep Learning, cờ `--timeseries` tự động chuyển đổi mạng nơ-ron từ dạng 2D MLP sang **2-Layer Bidirectional LSTM (`EdgeLSTMNet`)** với đầu vào ma trận 3D $(N, W, D)$, theo dõi sự tiến triển của chuỗi tấn công đa bước.
+
+#### Lệnh Thử Nghiệm:
+```bash
+# 1. Huấn luyện Tabular Baseline chuẩn (Không Time-Series):
+python ml_engine/train.py --classifier decision_tree
+
+# 2. Huấn luyện Time-Series với kích thước cửa sổ trượt W=10:
+python ml_engine/train.py --classifier decision_tree --timeseries --window-size 10
+python ml_engine/train.py --classifier xgboost --timeseries --window-size 10
+python ml_engine/train.py --classifier pytorch_deep --timeseries --window-size 10
+```
+
 ---
 
-## ☁️ Đồng Bộ Kho Dữ Liệu Data Lakehouse Lên MinIO / S3 (Hợp Tác Nhóm)
+## ☁️ Đồng Bộ Kho Dữ Liệu Data Lakehouse Lên Cloudflare R2 / S3 (Hợp Tác Nhóm Toàn Cầu)
 
-Khi triển khai thực tế, mỗi thành viên trong nhóm nghiên cứu vận hành hệ thống tại các môi trường mạng khác nhau. Để chia sẻ dữ liệu và nạp dữ liệu chung để huấn luyện, hệ thống tích hợp giải pháp đồng bộ **MinIO / S3 Remote Storage**:
+Khi triển khai thực tế, mỗi thành viên trong nhóm nghiên cứu vận hành hệ thống tại các môi trường mạng khác nhau (ở nhà, trường học, quán cà phê). Hệ thống tích hợp giải pháp đồng bộ **Cloudflare R2 Object Storage**:
 
-### 1. Kiến trúc Lưu trữ Đối tượng
+### 1. Tại Sao Chọn Cloudflare R2 Thay Vì MinIO Local?
+- **MinIO Local**: Chỉ hoạt động khi toàn bộ thành viên kết nối chung mạng LAN/Wi-Fi phòng lab. Muốn chia sẻ từ xa cần cấu hình Static IP, NAT Port Forwarding hoặc VPN nội bộ phức tạp.
+- **Cloudflare R2 (Lưu trữ Đám mây Toàn cầu)**:
+  - **10GB Lưu trữ miễn phí vĩnh viễn** (Free Tier hào phóng).
+  - **0đ Phí Băng Thông Tải Về (Zero Egress Fees)**: Khắc phục nhược điểm lớn nhất của AWS S3 (vốn tính phí đắt đỏ khi download dữ liệu lớn), Cloudflare R2 hoàn toàn miễn phí băng thông egress.
+  - **Tương thích 100% chuẩn S3 API**: Tích hợp trực tiếp qua SDK `boto3` tiêu chuẩn, không cần cài đặt thư viện phụ thuộc phức tạp.
+  - **Độ trễ thấp toàn cầu**: Tận dụng hạ tầng Anycast CDN phủ rộng khắp thế giới của Cloudflare.
+
+### 2. Cấu trúc Lưu trữ Đối tượng
 ```
-MinIO Bucket: 'edge-lakehouse'
+Cloudflare R2 Bucket: 'edge-lakehouse'
 ├── data_lake/
 │   ├── raw/
 │   │   ├── date=2026-09-15/
@@ -299,36 +334,52 @@ MinIO Bucket: 'edge-lakehouse'
 │   └── catalog.db (SQLite Metadata Catalog)
 ```
 
-### 2. Cấu hình Kết nối MinIO (Tùy chọn qua `.env`)
+### 3. Cấu hình Kết nối Cloudflare R2 (Qua `.env`)
 Tạo hoặc chỉnh sửa file `.env` tại thư mục gốc dự án:
 ```ini
-# Cấu hình MinIO / S3 Object Storage
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=edge-lakehouse
-MINIO_SECURE=false
-MINIO_AUTO_SYNC=true
-```
-*(Nếu chưa có sẵn server MinIO, bạn có thể khởi động nhanh bằng 1 lệnh Docker:)*
-```bash
-docker run -d -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data --console-address ':9001'
+# Cấu hình Cloudflare R2 Object Storage (Khuyến nghị)
+R2_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=your_r2_access_key_id
+R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+R2_BUCKET=edge-lakehouse
+R2_SECURE=true
+R2_AUTO_SYNC=true
+
+# (Hệ thống vẫn hỗ trợ fallback tương thích ngược nếu bạn dùng MinIO/S3 cũ:)
+# MINIO_ENDPOINT=localhost:9000
+# MINIO_ACCESS_KEY=minioadmin
+# MINIO_SECRET_KEY=minioadmin
+# MINIO_BUCKET=edge-lakehouse
 ```
 
-### 3. Công cụ CLI Đồng Bộ (`data_lake/sync_lakehouse.py`)
-- **Kiểm tra trạng thái kết nối MinIO và dung lượng bucket**:
-  ```bash
-  python data_lake/sync_lakehouse.py --action status
-  ```
-- **Đẩy toàn bộ phân vùng Parquet và catalog.db từ máy cục bộ lên MinIO**:
-  ```bash
-  python data_lake/sync_lakehouse.py --action push
-  ```
-- **Kéo toàn bộ phân vùng dữ liệu của các thành viên khác về máy để huấn luyện**:
-  ```bash
-  python data_lake/sync_lakehouse.py --action pull
-  ```
-- **Tự động đồng bộ khi đóng phiên**: Khi bật `MINIO_AUTO_SYNC=true`, bất cứ khi nào bạn nhấn `Ctrl+C` dừng `run_system.py`, tệp Parquet vừa ghi và SQLite Catalog sẽ tự động được tải lên MinIO bucket ngay lập tức.
+### 4. Tích Hợp Đồng Bộ 2 Chiều: Push Khi Vận Hành & Pull Khi Huấn Luyện
+
+#### A. Kéo Dữ Liệu Tự Động Trước Khi Huấn Luyện (`train.py --pull-remote`)
+Tự động tải các phân vùng Parquet mới nhất do các thành viên khác thu thập từ Cloudflare R2 về máy trước khi gom dữ liệu huấn luyện:
+```bash
+python ml_engine/train.py --classifier decision_tree --data-source hybrid --pull-remote
+```
+
+#### B. Đẩy Dữ Liệu Tự Động Khi Hệ Thống Vận Hành (`run_system.py --push-remote`)
+Khi kích hoạt cờ `--push-remote`, hệ thống sẽ kích hoạt một tiến trình nền tự động đồng bộ Parquet và Catalog lên Cloudflare R2 định kỳ mỗi 5 phút và tự động push lần cuối khi đóng phiên:
+```bash
+python run_system.py --push-remote
+```
+
+#### C. Đồng Bộ Trực Tiếp 1-Click Trên Giao Diện Web SOC Dashboard
+Trên thanh Header của Web Dashboard có nút **`[☁️ Sync R2 / Cloud]`**. Người vận hành chỉ cần click chuột để kích hoạt đồng bộ tức thời lên Cloudflare R2 với thông báo trạng thái Toast hiển thị trực tiếp.
+
+#### D. Công cụ CLI Chuyên Dụng (`data_lake/sync_lakehouse.py`)
+```bash
+# Kiểm tra trạng thái kết nối Cloudflare R2 và danh sách phân vùng:
+python data_lake/sync_lakehouse.py --action status
+
+# Đẩy toàn bộ phân vùng Parquet và catalog.db từ máy cục bộ lên R2:
+python data_lake/sync_lakehouse.py --action push
+
+# Kéo toàn bộ phân vùng dữ liệu từ R2 về máy cục bộ:
+python data_lake/sync_lakehouse.py --action pull
+```
 
 ---
 
@@ -339,12 +390,13 @@ docker run -d -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_R
 ### 1. Cấu trúc Thư mục Artifacts
 ```
 ml_engine/models/
-├── decision_tree_isolation_forest/    # Artifacts Decision Tree (kèm tinyml_model.h)
-├── xgboost_isolation_forest/          # Artifacts XGBoost Model
-├── lightgbm_isolation_forest/         # Artifacts LightGBM Model
-├── catboost_isolation_forest/         # Artifacts CatBoost Model
-├── pytorch_deep_isolation_forest/     # Artifacts PyTorch DNN (kèm loss_curve.png)
-└── [Fallback Files]                   # Tự động đồng bộ bản sao mới nhất tại thư mục gốc
+├── decision_tree_isolation_forest/          # Decision Tree Tabular chuẩn (kèm tinyml_model.h)
+├── decision_tree_isolation_forest_ts_w10/    # Decision Tree Time-Series W=10 (kèm tinyml_model.h)
+├── xgboost_isolation_forest/                # XGBoost Tabular chuẩn
+├── xgboost_isolation_forest_ts_w10/          # XGBoost Time-Series W=10
+├── pytorch_deep_isolation_forest/           # PyTorch DNN chuẩn 2D
+├── pytorch_deep_isolation_forest_ts_w10/    # PyTorch Bi-LSTM 3D (kèm loss_curve.png)
+└── [Fallback Files]                         # Tự động đồng bộ bản sao mới nhất tại thư mục gốc
 ```
 
 ### 2. Huấn luyện các mô hình vào thư mục riêng

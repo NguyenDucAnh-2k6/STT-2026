@@ -12,6 +12,8 @@ import { ControlBarComponent } from "./components/control_bar.js";
 import { ChartsComponent } from "./components/charts.js";
 import { RiskAssessmentComponent } from "./components/risk_assessment.js";
 import { PacketInspectorComponent } from "./components/packet_inspector.js";
+import { WifiInspectorComponent } from "./components/wifi_inspector.js";
+import { LakehouseModalComponent } from "./components/lakehouse_modal.js";
 
 class Application {
   constructor() {
@@ -27,6 +29,8 @@ class Application {
     this.components.controlBar = new ControlBarComponent();
     this.components.charts = new ChartsComponent();
     this.components.riskAssessment = new RiskAssessmentComponent();
+    this.components.wifiInspector = new WifiInspectorComponent();
+    this.components.lakehouseModal = new LakehouseModalComponent();
     this.components.packetInspector = new PacketInspectorComponent();
 
     // 2. Kết nối WebSocket Service

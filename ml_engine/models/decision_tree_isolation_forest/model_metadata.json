@@ -1,5 +1,5 @@
 {
-  "timestamp": 1789530794,
+  "timestamp": 1789573221,
   "features_count": 56,
   "features": [
     "arp.opcode",
@@ -80,120 +80,131 @@
   "classifier_type": "decision_tree",
   "anomaly_detector_type": "isolation_forest",
   "data_source": "hybrid",
-  "data_lake_records_used": 1488,
-  "classifier_accuracy": 0.922,
-  "classifier_macro_f1": 0.8674,
+  "data_lake_records_used": 1523,
+  "classifier_accuracy": 0.9136,
+  "classifier_accuracy_std": 0.0,
+  "classifier_macro_f1": 0.8647,
+  "classifier_macro_f1_std": 0.0059,
+  "cv_strategy": "2-Fold Stratified CV",
+  "cv_folds": 2,
   "classification_report": {
     "Backdoor": {
-      "precision": 0.9838709677419355,
-      "recall": 0.9384615384615385,
-      "f1-score": 0.9606299212598425,
-      "support": 65.0
+      "precision": 0.9763313609467456,
+      "recall": 0.9705882352941176,
+      "f1-score": 0.9734513274336283,
+      "support": 510.0
     },
     "DDoS_HTTP": {
-      "precision": 0.8333333333333334,
-      "recall": 0.8208955223880597,
-      "f1-score": 0.8270676691729323,
-      "support": 67.0
+      "precision": 0.750465549348231,
+      "recall": 0.7632575757575758,
+      "f1-score": 0.7568075117370892,
+      "support": 528.0
     },
     "DDoS_ICMP": {
-      "precision": 0.978021978021978,
-      "recall": 1.0,
-      "f1-score": 0.9888888888888889,
-      "support": 89.0
+      "precision": 0.9915134370579916,
+      "recall": 0.9957386363636364,
+      "f1-score": 0.9936215450035436,
+      "support": 704.0
     },
     "DDoS_TCP": {
       "precision": 1.0,
       "recall": 1.0,
       "f1-score": 1.0,
-      "support": 65.0
+      "support": 512.0
     },
     "DDoS_UDP": {
       "precision": 1.0,
       "recall": 1.0,
       "f1-score": 1.0,
-      "support": 92.0
+      "support": 725.0
     },
     "Fingerprinting": {
-      "precision": 0.8,
-      "recall": 0.6666666666666666,
-      "f1-score": 0.7272727272727273,
-      "support": 6.0
+      "precision": 0.7560975609756098,
+      "recall": 0.62,
+      "f1-score": 0.6813186813186813,
+      "support": 50.0
     },
     "MITM": {
-      "precision": 1.0,
-      "recall": 0.25,
-      "f1-score": 0.4,
-      "support": 8.0
+      "precision": 0.4875,
+      "recall": 0.639344262295082,
+      "f1-score": 0.5531914893617021,
+      "support": 61.0
     },
     "Normal": {
-      "precision": 1.0,
-      "recall": 0.9935064935064936,
-      "f1-score": 0.996742671009772,
-      "support": 154.0
+      "precision": 0.99833748960931,
+      "recall": 0.988477366255144,
+      "f1-score": 0.9933829611248967,
+      "support": 1215.0
     },
     "Password": {
-      "precision": 0.7833333333333333,
-      "recall": 0.746031746031746,
-      "f1-score": 0.7642276422764228,
-      "support": 63.0
+      "precision": 0.7913043478260869,
+      "recall": 0.7294589178356713,
+      "f1-score": 0.7591240875912408,
+      "support": 499.0
     },
     "Port_Scanning": {
-      "precision": 0.9253731343283582,
-      "recall": 0.96875,
-      "f1-score": 0.9465648854961832,
-      "support": 64.0
+      "precision": 0.9610655737704918,
+      "recall": 0.9305555555555556,
+      "f1-score": 0.9455645161290323,
+      "support": 504.0
     },
     "Ransomware": {
-      "precision": 0.8072289156626506,
-      "recall": 0.9710144927536232,
-      "f1-score": 0.881578947368421,
-      "support": 69.0
+      "precision": 0.8552188552188552,
+      "recall": 0.9304029304029304,
+      "f1-score": 0.8912280701754386,
+      "support": 546.0
     },
     "SQL_injection": {
-      "precision": 0.8615384615384616,
-      "recall": 0.8615384615384616,
-      "f1-score": 0.8615384615384616,
-      "support": 65.0
+      "precision": 0.8226415094339623,
+      "recall": 0.8449612403100775,
+      "f1-score": 0.8336520076481836,
+      "support": 516.0
     },
     "Uploading": {
-      "precision": 0.8484848484848485,
-      "recall": 0.8615384615384616,
-      "f1-score": 0.8549618320610687,
-      "support": 65.0
+      "precision": 0.8538011695906432,
+      "recall": 0.8538011695906432,
+      "f1-score": 0.8538011695906432,
+      "support": 513.0
     },
     "Vulnerability_scanner": {
-      "precision": 0.9508196721311475,
-      "recall": 0.90625,
-      "f1-score": 0.928,
-      "support": 64.0
+      "precision": 0.9705263157894737,
+      "recall": 0.9146825396825397,
+      "f1-score": 0.9417773237997957,
+      "support": 504.0
     },
     "XSS": {
-      "precision": 0.8870967741935484,
-      "recall": 0.859375,
-      "f1-score": 0.873015873015873,
-      "support": 64.0
+      "precision": 0.8204633204633205,
+      "recall": 0.8449304174950298,
+      "f1-score": 0.8325171400587659,
+      "support": 503.0
     },
-    "accuracy": 0.922,
+    "accuracy": 0.9135614702154626,
     "macro avg": {
-      "precision": 0.9106067612513064,
-      "recall": 0.8562685588590034,
-      "f1-score": 0.867365967957373,
-      "support": 1000.0
+      "precision": 0.869017766002048,
+      "recall": 0.8684132564558669,
+      "f1-score": 0.867295855398176,
+      "support": 7890.0
     },
     "weighted avg": {
-      "precision": 0.9236797457745487,
-      "recall": 0.922,
-      "f1-score": 0.9203205739873054,
-      "support": 1000.0
+      "precision": 0.9151117158004478,
+      "recall": 0.9135614702154626,
+      "f1-score": 0.9139276697463302,
+      "support": 7890.0
     }
   },
   "anomaly_f1_score": 0.95,
-  "isolation_score_min": -0.6260980845450319,
-  "isolation_score_max": -0.32016218659134565,
+  "isolation_score_min": -0.6450611531728528,
+  "isolation_score_max": -0.32256433169139487,
   "loss_curve_path": null,
-  "best_params": {},
-  "cv_folds": null,
-  "sqlite_storage": null,
+  "feature_importance_path": "D:\\STT 2026\\ml_engine\\models\\decision_tree_isolation_forest\\feature_importance.png",
+  "timeseries": false,
+  "window_size": null,
+  "best_params": {
+    "criterion": "entropy",
+    "max_depth": 14,
+    "min_samples_split": 13,
+    "min_samples_leaf": 2
+  },
+  "sqlite_storage": "D:\\STT 2026\\ml_engine\\models\\decision_tree_isolation_forest\\optuna_study.db",
   "can_export_tinyml": true
 }

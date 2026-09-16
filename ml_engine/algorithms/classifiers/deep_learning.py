@@ -26,7 +26,7 @@ except ImportError:
 if TORCH_AVAILABLE:
     class EdgeDeepNet(nn.Module):
         """
-        Kiến trúc Deep Neural Network (DNN) chuyên dụng cho tập dữ liệu Edge-IIoTset:
+        Kiến trúc Deep Neural Network (DNN) chuyên dụng cho tập dữ liệu Edge-IIoTset dạng bảng:
         Input (56 features) -> Dense(128) + BN + LeakyReLU + Dropout -> Dense(64) + BN + LeakyReLU + Dropout -> Dense(32) + BN + LeakyReLU -> Output (num_classes).
         """
         def __init__(
@@ -51,6 +51,41 @@ if TORCH_AVAILABLE:
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             return self.net(x)
 
+    class EdgeLSTMNet(nn.Module):
+        """
+        Kiến trúc Recurrent Neural Network (Bi-LSTM) chuyên dụng cho chuỗi thời gian Edge-IIoTset:
+        Input (Batch, Window_W, Features_D) -> Bi-LSTM(hidden=64, 2 layers) -> Last Step -> Dense(64) -> Output (num_classes).
+        """
+        def __init__(
+            self,
+            in_features: int,
+            num_classes: int,
+            hidden_dim: int = 64,
+            num_layers: int = 2,
+            dropout: float = 0.2
+        ):
+            super().__init__()
+            self.lstm = nn.LSTM(
+                input_size=in_features,
+                hidden_size=hidden_dim,
+                num_layers=num_layers,
+                batch_first=True,
+                dropout=dropout if num_layers > 1 else 0.0,
+                bidirectional=True
+            )
+            self.fc = nn.Sequential(
+                nn.Linear(hidden_dim * 2, 64),
+                nn.BatchNorm1d(64),
+                nn.LeakyReLU(0.1),
+                nn.Dropout(dropout),
+                nn.Linear(64, num_classes)
+            )
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            out, _ = self.lstm(x)
+            last_step = out[:, -1, :]
+            return self.fc(last_step)
+
 
 class PyTorchDeepWrapper(BaseAttackClassifier):
     """
@@ -72,6 +107,7 @@ class PyTorchDeepWrapper(BaseAttackClassifier):
         hidden_dims: Tuple[int, ...] = (128, 64, 32),
         plot_dir: Optional[str] = None,
         random_state: int = 42,
+        verbose: bool = True,
         **kwargs
     ):
         if not TORCH_AVAILABLE:
@@ -85,6 +121,7 @@ class PyTorchDeepWrapper(BaseAttackClassifier):
         self.hidden_dims = hidden_dims
         self.plot_dir = plot_dir
         self.random_state = random_state
+        self.verbose = verbose
 
         self.in_features: Optional[int] = None
         self.num_classes: Optional[int] = None
@@ -105,6 +142,7 @@ class PyTorchDeepWrapper(BaseAttackClassifier):
         X_val: Optional[np.ndarray] = None,
         y_val: Optional[np.ndarray] = None,
         plot_dir: Optional[str] = None,
+        verbose: Optional[bool] = None,
         **kwargs
     ) -> "PyTorchDeepWrapper":
         """
@@ -115,34 +153,49 @@ class PyTorchDeepWrapper(BaseAttackClassifier):
         np.random.seed(self.random_state)
 
         target_plot_dir = plot_dir or self.plot_dir
+        is_verbose = self.verbose if verbose is None else verbose
 
-        self.in_features = int(X.shape[1])
+        is_3d = bool(len(X.shape) == 3)
+        self.is_timeseries = is_3d
+
         unique_classes = np.unique(y)
         max_label = int(np.max(y)) if len(y) > 0 else 0
         self.num_classes = max(max_label + 1, len(unique_classes), kwargs.get("num_classes", 15))
         self.classes_ = np.arange(self.num_classes)
 
-        # Phân chia tập validation nếu chưa được cung cấp
-        if X_val is None or y_val is None:
-            try:
-                X_tr, X_va, y_tr, y_va = train_test_split(
-                    X, y, test_size=0.15, random_state=self.random_state, stratify=y
-                )
-            except Exception:
-                X_tr, X_va, y_tr, y_va = train_test_split(
-                    X, y, test_size=0.15, random_state=self.random_state
-                )
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        if is_3d:
+            self.window_size = int(X.shape[1])
+            self.in_features = int(X.shape[2])
+            self.net = EdgeLSTMNet(
+                in_features=self.in_features,
+                num_classes=self.num_classes,
+                hidden_dim=64,
+                num_layers=2,
+                dropout=self.dropout
+            ).to(device)
+            arch_desc = f"EdgeLSTMNet (SeqLen={self.window_size}, Dim={self.in_features} -> 128 Bi-LSTM -> {self.num_classes} classes)"
         else:
+            self.in_features = int(X.shape[1])
+            self.net = EdgeDeepNet(
+                in_features=self.in_features,
+                num_classes=self.num_classes,
+                hidden_dims=self.hidden_dims,
+                dropout=self.dropout
+            ).to(device)
+            arch_desc = f"EdgeDeepNet ({self.in_features} -> {self.hidden_dims} -> {self.num_classes} classes)"
+
+        if X_val is not None and y_val is not None:
             X_tr, y_tr = X, y
             X_va, y_va = X_val, y_val
-
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.net = EdgeDeepNet(
-            in_features=self.in_features,
-            num_classes=self.num_classes,
-            hidden_dims=self.hidden_dims,
-            dropout=self.dropout
-        ).to(device)
+        else:
+            from sklearn.model_selection import train_test_split
+            min_count = np.min(np.bincount(y)) if len(y) > 0 and len(np.unique(y)) > 1 else 0
+            strat = y if min_count >= 2 else None
+            X_tr, X_va, y_tr, y_va = train_test_split(
+                X, y, test_size=0.2, random_state=self.random_state, stratify=strat
+            )
 
         # Chuẩn bị Tensor DataLoader
         train_dataset = TensorDataset(
@@ -161,11 +214,12 @@ class PyTorchDeepWrapper(BaseAttackClassifier):
         optimizer = optim.AdamW(self.net.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=3)
 
-        print(f"\n[PyTorch DNN] Khoi tao mang EdgeDeepNet ({self.in_features} -> {self.hidden_dims} -> {self.num_classes} classes)")
-        print(f"  -> Thiet bi huan luyen: {device} | Batch Size: {self.batch_size} | Epochs: {self.epochs}")
-        print("=" * 75)
-        print(f" {'EPOCH':^8} | {'TRAIN LOSS':^12} | {'TRAIN ACC':^11} | {'VAL LOSS':^12} | {'VAL ACC':^11} | {'LR':^8}")
-        print("=" * 75)
+        if is_verbose:
+            print(f"\n[PyTorch Network] Khoi tao {arch_desc}")
+            print(f"  -> Thiet bi huan luyen: {device} | Batch Size: {self.batch_size} | Epochs: {self.epochs}")
+            print("=" * 75)
+            print(f" {'EPOCH':^8} | {'TRAIN LOSS':^12} | {'TRAIN ACC':^11} | {'VAL LOSS':^12} | {'VAL ACC':^11} | {'LR':^8}")
+            print("=" * 75)
 
         self.history = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
 
@@ -220,16 +274,19 @@ class PyTorchDeepWrapper(BaseAttackClassifier):
             self.history["val_loss"].append(epoch_val_loss)
             self.history["val_acc"].append(epoch_val_acc)
 
-            print(f" {epoch:^8d} | {epoch_train_loss:^12.4f} | {epoch_train_acc*100:^10.2f}% | {epoch_val_loss:^12.4f} | {epoch_val_acc*100:^10.2f}% | {current_lr:^8.1e}")
+            if is_verbose:
+                print(f" {epoch:^8d} | {epoch_train_loss:^12.4f} | {epoch_train_acc*100:^10.2f}% | {epoch_val_loss:^12.4f} | {epoch_val_acc*100:^10.2f}% | {current_lr:^8.1e}")
 
-        print("=" * 75)
+        if is_verbose:
+            print("=" * 75)
 
         # Đưa mạng về CPU để bảo đảm joblib serialize an toàn trên mọi môi trường
         self.net.cpu()
         self.net.eval()
 
-        # 3. Vẽ và lưu đồ thị Loss / Accuracy Curves
-        self._plot_loss_curves(target_plot_dir)
+        # 3. Vẽ và lưu đồ thị Loss / Accuracy Curves khi verbose=True
+        if is_verbose:
+            self._plot_loss_curves(target_plot_dir)
 
         return self
 
@@ -284,9 +341,13 @@ class PyTorchDeepWrapper(BaseAttackClassifier):
 
         with torch.no_grad():
             tensor_x = torch.tensor(X, dtype=torch.float32)
+            if getattr(self, "is_timeseries", False) and len(tensor_x.shape) == 2:
+                w = getattr(self, "window_size", 10)
+                tensor_x = tensor_x.unsqueeze(1).repeat(1, w, 1)
             logits = self.net(tensor_x)
             probabilities = torch.softmax(logits, dim=1).numpy()
         return probabilities
+
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Dự đoán nhãn phân loại đa lớp."""
