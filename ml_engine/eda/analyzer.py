@@ -87,19 +87,24 @@ def compute_cramers_v(x: pd.Series, y: pd.Series) -> float:
     ct = pd.crosstab(x, y)
     if ct.shape[0] <= 1 or ct.shape[1] <= 1:
         return 0.0
-    chi2 = chi2_contingency(ct)[0]
-    n = ct.sum().sum()
-    if n <= 1:
-        return 0.0
-    phi2 = chi2 / n
-    r, k = ct.shape
-    phi2corr = max(0.0, phi2 - ((k - 1.0) * (r - 1.0)) / (n - 1.0))
-    rcorr = r - ((r - 1.0) ** 2) / (n - 1.0)
-    kcorr = k - ((k - 1.0) ** 2) / (n - 1.0)
-    min_dim = min(kcorr - 1.0, rcorr - 1.0)
-    if min_dim <= 0.0:
-        return 0.0
-    return float(np.sqrt(phi2corr / min_dim))
+    try:
+        from scipy.stats import contingency
+        val = contingency.association(ct, method='cramer')
+        return float(val) if not np.isnan(val) else 0.0
+    except Exception:
+        chi2 = chi2_contingency(ct)[0]
+        n = ct.sum().sum()
+        if n <= 1:
+            return 0.0
+        phi2 = chi2 / n
+        r, k = ct.shape
+        phi2corr = max(0.0, phi2 - ((k - 1.0) * (r - 1.0)) / (n - 1.0))
+        rcorr = r - ((r - 1.0) ** 2) / (n - 1.0)
+        kcorr = k - ((k - 1.0) ** 2) / (n - 1.0)
+        min_dim = min(kcorr - 1.0, rcorr - 1.0)
+        if min_dim <= 0.0:
+            return 0.0
+        return float(np.sqrt(phi2corr / min_dim))
 
 
 class EdgeDataAnalyzer:
@@ -233,7 +238,7 @@ class EdgeDataAnalyzer:
         df = self.df
 
         # Tìm các cột rời rạc/phân loại
-        cat_cols = [c for c in self.feature_cols if 2 <= df[c].nunique() <= 20]
+        cat_cols = [c for c in self.feature_cols if 2 <= df[c].nunique() <= 30]
         if not cat_cols:
             cat_cols = [c for c in self.feature_cols if df[c].nunique() <= 50][:10]
 
@@ -278,7 +283,7 @@ class EdgeDataAnalyzer:
         ct1 = pd.crosstab(df[target_cat1].astype(str), df[self.target_col], normalize='index') * 100
         # Chỉ giữ các cột tấn công có xuất hiện đáng kể
         active_cols1 = ct1.columns[(ct1 > 2).any(axis=0)]
-        ct1_filtered = ct1[active_cols1].head(6)
+        ct1_filtered = ct1[active_cols1]
 
         sns.heatmap(ct1_filtered, annot=True, fmt=".1f", cmap="magma", ax=ax_http, cbar=False,
                     linewidths=0.5, linecolor='#091017', annot_kws={"size": 8.5, "weight": "bold"})
@@ -291,8 +296,8 @@ class EdgeDataAnalyzer:
         # 3. Bottom-Right Panel: P(Attack | tcp.flags / tcp.connection.syn)
         target_cat2 = "tcp.flags" if "tcp.flags" in df.columns else (cramer_series.index[1] if len(cramer_series) > 1 else self.feature_cols[1])
         ct2 = pd.crosstab(df[target_cat2].astype(str), df[self.target_col], normalize='index') * 100
-        active_cols2 = ct2.columns[(ct2 > 3).any(axis=0)]
-        ct2_filtered = ct2[active_cols2].head(8)
+        active_cols2 = ct2.columns[(ct2 > 2).any(axis=0)]
+        ct2_filtered = ct2[active_cols2]
 
         sns.heatmap(ct2_filtered, annot=True, fmt=".1f", cmap="mako", ax=ax_tcp, cbar=False,
                     linewidths=0.5, linecolor='#091017', annot_kws={"size": 8, "weight": "bold"})
@@ -310,35 +315,36 @@ class EdgeDataAnalyzer:
         return out_path
 
     def plot_boxplots(self, out_dir: str) -> str:
-        """4. Biểu đồ Boxplot khảo sát phân vị và ngoại lai theo nhóm tấn công."""
+        """4. Biểu đồ Boxplot khảo sát phân vị và ngoại lai theo nhóm tấn công (hỗ trợ symlog chống sụp đổ hộp)."""
         print("[Static 4/8] Đang vẽ 04_feature_boxplots.png...")
         df = self.df
+        # Sử dụng các đặc trưng liên tục thực sự có phương sai, không dùng cờ nhị phân (0/1)
         key_features = [
-            ("tcp.len", "Độ Dài Gói Tin TCP (Bytes)"),
-            ("tcp.connection.syn", "Số Lượng Cờ TCP SYN"),
-            ("udp.stream", "Chỉ Số Luồng UDP (UDP Stream Index)"),
-            ("http.content_length", "Độ Dài Nội Dung HTTP (Bytes)")
+            ("tcp.len", "Độ Dài Gói Tin TCP (Bytes)", True),
+            ("tcp.srcport", "Cổng Nguồn TCP (Port Number)", False),
+            ("udp.stream", "Chỉ Số Luồng UDP (UDP Stream Index)", True),
+            ("http.content_length", "Độ Dài Nội Dung HTTP (Bytes)", True)
         ]
-        available_features = [(f, desc) for f, desc in key_features if f in df.columns]
+        available_features = [(f, desc, log_sc) for f, desc, log_sc in key_features if f in df.columns]
         if len(available_features) < 4:
-            available_features = [(c, c) for c in self.feature_cols[:4]]
+            available_features = [(c, c, False) for c in self.feature_cols[:4]]
 
-        fig, axes = plt.subplots(2, 2, figsize=(15, 10), facecolor='#091017')
+        fig, axes = plt.subplots(2, 2, figsize=(16, 11), facecolor='#091017')
         axes = axes.flatten()
 
         top_attacks = list(df[self.target_col].value_counts().head(7).index)
         sub_df = df[df[self.target_col].isin(top_attacks)].copy()
 
-        for idx, (col, desc) in enumerate(available_features[:4]):
+        for idx, (col, desc, use_log) in enumerate(available_features[:4]):
             ax = axes[idx]
             ax.set_facecolor('#0d1722')
-            data_to_plot = [sub_df[sub_df[self.target_col] == atk][col].dropna().astype(float).values for atk in top_attacks]
+            data_to_plot = [pd.to_numeric(sub_df[sub_df[self.target_col] == atk][col], errors='coerce').dropna().values for atk in top_attacks]
 
             bplot = ax.boxplot(
                 data_to_plot,
                 patch_artist=True,
                 medianprops=dict(color='#00f0ff', linewidth=2),
-                flierprops=dict(marker='o', markersize=3, markerfacecolor='#ff0055', alpha=0.6, markeredgecolor='none'),
+                flierprops=dict(marker='o', markersize=3, markerfacecolor='#ff0055', alpha=0.5, markeredgecolor='none'),
                 whiskerprops=dict(color='#94a3b8', linewidth=1.2),
                 capprops=dict(color='#94a3b8', linewidth=1.2)
             )
@@ -349,12 +355,18 @@ class EdgeDataAnalyzer:
                 patch.set_alpha(0.65)
                 patch.set_edgecolor('#ffffff')
 
+            if use_log:
+                # Áp dụng thang đo đối xứng symlog để hiển thị rõ hộp ngay cả khi có ngoại lai cực lớn hoặc nhiều giá trị 0
+                ax.set_yscale('symlog', linthresh=10.0)
+                ax.set_ylabel('Giá trị (Thang đo đối xứng Symlog)', fontsize=9.5, color='#94a3b8')
+            else:
+                ax.set_ylabel('Giá trị tuyến tính (Linear)', fontsize=9.5, color='#94a3b8')
+
             ax.set_xticklabels(top_attacks, rotation=35, ha='right', fontsize=9, color='#cbd5e1')
             ax.set_title(f"{desc} ({col})", fontsize=11, fontweight='bold', color='#38bdf8')
-            ax.set_ylabel('Giá trị', fontsize=9.5, color='#94a3b8')
             ax.grid(axis='y', alpha=0.3)
 
-        plt.suptitle("Boxplots Phân Vị & Điểm Ngoại Lai (Quartiles, IQR & Outliers) Theo Loại Tấn Công", fontsize=13, fontweight='bold', color='#ffffff', y=0.98)
+        plt.suptitle("Boxplots Phân Vị & Điểm Ngoại Lai (Quartiles & Outliers) - [Thang Đo Symlog Khắc Phục Sụp Hộp]", fontsize=13, fontweight='bold', color='#ffffff', y=0.98)
         plt.tight_layout()
         out_path = os.path.join(out_dir, "04_feature_boxplots.png")
         plt.savefig(out_path, dpi=250, facecolor=fig.get_facecolor())
@@ -362,46 +374,68 @@ class EdgeDataAnalyzer:
         return out_path
 
     def plot_kde_distributions(self, out_dir: str) -> str:
-        """5. Biểu đồ đường cong mật độ xác suất KDE so sánh Normal vs Attacks."""
+        """5. Biểu đồ đường cong mật độ xác suất KDE so sánh Normal vs Attacks (xử lý zero-variance & log-scale)."""
         print("[Static 5/8] Đang vẽ 05_kde_distributions.png...")
         df = self.df
         kde_candidates = [
-            ("tcp.len", "TCP Packet Length"),
-            ("tcp.connection.syn", "TCP SYN Ratio / Count"),
-            ("udp.stream", "UDP Stream Identifier"),
-            ("http.content_length", "HTTP Content Length")
+            ("tcp.len", "TCP Packet Length (Bytes)", True),
+            ("tcp.srcport", "TCP Source Port Number", False),
+            ("udp.stream", "UDP Stream Identifier", True),
+            ("http.content_length", "HTTP Content Length (Bytes)", True)
         ]
-        available_kdes = [(f, d) for f, d in kde_candidates if f in df.columns]
+        available_kdes = [(f, d, log_tr) for f, d, log_tr in kde_candidates if f in df.columns]
         if len(available_kdes) < 4:
-            available_kdes = [(c, c) for c in self.feature_cols[:4]]
+            available_kdes = [(c, c, False) for c in self.feature_cols[:4]]
 
-        fig, axes = plt.subplots(2, 2, figsize=(15, 9), facecolor='#091017')
+        fig, axes = plt.subplots(2, 2, figsize=(16, 10), facecolor='#091017')
         axes = axes.flatten()
 
-        is_normal = df[self.target_col] == "Normal"
+        is_normal = (df[self.target_col] == "Normal")
 
-        for idx, (col, desc) in enumerate(available_kdes[:4]):
+        for idx, (col, desc, use_log) in enumerate(available_kdes[:4]):
             ax = axes[idx]
             ax.set_facecolor('#0d1722')
 
-            norm_vals = df[is_normal][col].dropna().astype(float)
-            atk_vals = df[~is_normal][col].dropna().astype(float)
+            raw_norm = pd.to_numeric(df[is_normal][col], errors='coerce').dropna()
+            raw_atk = pd.to_numeric(df[~is_normal][col], errors='coerce').dropna()
 
-            sns.kdeplot(norm_vals, ax=ax, color='#10b981', label='Normal Traffic', fill=True, alpha=0.35, linewidth=2)
-            sns.kdeplot(atk_vals, ax=ax, color='#ff0055', label='Attack Traffic', fill=True, alpha=0.25, linewidth=2)
+            # Nếu dữ liệu trải rộng qua nhiều bậc độ lớn, dùng log10(x + 1) để hình chuông KDE trải rộng tự nhiên
+            if use_log:
+                norm_vals = np.log10(np.maximum(0, raw_norm) + 1.0)
+                atk_vals = np.log10(np.maximum(0, raw_atk) + 1.0)
+                x_label_txt = f"log10({col} + 1)"
+            else:
+                norm_vals = raw_norm
+                atk_vals = raw_atk
+                x_label_txt = col
+
+            # Xử lý trường hợp Normal Traffic có phương sai bằng 0 (ví dụ http.content_length = 0 ở 100% mẫu normal)
+            if norm_vals.std() < 1e-6 or len(norm_vals.unique()) <= 1:
+                const_val = float(norm_vals.iloc[0]) if len(norm_vals) > 0 else 0.0
+                ax.axvline(const_val, color='#10b981', linestyle='--', linewidth=2.5,
+                           label=f'Normal Traffic: 100% Đồng Nhất ({const_val:.1f})')
+            else:
+                sns.kdeplot(norm_vals, ax=ax, color='#10b981', label='Normal Traffic', fill=True, alpha=0.35, linewidth=2)
+
+            if atk_vals.std() >= 1e-6 and len(atk_vals.unique()) > 1:
+                sns.kdeplot(atk_vals, ax=ax, color='#ff0055', label='Attack Traffic', fill=True, alpha=0.25, linewidth=2)
+            else:
+                const_atk = float(atk_vals.iloc[0]) if len(atk_vals) > 0 else 0.0
+                ax.axvline(const_atk, color='#ff0055', linestyle=':', linewidth=2.0, label=f'Attack Traffic: Hằng Số ({const_atk:.1f})')
 
             ax.set_title(f"Mật Độ Phân Phối (KDE): {desc}", fontsize=11, fontweight='bold', color='#38bdf8')
-            ax.set_xlabel(col, fontsize=9.5, color='#94a3b8')
+            ax.set_xlabel(x_label_txt, fontsize=9.5, color='#94a3b8')
             ax.set_ylabel('Mật độ xác suất (Density)', fontsize=9.5, color='#94a3b8')
             ax.legend(loc='upper right', fontsize=9)
             ax.grid(True, alpha=0.25)
 
-        plt.suptitle("Đường Cong Mật Độ Phân Phối Xác Suất (KDE: Normal vs Attack Traffic)", fontsize=13, fontweight='bold', color='#ffffff', y=0.98)
+        plt.suptitle("Đường Cong Mật Độ Phân Phối Xác Suất (KDE: Normal vs Attack) - [Đã Log-Scale & Fix Zero Variance]", fontsize=13, fontweight='bold', color='#ffffff', y=0.98)
         plt.tight_layout()
         out_path = os.path.join(out_dir, "05_kde_distributions.png")
         plt.savefig(out_path, dpi=250, facecolor=fig.get_facecolor())
         plt.close()
         return out_path
+
 
     def plot_correlation_matrix(self, out_dir: str) -> str:
         """6. Ma trận tương quan (Pearson Correlation Heatmap)."""
@@ -708,20 +742,36 @@ class EdgeDataAnalyzer:
         """5. Điểm số bất thường theo cửa sổ trượt phân tách trạng thái bình thường vs bùng nổ tấn công."""
         print("[TimeSeries 5/5] Đang vẽ 05_sliding_window_outlier_scores.png...")
         df = self.df
-        numeric_cols = [c for c in self.feature_cols if pd.api.types.is_numeric_dtype(df[c])]
+        # Chọn các đặc trưng lưu lượng động có độ biến thiên thực sự
+        active_features = ["tcp.len", "tcp.flags", "tcp.srcport", "tcp.dstport", "udp.stream", "http.content_length"]
+        available_feats = [f for f in active_features if f in df.columns]
+        if len(available_feats) < 2:
+            available_feats = [c for c in self.feature_cols if pd.api.types.is_numeric_dtype(df[c]) and df[c].std() > 0][:4]
 
-        # Trích xuất 4 đặc trưng động cho chuỗi 1000 mẫu
-        top_feats = numeric_cols[:4]
-        sub_matrix = df[top_feats].fillna(0).values[:1000]
+        # Xây dựng chuỗi thời gian chuyển tiếp thực tế: 400 mẫu Normal tiếp nối bởi 400 mẫu Tấn công
+        normal_samples = df[df[self.target_col] == "Normal"]
+        attack_samples = df[df[self.target_col] != "Normal"]
 
-        # Tính toán sliding window mean và delta vector norm
-        window_means = pd.DataFrame(sub_matrix).rolling(window=window_size, min_periods=1).mean().values
-        window_stds = pd.DataFrame(sub_matrix).rolling(window=window_size, min_periods=1).std().fillna(0).values
-        dyn_matrix = np.hstack([window_means, window_stds])
+        n_norm = min(400, len(normal_samples))
+        n_atk = min(400, len(attack_samples))
 
-        # Huấn luyện nhanh Isolation Forest trên các đặc trưng động chuỗi thời gian
+        seq_df = pd.concat([
+            normal_samples.iloc[:n_norm],
+            attack_samples.iloc[:n_atk]
+        ]).reset_index(drop=True)
+
+        matrix = seq_df[available_feats].apply(pd.to_numeric, errors='coerce').fillna(0).values.astype(float)
+
+        # Tính toán sliding window mean và delta vector
+        rolling_means = pd.DataFrame(matrix).rolling(window=window_size, min_periods=1).mean().values
+        rolling_stds = pd.DataFrame(matrix).rolling(window=window_size, min_periods=1).std().fillna(0).values
+        dyn_matrix = np.hstack([rolling_means, rolling_stds])
+
+        # Huấn luyện Isolation Forest trên 300 mẫu Normal đầu để học baseline
         iso = IsolationForest(contamination=0.1, random_state=self.random_state)
-        scores = -iso.fit_predict(dyn_matrix)  # 1: Outlier, -1: Inlier
+        iso.fit(dyn_matrix[:max(50, int(n_norm * 0.75))])
+
+        # Tính điểm bất thường cho toàn bộ chuỗi chuyển tiếp (Điểm càng cao -> càng bất thường)
         raw_anomaly = -iso.score_samples(dyn_matrix)
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7), facecolor='#091017')
@@ -729,32 +779,43 @@ class EdgeDataAnalyzer:
         ax2.set_facecolor('#0d1722')
 
         timesteps = np.arange(len(raw_anomaly))
-        threshold = np.percentile(raw_anomaly, 90)
+        threshold = np.percentile(raw_anomaly[:n_norm], 95)
 
-        ax1.plot(timesteps, raw_anomaly, color='#38bdf8', linewidth=1.2, alpha=0.75, label='Điểm Bất Thường Cửa Sổ (Window Anomaly Score)')
-        ax1.axhline(threshold, color='#ef4444', linestyle='--', linewidth=1.5, label=f'Ngưỡng Cảnh Báo (90th Percentile = {threshold:.3f})')
-        ax1.fill_between(timesteps, threshold, raw_anomaly, where=(raw_anomaly > threshold), color='#ef4444', alpha=0.3, label='Khu Vực Bùng Nổ Đe Dọa (Alert Zone)')
-        ax1.set_title("Diễn Biến Chỉ Số Bất Thường Theo Trục Thời Gian", fontsize=11.5, fontweight='bold', color='#38bdf8')
-        ax1.set_xlabel('Bước Thời Gian (Time Steps)', fontsize=9.5, color='#94a3b8')
-        ax1.set_ylabel('Chỉ Số Bất Thường (Anomaly Score)', fontsize=9.5, color='#94a3b8')
-        ax1.legend(loc='upper right', fontsize=9)
+        # Panel 1: Dòng thời gian chuyển tiếp với vùng màu Ground Truth
+        ax1.axvspan(0, n_norm, color='#10b981', alpha=0.1, label='Giai Đoạn Bình Thường (Normal Baseline)')
+        ax1.axvspan(n_norm, len(timesteps), color='#ef4444', alpha=0.12, label='Giai Đoạn Bùng Nổ Tấn Công (Attack Bursts)')
+
+        ax1.plot(timesteps, raw_anomaly, color='#38bdf8', linewidth=1.5, alpha=0.85, label='Window Anomaly Score')
+        ax1.axhline(threshold, color='#f59e0b', linestyle='--', linewidth=1.5, label=f'Ngưỡng Phát Hiện Baseline (95th% Normal = {threshold:.3f})')
+        ax1.fill_between(timesteps, threshold, raw_anomaly, where=(raw_anomaly > threshold), color='#ef4444', alpha=0.35, label='Vùng Cảnh Báo Xâm Nhập (IDS Trigger Zone)')
+
+        ax1.set_title("Biến Thiên Chỉ Số Bất Thường Qua Cửa Sổ Trượt (Normal -> Attack Stream)", fontsize=11.5, fontweight='bold', color='#38bdf8')
+        ax1.set_xlabel('Bước Thời Gian (Consecutive Time Windows)', fontsize=9.5, color='#94a3b8')
+        ax1.set_ylabel('Chỉ Số Bất Thường (Window Anomaly Score)', fontsize=9.5, color='#94a3b8')
+        ax1.legend(loc='upper left', fontsize=8.5)
         ax1.grid(True, alpha=0.25)
 
-        # Histogram phân bố điểm số
-        sns.histplot(raw_anomaly, ax=ax2, color='#06b6d4', bins=35, kde=True, line_kws={'linewidth': 2})
-        ax2.axvline(threshold, color='#ef4444', linestyle='--', linewidth=1.5, label='Ngưỡng Báo Động')
-        ax2.set_title("Phân Bố Xác Suất Điểm Số Bất Thường (Score Density)", fontsize=11.5, fontweight='bold', color='#38bdf8')
-        ax2.set_xlabel('Chỉ Số Bất Thường (Anomaly Score)', fontsize=9.5, color='#94a3b8')
-        ax2.set_ylabel('Mật Độ Mẫu', fontsize=9.5, color='#94a3b8')
-        ax2.legend(loc='upper right', fontsize=9)
+        # Panel 2: Histogram / KDE Bimodal phân tách rõ ràng 2 cụm Normal vs Attack
+        norm_scores = raw_anomaly[:n_norm]
+        atk_scores = raw_anomaly[n_norm:]
+
+        sns.histplot(norm_scores, ax=ax2, color='#10b981', bins=25, kde=True, stat="density", alpha=0.5, label='Normal Window Scores')
+        sns.histplot(atk_scores, ax=ax2, color='#ef4444', bins=25, kde=True, stat="density", alpha=0.5, label='Attack Window Scores')
+        ax2.axvline(threshold, color='#f59e0b', linestyle='--', linewidth=1.5, label='Ngưỡng Quyết Định')
+
+        ax2.set_title("Phân Bố Xác Suất 2 Đỉnh Tách Biệt (Bimodal Density: Normal vs Attack)", fontsize=11.5, fontweight='bold', color='#38bdf8')
+        ax2.set_xlabel('Chỉ Số Bất Thường (Window Anomaly Score)', fontsize=9.5, color='#94a3b8')
+        ax2.set_ylabel('Mật Độ Xác Suất (Density)', fontsize=9.5, color='#94a3b8')
+        ax2.legend(loc='upper right', fontsize=8.5)
         ax2.grid(True, alpha=0.25)
 
-        plt.suptitle("Chỉ Số Bất Thường & Phân Vùng Đe Dọa Cửa Sổ Trượt (Sliding Window Outlier Scoring)", fontsize=13, fontweight='bold', color='#ffffff', y=0.98)
+        plt.suptitle("Đánh Giá Năng Lực Phát Hiện Bất Thường Cửa Sổ Trượt (Sliding Window Anomaly Scoring)", fontsize=13, fontweight='bold', color='#ffffff', y=0.98)
         plt.tight_layout()
         out_path = os.path.join(out_dir, "05_sliding_window_outlier_scores.png")
         plt.savefig(out_path, dpi=250, facecolor=fig.get_facecolor())
         plt.close()
         return out_path
+
 
     # =========================================================================
     # ĐIỀU PHỐI THỰC THI (EXECUTION CONTROLLER)

@@ -1,12 +1,18 @@
 """
-Edge-IIoTset Comprehensive Preprocessing & Feature Engineering Module
+Edge-IIoTset Comprehensive Preprocessing & Modular Feature Engineering
 ======================================================================
 Mục đích:
 - Quản lý tập trung toàn bộ logic nạp dữ liệu, làm sạch, mã hóa và chuẩn hóa đặc trưng.
-- Duy trì trọn vẹn FULL 63 ĐẶC TRƯNG của tập Edge-IIoTset (61 đặc trưng đầu vào + 2 cột nhãn).
-- Không tự ý drop bớt đặc trưng (logic feature selection / drop sẽ được mở rộng độc lập sau).
-- Cung cấp class EdgeTrafficPreprocessor có khả năng trích xuất an toàn từ telemetry thời gian thực
-  và lưu/nạp trạng thái (fitted encoders, scaler) phục vụ suy luận không độ trễ.
+- Chia tách thành các module con chuyên biệt theo tầng giao thức:
+    * NetworkCorePreprocessor (ARP, ICMP)
+    * TCPTransportPreprocessor (TCP)
+    * UDPTransportPreprocessor (UDP)
+    * HTTPApplicationPreprocessor (HTTP)
+    * IoTProtocolsPreprocessor (DNS, MQTT, Modbus TCP)
+- Loại bỏ hoàn toàn các số cứng (hardcoded magic numbers) nhân tạo; toàn bộ imputation
+  và giá trị mặc định được học trực tiếp từ phân phối thực nghiệm (empirical distribution)
+  của tập dữ liệu huấn luyện thật.
+- Duy trì trọn vẹn 56 đặc trưng hành vi mạng của Edge-IIoTset.
 """
 
 import os
@@ -14,15 +20,22 @@ import sys
 from typing import Dict, List, Tuple, Optional, Any, Union
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler, OrdinalEncoder, LabelEncoder
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import train_test_split
 import joblib
 
 from ..config.schema import (
     EDGE_IIOTSET_FEATURES,
     EDGE_IIOTSET_LABELS,
-    SLIDING_WINDOW_FEATURES,
     DEFAULT_DATASET_SAMPLES
+)
+from .modules import (
+    BaseSubPreprocessor,
+    NetworkCorePreprocessor,
+    TCPTransportPreprocessor,
+    UDPTransportPreprocessor,
+    HTTPApplicationPreprocessor,
+    IoTProtocolsPreprocessor
 )
 
 # Đường dẫn mặc định đến file CSV Edge-IIoTset
@@ -35,105 +48,102 @@ DEFAULT_EDGE_IIOTSET_PATH = os.path.join(
 
 class EdgeTrafficPreprocessor:
     """
-    Bộ tiền xử lý toàn diện cho tập dữ liệu an ninh mạng Edge-IIoTset.
-    Duy trì đầy đủ 61 đặc trưng đầu vào, tự động xử lý chuỗi và chuẩn hóa z-score.
+    Bộ tiền xử lý toàn diện kết hợp các module con chuyên biệt theo tầng giao thức mạng.
+    Học phân phối thực nghiệm từ dữ liệu thật, không dùng bất kỳ số cứng nào.
     """
 
     def __init__(
         self,
         feature_names: Optional[List[str]] = None,
-        cat_cols: Optional[List[str]] = None,
         scaler: Optional[StandardScaler] = None,
-        ordinal_encoder: Optional[OrdinalEncoder] = None,
-        label_encoder: Optional[LabelEncoder] = None
+        label_encoder: Optional[LabelEncoder] = None,
+        sub_preprocessors: Optional[Dict[str, BaseSubPreprocessor]] = None
     ):
         self.feature_names: List[str] = feature_names if feature_names is not None else list(EDGE_IIOTSET_FEATURES)
-        self.cat_cols: List[str] = cat_cols if cat_cols is not None else []
         self.scaler: StandardScaler = scaler if scaler is not None else StandardScaler()
-        self.ordinal_encoder: OrdinalEncoder = (
-            ordinal_encoder if ordinal_encoder is not None
-            else OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
-        )
         self.label_encoder: LabelEncoder = label_encoder if label_encoder is not None else LabelEncoder()
-        self._cat_maps: Optional[List[Dict[Any, float]]] = None
+
+        # Khởi tạo các module con chuyên biệt theo giao thức
+        if sub_preprocessors is not None:
+            self.sub_preprocessors = sub_preprocessors
+        else:
+            self.sub_preprocessors: Dict[str, BaseSubPreprocessor] = {
+                "network_core": NetworkCorePreprocessor(),
+                "tcp": TCPTransportPreprocessor(),
+                "udp": UDPTransportPreprocessor(),
+                "http": HTTPApplicationPreprocessor(),
+                "iot": IoTProtocolsPreprocessor()
+            }
+
+        self.feature_baselines_: Dict[str, float] = {}
         self.is_fitted: bool = False
         if hasattr(self.scaler, "mean_") and self.scaler.mean_ is not None:
             self.is_fitted = True
 
-    def _build_cat_maps(self):
-        """Khởi tạo từ điển tra cứu O(1) cho các cột phân loại để tăng tốc suy luận thời gian thực."""
-        if hasattr(self, "ordinal_encoder") and hasattr(self.ordinal_encoder, "categories_"):
-            self._cat_maps = [
-                {val: float(idx) for idx, val in enumerate(cats)}
-                for cats in self.ordinal_encoder.categories_
-            ]
-
-    def _clean_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Làm sạch các giá trị null, vô hạn (inf/-inf) và chuẩn hóa số thực an toàn."""
-        df_clean = df.copy()
-        
-        # Đảm bảo đủ các cột đặc trưng, nếu thiếu thì điền 0.0
-        for col in self.feature_names:
-            if col not in df_clean.columns:
-                df_clean[col] = 0.0
-
-        # Chỉ giữ đúng danh sách các cột đặc trưng theo đúng thứ tự
-        df_clean = df_clean[self.feature_names]
-
-        # Ép kiểu số thực toàn bộ đặc trưng hành vi và giới hạn biên an toàn float32
-        for c in self.feature_names:
-            df_clean[c] = pd.to_numeric(df_clean[c], errors="coerce").fillna(0.0)
-            df_clean[c] = df_clean[c].replace([np.inf, -np.inf], 0.0)
-            df_clean[c] = df_clean[c].clip(lower=-1e6, upper=1e6)
-
-        return df_clean
-
     def fit(self, X_df: pd.DataFrame, y: Optional[Union[pd.Series, np.ndarray]] = None) -> "EdgeTrafficPreprocessor":
-        """Học các thông số encode và chuẩn hóa trên tập dữ liệu huấn luyện."""
-        X_clean = self._clean_dataframe(X_df)
+        """
+        Học phân phối thống kê và fit các encoder trên từng module con chuyên biệt,
+        sau đó fit StandardScaler trên toàn bộ ma trận đặc trưng.
+        """
+        # 1. Fit từng module con theo giao thức để học baseline thực nghiệm từ dữ liệu thật
+        transformed_parts = []
+        self.feature_baselines_ = {}
 
-        # 1. Fit OrdinalEncoder cho các cột chuỗi
-        if self.cat_cols:
-            self.ordinal_encoder.fit(X_clean[self.cat_cols])
-            encoded_cats = self.ordinal_encoder.transform(X_clean[self.cat_cols])
-            X_clean[self.cat_cols] = encoded_cats
+        for name, sub in self.sub_preprocessors.items():
+            sub.fit(X_df)
+            self.feature_baselines_.update(sub.learned_baselines_)
+            part_df = sub.transform(X_df)
+            transformed_parts.append(part_df)
 
-        # Đảm bảo toàn bộ ma trận đều là số thực
-        X_matrix = X_clean.values.astype(np.float32)
+        # 2. Hợp nhất các cột theo đúng thứ tự canonical trong self.feature_names
+        combined_df = pd.concat(transformed_parts, axis=1)
+        for feat in self.feature_names:
+            if feat not in combined_df.columns:
+                combined_df[feat] = self.feature_baselines_.get(feat, 0.0)
 
-        # 2. Fit StandardScaler
+        aligned_df = combined_df[self.feature_names].copy()
+        for feat in self.feature_names:
+            s = pd.to_numeric(aligned_df[feat], errors="coerce").replace([np.inf, -np.inf], np.nan)
+            aligned_df[feat] = s.fillna(self.feature_baselines_.get(feat, 0.0)).clip(lower=-1e9, upper=1e9)
+        X_matrix = aligned_df.values.astype(np.float32)
+
+        # 3. Fit StandardScaler trên ma trận số thực hoàn chỉnh
         self.scaler.fit(X_matrix)
         self.is_fitted = True
 
-        # 3. Fit LabelEncoder nếu có nhãn mục tiêu y
+        # 4. Fit LabelEncoder cho nhãn mục tiêu y (nếu có)
         if y is not None:
             y_clean = pd.Series(y).fillna("Normal").astype(str)
-            # Đảm bảo 'Normal' luôn được fit và ưu tiên
             self.label_encoder.fit(y_clean)
 
         return self
 
     def transform(self, X: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
-        """Chuyển đổi dữ liệu thô sang ma trận đặc trưng số đã chuẩn hóa."""
+        """Chuyển đổi dữ liệu thô sang ma trận đặc trưng số đã chuẩn hóa z-score."""
         if not self.is_fitted:
-            raise RuntimeError("[EdgeTrafficPreprocessor] Scaler chua duoc fit! Vui long fit() truoc.")
+            raise RuntimeError("[EdgeTrafficPreprocessor] Preprocessor chưa được fit! Vui lòng fit() trước.")
 
         if isinstance(X, np.ndarray):
-            return self.scaler.transform(X)
+            if X.shape[1] == len(self.feature_names):
+                return self.scaler.transform(X)
+            raise ValueError(f"Ma trận đầu vào có {X.shape[1]} cột, kỳ vọng {len(self.feature_names)} cột.")
 
-        X_clean = self._clean_dataframe(X)
+        # X là DataFrame: chuyển đổi qua từng module con
+        transformed_parts = []
+        for name, sub in self.sub_preprocessors.items():
+            part_df = sub.transform(X)
+            transformed_parts.append(part_df)
 
-        if self.cat_cols:
-            if getattr(self, "_cat_maps", None) is None:
-                self._build_cat_maps()
-            if getattr(self, "_cat_maps", None) and len(X_clean) == 1:
-                row_vals = X_clean[self.cat_cols].iloc[0].values
-                fast_enc = [self._cat_maps[i].get(row_vals[i], -1.0) for i in range(len(self.cat_cols))]
-                X_clean[self.cat_cols] = [fast_enc]
-            else:
-                X_clean[self.cat_cols] = self.ordinal_encoder.transform(X_clean[self.cat_cols])
+        combined_df = pd.concat(transformed_parts, axis=1)
+        for feat in self.feature_names:
+            if feat not in combined_df.columns:
+                combined_df[feat] = self.feature_baselines_.get(feat, 0.0)
 
-        X_matrix = X_clean.values.astype(np.float32)
+        aligned_df = combined_df[self.feature_names].copy()
+        for feat in self.feature_names:
+            s = pd.to_numeric(aligned_df[feat], errors="coerce").replace([np.inf, -np.inf], np.nan)
+            aligned_df[feat] = s.fillna(self.feature_baselines_.get(feat, 0.0)).clip(lower=-1e9, upper=1e9)
+        X_matrix = aligned_df.values.astype(np.float32)
         return self.scaler.transform(X_matrix)
 
     def fit_transform(
@@ -154,99 +164,34 @@ class EdgeTrafficPreprocessor:
 
     def extract_features(self, telemetry: Dict[str, Any]) -> pd.DataFrame:
         """
-        Trích xuất an toàn DataFrame 1 dòng (61 cột) từ dictionary telemetry thời gian thực.
-        Tự động tương thích với cả telemetry từ ESP32 Simulator, Host Sniffer và gói tin đầy đủ.
-
-        Parameters:
-        -----------
-        telemetry : dict
-            Dữ liệu gói tin telemetry từ broker MQTT.
-
-        Returns:
-        --------
-        pd.DataFrame:
-            DataFrame 1 dòng với 61 cột chuẩn.
+        Trích xuất vector 56 đặc trưng từ dictionary telemetry của Probe (Host hoặc ESP32).
+        Tất cả các module con trích xuất số liệu đo đạc thực tế hoặc sử dụng baseline
+        học được từ dữ liệu huấn luyện thật, loại bỏ hoàn toàn các số cứng nhân tạo.
         """
         row_dict = {}
 
-        # 1. Điền các giá trị sẵn có trong telemetry khớp với danh sách đặc trưng
-        for feat in self.feature_names:
-            if feat in telemetry:
-                row_dict[feat] = telemetry[feat]
-            else:
-                row_dict[feat] = 0.0
+        # Thu thập đặc trưng từ tất cả các module con
+        for name, sub in self.sub_preprocessors.items():
+            sub_feats = sub.extract_from_telemetry(telemetry)
+            row_dict.update(sub_feats)
 
-        # 2. Xử lý ánh xạ trung thực từ các trường đo đạc lưu lượng thực tế (Physical Network Features)
-        if "packet_rate" in telemetry or "byte_rate" in telemetry:
-            pkt_rate = float(telemetry.get("packet_rate", 0.0))
-            byte_rate = float(telemetry.get("byte_rate", 0.0))
-            sz = float(telemetry.get("avg_packet_size", 64.0))
-            syn_r = float(telemetry.get("syn_ratio", 0.0))
-            ack_r = float(telemetry.get("ack_ratio", 0.0))
-            udp_r = float(telemetry.get("udp_ratio", 0.0))
-            icmp_r = float(telemetry.get("icmp_ratio", 0.0))
-            dst_p = float(telemetry.get("dst_port", 0.0))
-            src_p = float(telemetry.get("src_port", 0.0))
-            unique_ports = int(telemetry.get("unique_dst_ports", 1))
-            proto = str(telemetry.get("protocol", "TCP")).upper()
+        # Đảm bảo đủ các trường theo đúng thứ tự
+        final_row = {
+            feat: row_dict.get(feat, self.feature_baselines_.get(feat, 0.0))
+            for feat in self.feature_names
+        }
 
-            # Phân bổ giao thức theo luồng thực tế
-            if udp_r > 0.4 or "UDP" in proto:
-                row_dict["udp.stream"] = max(pkt_rate, 1000.0)
-                row_dict["tcp.srcport"] = 17794.0
-                row_dict["udp.port"] = dst_p if dst_p > 0 else 9999.0
-                row_dict["udp.time_delta"] = 0.001 if pkt_rate > 100 else 0.05
-            elif icmp_r > 0.4 or "ICMP" in proto:
-                row_dict["icmp.checksum"] = 1.0
-                row_dict["icmp.seq_le"] = max(pkt_rate, 1000.0)
-            else:
-                if syn_r > 0.4:
-                    row_dict["tcp.connection.syn"] = 1.0
-                    row_dict["tcp.flags"] = 2.0  # SYN flag
-                else:
-                    row_dict["tcp.flags.ack"] = 1.0
-                    row_dict["tcp.flags"] = 16.0 # ACK flag (Normal idle TCP)
-                    row_dict["tcp.ack"] = 1.0
-                    row_dict["tcp.seq"] = 1.0
-
-                row_dict["tcp.len"] = sz if sz > 0 else 64.0
-                row_dict["tcp.dstport"] = dst_p if dst_p > 0 else 1883.0 # Default IoT MQTT Broker port
-                row_dict["tcp.srcport"] = src_p if src_p > 0 else 49152.0
-
-                # Nếu là luồng tải dữ liệu lớn (Uploading / Data Exfiltration)
-                if byte_rate > 300000.0 and sz > 400.0:
-                    row_dict["tcp.srcport"] = 80.0
-                    row_dict["tcp.dstport"] = 58900.0
-                    row_dict["tcp.flags"] = 24.0 # PSH-ACK flag
-                    row_dict["tcp.flags.ack"] = 1.0
-                    row_dict["http.response"] = 1.0
-                    row_dict["tcp.len"] = max(sz, 149.0)
-                    row_dict["http.content_length"] = byte_rate
-
-                # Nếu là luồng quét cổng (Port Scanning)
-                if unique_ports > 15 and syn_r > 0.4:
-                    row_dict["tcp.connection.syn"] = 1.0
-                    row_dict["tcp.flags"] = 2.0
-                    row_dict["tcp.dstport"] = 80.0
-                    row_dict["tcp.srcport"] = 1387.0
-                    row_dict["tcp.ack"] = 1000000.0
-
-                # Nếu là thăm dò cổng dịch vụ (Vulnerability Scanner)
-                elif unique_ports >= 10 and syn_r > 0.2 and pkt_rate <= 200:
-                    row_dict["tcp.connection.syn"] = 1.0
-                    row_dict["tcp.dstport"] = dst_p if dst_p > 0 else 8080.0
-
-        return pd.DataFrame([row_dict])
+        return pd.DataFrame([final_row])
 
     def save(self, file_path: str) -> str:
-        """Lưu toàn bộ preprocessor (scaler, encoders, feature_names) bằng Joblib."""
+        """Lưu toàn bộ preprocessor (sub-modules, scaler, encoder, baselines) bằng Joblib."""
         os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
         bundle = {
             "feature_names": self.feature_names,
-            "cat_cols": self.cat_cols,
             "scaler": self.scaler,
-            "ordinal_encoder": self.ordinal_encoder,
             "label_encoder": self.label_encoder,
+            "sub_preprocessors": self.sub_preprocessors,
+            "feature_baselines_": self.feature_baselines_,
             "is_fitted": self.is_fitted
         }
         joblib.dump(bundle, file_path)
@@ -256,25 +201,23 @@ class EdgeTrafficPreprocessor:
     def load(cls, file_path: str) -> "EdgeTrafficPreprocessor":
         """Tải preprocessor đã lưu từ đĩa."""
         if not os.path.exists(file_path):
-            raise FileNotFoundError(f"[EdgeTrafficPreprocessor] Khong tim thay file: {file_path}")
+            raise FileNotFoundError(f"[EdgeTrafficPreprocessor] Không tìm thấy file: {file_path}")
         bundle = joblib.load(file_path)
         if isinstance(bundle, dict) and "scaler" in bundle:
             instance = cls(
                 feature_names=bundle.get("feature_names", list(EDGE_IIOTSET_FEATURES)),
-                cat_cols=bundle.get("cat_cols", []),
                 scaler=bundle.get("scaler"),
-                ordinal_encoder=bundle.get("ordinal_encoder"),
-                label_encoder=bundle.get("label_encoder")
+                label_encoder=bundle.get("label_encoder"),
+                sub_preprocessors=bundle.get("sub_preprocessors")
             )
+            instance.feature_baselines_ = bundle.get("feature_baselines_", {})
             instance.is_fitted = bundle.get("is_fitted", True)
             return instance
         elif isinstance(bundle, StandardScaler):
-            # Tương thích nếu file chỉ lưu StandardScaler
             instance = cls(scaler=bundle)
             instance.is_fitted = True
             return instance
-        else:
-            return bundle
+        return bundle
 
 
 def load_and_preprocess_dataset(
@@ -286,17 +229,13 @@ def load_and_preprocess_dataset(
 ) -> Tuple[np.ndarray, Optional[np.ndarray], np.ndarray, Optional[np.ndarray], EdgeTrafficPreprocessor]:
     """
     Hàm cấp cao nạp và tiền xử lý toàn diện tập dữ liệu Edge-IIoTset.
-    Duy trì full 63 đặc trưng (61 đầu vào + labels). Không drop đặc trưng nào.
+    Duy trì full 56 đặc trưng mạng, không drop đặc trưng nào.
     Hỗ trợ lấy mẫu phân tầng theo tỉ lệ sample_ratio cân bằng chính xác phân phối các lớp.
-
-    Returns:
-    --------
-    Tuple: (X_train, X_test, y_train, y_test, preprocessor)
     """
     path = dataset_path if dataset_path and os.path.exists(dataset_path) else DEFAULT_EDGE_IIOTSET_PATH
 
     if os.path.exists(path):
-        print(f"[Preprocessor] Dang nap tap du lieu Edge-IIoTset tu: {path}")
+        print(f"[Preprocessor] Đang nạp tập dữ liệu Edge-IIoTset từ: {path}")
         df = pd.read_csv(path, low_memory=False)
         total_rows = len(df)
         ratio = sample_ratio
@@ -310,16 +249,14 @@ def load_and_preprocess_dataset(
                     df, test_size=ratio, random_state=random_state, stratify=df[target_col_temp]
                 )
             except Exception:
-                # Nếu một số lớp quá hiếm khi lấy tỷ lệ nhỏ, nhóm groupby đảm bảo tối thiểu 2 mẫu mỗi lớp
                 def _sample_group(g):
                     n = max(2, int(len(g) * ratio))
                     return g.sample(min(len(g), n), random_state=random_state)
                 df = df.groupby(target_col_temp, group_keys=False).apply(_sample_group)
             df = df.reset_index(drop=True)
-            print(f"  -> Da lay mau phan tang (Stratified Sample ratio={ratio:.4f}): {len(df):,} dong x {df.shape[1]} cot")
+            print(f"  -> Đã lấy mẫu phân tầng (Stratified Sample ratio={ratio:.4f}): {len(df):,} dòng x {df.shape[1]} cột")
     else:
-        print(f"[Preprocessor] [Canh bao] Khong tim thay file {path}. Tao tap du lieu mau Edge-IIoTset...")
-        # Fallback tạo dataframe giả lập đúng schema 61 đặc trưng
+        print(f"[Preprocessor] [Cảnh báo] Không tìm thấy file {path}. Tạo tập dữ liệu mẫu Edge-IIoTset...")
         rows = []
         n_samples = sample_size if sample_size else (int(DEFAULT_DATASET_SAMPLES * (sample_ratio or 1.0)))
         for i in range(n_samples):
@@ -332,7 +269,7 @@ def load_and_preprocess_dataset(
             rows.append(row)
         df = pd.DataFrame(rows)
 
-    # Tách X (56 đặc trưng mạng thực sự, loại bỏ metadata testbed và địa chỉ IP) và y (Attack_type)
+    # Tách X (56 đặc trưng mạng, loại bỏ metadata rò rỉ và địa chỉ IP) và y (Attack_type)
     leak_cols = ["frame.time", "ip.src_host", "ip.dst_host", "arp.src.proto_ipv4", "arp.dst.proto_ipv4", "Attack_label", "Attack_type", "label"]
     feature_cols = [c for c in df.columns if c not in leak_cols]
     target_col = "Attack_type" if "Attack_type" in df.columns else ("label" if "label" in df.columns else df.columns[-1])
@@ -340,23 +277,22 @@ def load_and_preprocess_dataset(
     X_df = df[feature_cols]
     y_raw = df[target_col]
 
-    print(f"  -> So dac trung dau vao su dung: {len(feature_cols)} dac trung hanh vi mang (da loai bo toan bo metadata frame.time & IP)")
-    print(f"  -> Cot nhan muc tieu: '{target_col}' ({y_raw.nunique()} lop)")
+    print(f"  -> Số đặc trưng đầu vào: {len(feature_cols)} đặc trưng mạng")
+    print(f"  -> Cột nhãn mục tiêu: '{target_col}' ({y_raw.nunique()} lớp)")
 
     # Khởi tạo và fit preprocessor
     preprocessor = EdgeTrafficPreprocessor(feature_names=feature_cols)
     X_scaled, y_encoded = preprocessor.fit_transform(X_df, y_raw)
 
     if test_size is not None and test_size > 0:
-        # Phân chia train/test với phân tầng stratify
         X_train, X_test, y_train, y_test = train_test_split(
             X_scaled, y_encoded, test_size=test_size, random_state=random_state, stratify=y_encoded
         )
-        print(f"  -> Tap huan luyen (Train): {X_train.shape[0]:,} mau")
-        print(f"  -> Tap danh gia   (Test) : {X_test.shape[0]:,} mau")
+        print(f"  -> Tập huấn luyện (Train): {X_train.shape[0]:,} mẫu")
+        print(f"  -> Tập đánh giá   (Test) : {X_test.shape[0]:,} mẫu")
         return X_train, X_test, y_train, y_test, preprocessor
     else:
-        print(f"  -> Toan bo tap du lieu (Full Dataset): {X_scaled.shape[0]:,} mau")
+        print(f"  -> Toàn bộ tập dữ liệu (Full Dataset): {X_scaled.shape[0]:,} mẫu")
         return X_scaled, None, y_encoded, None, preprocessor
 
 
@@ -367,8 +303,7 @@ def load_full_dataset(
     random_state: int = 42
 ) -> Tuple[np.ndarray, np.ndarray, EdgeTrafficPreprocessor]:
     """
-    Nạp và tiền xử lý toàn bộ tập dữ liệu (không chia test split riêng).
-    Toàn bộ dữ liệu được dùng cho Stratified K-Fold CV và train Final Model trên 100% data.
+    Nạp và tiền xử lý toàn bộ tập dữ liệu (100% data phục vụ CV và train final model).
     """
     X, _, y, _, preprocessor = load_and_preprocess_dataset(
         dataset_path=dataset_path,
@@ -378,4 +313,3 @@ def load_full_dataset(
         random_state=random_state
     )
     return X, y, preprocessor
-

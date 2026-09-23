@@ -33,6 +33,9 @@ broker/log/
 
 #Model artifacts
 catboost_info/
+*.tflite
+*.joblib
+*.pkl
 
 # OS files
 .DS_Store

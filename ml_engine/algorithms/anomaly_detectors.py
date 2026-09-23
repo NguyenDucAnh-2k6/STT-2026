@@ -152,10 +152,21 @@ class LocalOutlierFactorWrapper(BaseAnomalyDetector):
         return self.model
 
 
+from .anomaly_detectors_dl import DeepAutoencoderAnomalyDetector
+
+
 SUPPORTED_ANOMALY_DETECTORS: Dict[str, Dict[str, Any]] = {
     "isolation_forest": {
         "class": IsolationForestWrapper,
         "description": "Isolation Forest (Phan lap cay ngau nhien, toi uu nhat cho mang)",
+    },
+    "deep_autoencoder": {
+        "class": DeepAutoencoderAnomalyDetector,
+        "description": "Deep Autoencoder (Tai tao MSE dac trung mang, ho tro TFLite cho ESP32)",
+    },
+    "autoencoder": {
+        "class": DeepAutoencoderAnomalyDetector,
+        "description": "Deep Autoencoder Alias",
     },
     "one_class_svm": {
         "class": OneClassSVMWrapper,

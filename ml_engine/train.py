@@ -430,16 +430,29 @@ def run_training_pipeline(
     if getattr(final_classifier, "plot_path", None):
         print(f"  -> [Artifact] PyTorch Loss Curve : {final_classifier.plot_path}")
 
-    # Xuất TinyML C Header nếu được yêu cầu
-    if export_tinyml and getattr(final_classifier, "can_export_tinyml", False):
-        h_out = os.path.join(output_dir, "tinyml_model.h")
-        export_decision_tree_to_header(final_classifier, h_out, feature_names=feature_names, label_names=label_names)
-        print(f"  -> [TinyML C Header] Da xuat C Header: {h_out}")
+    # Xuất TinyML C Header / TFLite nếu được yêu cầu
+    if export_tinyml:
+        if getattr(final_classifier, "can_export_tinyml", False):
+            h_out = os.path.join(output_dir, "tinyml_model.h")
+            export_decision_tree_to_header(final_classifier, h_out, feature_names=feature_names, label_names=label_names)
+            print(f"  -> [TinyML C Header] Đã xuất C Header: {h_out}")
 
-        firmware_h = os.path.join(ROOT_DIR, "firmware", "esp32_probe", "tinyml_model.h")
-        if os.path.exists(os.path.dirname(firmware_h)):
-            export_decision_tree_to_header(final_classifier, firmware_h, feature_names=feature_names, label_names=label_names)
-            print(f"  -> [Firmware] Da cap nhat header firmware tai: {firmware_h}")
+            firmware_h = os.path.join(ROOT_DIR, "firmware", "esp32_probe", "tinyml_model.h")
+            if os.path.exists(os.path.dirname(firmware_h)):
+                export_decision_tree_to_header(final_classifier, firmware_h, feature_names=feature_names, label_names=label_names)
+                print(f"  -> [Firmware] Đã cập nhật header firmware tại: {firmware_h}")
+        else:
+            # Xuất Deep Learning TinyML / TFLite Suite cho ESP-32
+            from ml_engine.exporter.tflite_exporter import export_tinyml_suite
+            firmware_dir = os.path.join(ROOT_DIR, "firmware", "esp32_probe")
+            export_tinyml_suite(
+                anomaly_model=anomaly_detector,
+                classifier_model=final_classifier,
+                preprocessor=preprocessor,
+                output_dir=output_dir,
+                esp_firmware_dir=firmware_dir,
+                label_names=label_names
+            )
 
     # Đồng bộ bản sao các artifacts chính về thư mục mặc định ml_engine/models/ để tương thích ngược
     default_models_dir = os.path.join(ROOT_DIR, "ml_engine", "models")
@@ -449,13 +462,14 @@ def run_training_pipeline(
             "attack_classifier.joblib", "isolation_forest.joblib",
             "preprocessor.joblib", "scaler.joblib",
             "model_metadata.json", "tinyml_model.h", "loss_curve.png",
-            "feature_importance.png"
+            "feature_importance.png", "anomaly_autoencoder.tflite",
+            "classifier_dnn.tflite"
         ]
         for fname in sync_files:
             src_f = os.path.join(output_dir, fname)
             if os.path.exists(src_f):
                 shutil.copy2(src_f, os.path.join(default_models_dir, fname))
-        print(f"  -> [Dong bo] Da cap nhat ban sao ve thu muc chung: {default_models_dir}")
+        print(f"  -> [Đồng bộ] Đã cập nhật bản sao về thư mục chung: {default_models_dir}")
 
     elapsed_total = time.perf_counter() - t_start
     print("\n" + "=" * 75)
@@ -496,9 +510,9 @@ def main():
         sys.exit(0)
 
     if args.export_tinyml_only:
-        from ml_engine.export_tinyml import export_saved_classifier_to_tinyml
-        print("\n[TinyML Export] Dang xuat C Header tu model classifier da luu...")
-        success = export_saved_classifier_to_tinyml()
+        from ml_engine.export_tinyml import export_saved_models_to_tinyml
+        print("\n[TinyML / TFLite Export] Đang xuất C Header & TFLite từ model đã lưu...")
+        success = export_saved_models_to_tinyml()
         sys.exit(0 if success else 1)
 
     # Đảm bảo sample_ratio hợp lệ

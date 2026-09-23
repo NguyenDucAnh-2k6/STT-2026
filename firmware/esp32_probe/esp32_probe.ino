@@ -529,54 +529,39 @@ void loop() {
     doc["wifi_networks_count"] = detectedWifiCount;
 
     // -------------------------------------------------------------
+    // Suy luan Edge AI TinyML / TFLite truc tiep tren chip ESP32 (56 dac trung mang)
     // -------------------------------------------------------------
-    // Suy luan Edge AI truc tiep tren chip ESP32 (8 dac trung luu luong)
-    // -------------------------------------------------------------
-    bool local_anomaly = false;
-    const char* local_attack = "Normal";
-    float tinyml_anomaly_score = 0.05f;
+    float raw_features[TINYML_IN_FEATURES];
+    memset(raw_features, 0, sizeof(raw_features));
 
-    // 1. Kich ban Port Scanning: nhieu port dich hoac ty le SYN cao tren luong vua
-    if (snap.unique_ports_count >= 12 || (syn_ratio > 0.40f && packet_rate > 40.0f)) {
+    // Anh xa thong so luu luong thuc te tu Promiscuous Sniffer vao vector dac trung
+    raw_features[25] = avg_packet_size;                            // tcp.len
+    raw_features[20] = (snap.syn_packets > 0) ? 1.0f : 0.0f;       // tcp.connection.syn
+    raw_features[24] = (snap.ack_packets > 0) ? 1.0f : 0.0f;       // tcp.flags.ack
+    raw_features[23] = (snap.syn_packets > 0) ? 2.0f : ((snap.ack_packets > 0) ? 16.0f : 0.0f); // tcp.flags
+    raw_features[30] = (snap.udp_packets > 0) ? 53.0f : 0.0f;      // udp.port
+    raw_features[31] = (snap.udp_packets > 0) ? packet_rate : 0.0f; // udp.stream
+    raw_features[2]  = (snap.icmp_packets > 0) ? 1.0f : 0.0f;      // icmp.checksum
+    raw_features[3]  = (snap.icmp_packets > 0) ? packet_rate : 0.0f;// icmp.seq_le
+
+    bool local_anomaly = false;
+    float tinyml_anomaly_score = tinyml_predict_anomaly(raw_features, &local_anomaly);
+    const char* local_attack = "Normal";
+    float conf = 0.95f;
+
+    if (local_anomaly || tinyml_anomaly_score > 0.45f) {
+      int pred_idx = tinyml_predict_classifier(raw_features, &conf);
+      local_attack = tinyml_get_threat_name(pred_idx);
       local_anomaly = true;
-      local_attack = "Port_Scanning";
-      tinyml_anomaly_score = 0.88f;
-    }
-    // 2. Kich ban DDoS TCP (SYN Flood): ty le SYN don dap vuot troi
-    else if (syn_ratio > 0.60f && packet_rate > 120.0f) {
-      local_anomaly = true;
-      local_attack = "DDoS_TCP";
-      tinyml_anomaly_score = 0.95f;
-    }
-    // 3. Kich ban DDoS UDP (Volumetric Flood): bang thong lon hoac toc do UDP cuc cao
-    else if ((udp_ratio > 0.60f && packet_rate > 350.0f) || (packet_rate > 600.0f && byte_rate > 250000.0f)) {
-      local_anomaly = true;
-      local_attack = "DDoS_UDP";
-      tinyml_anomaly_score = 0.98f;
-    }
-    // 4. Kich ban DDoS ICMP Flood
-    else if (icmp_ratio > 0.50f && packet_rate > 80.0f) {
-      local_anomaly = true;
-      local_attack = "DDoS_ICMP";
-      tinyml_anomaly_score = 0.90f;
-    }
-    // 5. Kich ban Uploading (Data Exfiltration): bang thong lon nhung ty le SYN rat thap
-    else if (byte_rate > 400000.0f && packet_rate > 200.0f && syn_ratio < 0.15f) {
-      local_anomaly = true;
-      local_attack = "Uploading";
-      tinyml_anomaly_score = 0.78f;
-    }
-    // 6. Luu luong binh thuong (Normal)
-    else {
-      local_anomaly = false;
+    } else {
       local_attack = "Normal";
-      tinyml_anomaly_score = 0.05f;
+      local_anomaly = false;
     }
 
     doc["edge_flag"] = local_anomaly;
     doc["edge_prediction"] = local_attack;
-    doc["edge_anomaly_score"] = tinyml_anomaly_score;
-    doc["edge_model"] = "TinyML-EdgeTree-v1";
+    doc["edge_anomaly_score"] = round(tinyml_anomaly_score * 1000) / 1000.0;
+    doc["edge_model"] = "TinyML-TFLite-v2";
 
     char jsonBuffer[1024];
     serializeJson(doc, jsonBuffer);

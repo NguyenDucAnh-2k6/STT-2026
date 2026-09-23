@@ -1,0 +1,205 @@
+{
+  "timestamp": 1790128278,
+  "features_count": 56,
+  "features": [
+    "arp.opcode",
+    "arp.hw.size",
+    "icmp.checksum",
+    "icmp.seq_le",
+    "icmp.transmit_timestamp",
+    "icmp.unused",
+    "http.file_data",
+    "http.content_length",
+    "http.request.uri.query",
+    "http.request.method",
+    "http.referer",
+    "http.request.full_uri",
+    "http.request.version",
+    "http.response",
+    "http.tls_port",
+    "tcp.ack",
+    "tcp.ack_raw",
+    "tcp.checksum",
+    "tcp.connection.fin",
+    "tcp.connection.rst",
+    "tcp.connection.syn",
+    "tcp.connection.synack",
+    "tcp.dstport",
+    "tcp.flags",
+    "tcp.flags.ack",
+    "tcp.len",
+    "tcp.options",
+    "tcp.payload",
+    "tcp.seq",
+    "tcp.srcport",
+    "udp.port",
+    "udp.stream",
+    "udp.time_delta",
+    "dns.qry.name",
+    "dns.qry.name.len",
+    "dns.qry.qu",
+    "dns.qry.type",
+    "dns.retransmission",
+    "dns.retransmit_request",
+    "dns.retransmit_request_in",
+    "mqtt.conack.flags",
+    "mqtt.conflag.cleansess",
+    "mqtt.conflags",
+    "mqtt.hdrflags",
+    "mqtt.len",
+    "mqtt.msg_decoded_as",
+    "mqtt.msg",
+    "mqtt.msgtype",
+    "mqtt.proto_len",
+    "mqtt.protoname",
+    "mqtt.topic",
+    "mqtt.topic_len",
+    "mqtt.ver",
+    "mbtcp.len",
+    "mbtcp.trans_id",
+    "mbtcp.unit_id"
+  ],
+  "labels_count": 15,
+  "labels": [
+    "Backdoor",
+    "DDoS_HTTP",
+    "DDoS_ICMP",
+    "DDoS_TCP",
+    "DDoS_UDP",
+    "Fingerprinting",
+    "MITM",
+    "Normal",
+    "Password",
+    "Port_Scanning",
+    "Ransomware",
+    "SQL_injection",
+    "Uploading",
+    "Vulnerability_scanner",
+    "XSS"
+  ],
+  "classifier_type": "decision_tree",
+  "anomaly_detector_type": "deep_autoencoder",
+  "data_source": "hybrid",
+  "data_lake_records_used": 1680,
+  "classifier_accuracy": 0.9861,
+  "classifier_accuracy_std": 0.0052,
+  "classifier_macro_f1": 0.9677,
+  "classifier_macro_f1_std": 0.0095,
+  "cv_strategy": "5-Fold Stratified CV",
+  "cv_folds": 5,
+  "classification_report": {
+    "Backdoor": {
+      "precision": 1.0,
+      "recall": 0.9803921568627451,
+      "f1-score": 0.9900990099009901,
+      "support": 102.0
+    },
+    "DDoS_HTTP": {
+      "precision": 0.9716981132075472,
+      "recall": 0.9716981132075472,
+      "f1-score": 0.9716981132075472,
+      "support": 106.0
+    },
+    "DDoS_ICMP": {
+      "precision": 1.0,
+      "recall": 0.9929078014184397,
+      "f1-score": 0.99644128113879,
+      "support": 141.0
+    },
+    "DDoS_TCP": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 102.0
+    },
+    "DDoS_UDP": {
+      "precision": 1.0,
+      "recall": 0.993103448275862,
+      "f1-score": 0.9965397923875432,
+      "support": 145.0
+    },
+    "Fingerprinting": {
+      "precision": 0.8181818181818182,
+      "recall": 0.9,
+      "f1-score": 0.8571428571428571,
+      "support": 10.0
+    },
+    "MITM": {
+      "precision": 0.7692307692307693,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.8,
+      "support": 12.0
+    },
+    "Normal": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 243.0
+    },
+    "Password": {
+      "precision": 0.9900990099009901,
+      "recall": 1.0,
+      "f1-score": 0.9950248756218906,
+      "support": 100.0
+    },
+    "Port_Scanning": {
+      "precision": 0.9803921568627451,
+      "recall": 0.9900990099009901,
+      "f1-score": 0.9852216748768473,
+      "support": 101.0
+    },
+    "Ransomware": {
+      "precision": 0.9819819819819819,
+      "recall": 1.0,
+      "f1-score": 0.990909090909091,
+      "support": 109.0
+    },
+    "SQL_injection": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 103.0
+    },
+    "Uploading": {
+      "precision": 0.9900990099009901,
+      "recall": 0.970873786407767,
+      "f1-score": 0.9803921568627451,
+      "support": 103.0
+    },
+    "Vulnerability_scanner": {
+      "precision": 1.0,
+      "recall": 0.9405940594059405,
+      "f1-score": 0.9693877551020408,
+      "support": 101.0
+    },
+    "XSS": {
+      "precision": 0.9245283018867925,
+      "recall": 0.98,
+      "f1-score": 0.9514563106796117,
+      "support": 100.0
+    },
+    "accuracy": 0.9860583016476553,
+    "macro avg": {
+      "precision": 0.9617474107435756,
+      "recall": 0.9702001139208417,
+      "f1-score": 0.9656208611886635,
+      "support": 1578.0
+    },
+    "weighted avg": {
+      "precision": 0.98663571640706,
+      "recall": 0.9860583016476553,
+      "f1-score": 0.9861921243612575,
+      "support": 1578.0
+    }
+  },
+  "anomaly_f1_score": 0.95,
+  "isolation_score_min": -0.4282650947570801,
+  "isolation_score_max": -0.00011015915515599772,
+  "loss_curve_path": null,
+  "feature_importance_path": "D:\\STT 2026\\ml_engine\\models\\decision_tree_deep_autoencoder\\feature_importance.png",
+  "timeseries": false,
+  "window_size": null,
+  "best_params": {},
+  "sqlite_storage": null,
+  "can_export_tinyml": true
+}
