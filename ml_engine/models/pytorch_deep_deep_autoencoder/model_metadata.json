@@ -1,0 +1,216 @@
+{
+  "timestamp": 1790778439,
+  "features_count": 56,
+  "features": [
+    "arp.opcode",
+    "arp.hw.size",
+    "icmp.checksum",
+    "icmp.seq_le",
+    "icmp.transmit_timestamp",
+    "icmp.unused",
+    "http.file_data",
+    "http.content_length",
+    "http.request.uri.query",
+    "http.request.method",
+    "http.referer",
+    "http.request.full_uri",
+    "http.request.version",
+    "http.response",
+    "http.tls_port",
+    "tcp.ack",
+    "tcp.ack_raw",
+    "tcp.checksum",
+    "tcp.connection.fin",
+    "tcp.connection.rst",
+    "tcp.connection.syn",
+    "tcp.connection.synack",
+    "tcp.dstport",
+    "tcp.flags",
+    "tcp.flags.ack",
+    "tcp.len",
+    "tcp.options",
+    "tcp.payload",
+    "tcp.seq",
+    "tcp.srcport",
+    "udp.port",
+    "udp.stream",
+    "udp.time_delta",
+    "dns.qry.name",
+    "dns.qry.name.len",
+    "dns.qry.qu",
+    "dns.qry.type",
+    "dns.retransmission",
+    "dns.retransmit_request",
+    "dns.retransmit_request_in",
+    "mqtt.conack.flags",
+    "mqtt.conflag.cleansess",
+    "mqtt.conflags",
+    "mqtt.hdrflags",
+    "mqtt.len",
+    "mqtt.msg_decoded_as",
+    "mqtt.msg",
+    "mqtt.msgtype",
+    "mqtt.proto_len",
+    "mqtt.protoname",
+    "mqtt.topic",
+    "mqtt.topic_len",
+    "mqtt.ver",
+    "mbtcp.len",
+    "mbtcp.trans_id",
+    "mbtcp.unit_id"
+  ],
+  "labels_count": 15,
+  "labels": [
+    "Backdoor",
+    "DDoS_HTTP",
+    "DDoS_ICMP",
+    "DDoS_TCP",
+    "DDoS_UDP",
+    "Fingerprinting",
+    "MITM",
+    "Normal",
+    "Password",
+    "Port_Scanning",
+    "Ransomware",
+    "SQL_injection",
+    "Uploading",
+    "Vulnerability_scanner",
+    "XSS"
+  ],
+  "classifier_type": "pytorch_deep",
+  "anomaly_detector_type": "deep_autoencoder",
+  "data_source": "hybrid",
+  "data_lake_records_used": 4789,
+  "data_lake_labeled_records_used": 4794,
+  "sample_ratio": 0.05,
+  "test_size": 0.2,
+  "refit_full": false,
+  "train_samples": 93562,
+  "test_samples": 22193,
+  "classifier_accuracy": 0.9392,
+  "classifier_accuracy_cv": 0.942,
+  "classifier_accuracy_std": 0.0015,
+  "classifier_macro_f1": 0.6987,
+  "classifier_macro_f1_cv": 0.6714,
+  "classifier_macro_f1_std": 0.0248,
+  "classifier_weighted_f1": 0.9289,
+  "cv_strategy": "5-Fold Stratified CV",
+  "cv_folds": 5,
+  "classification_report": {
+    "Backdoor": {
+      "precision": 0.9221311475409836,
+      "recall": 0.9036144578313253,
+      "f1-score": 0.9127789046653144,
+      "support": 249.0
+    },
+    "DDoS_HTTP": {
+      "precision": 0.7393939393939394,
+      "recall": 0.48897795591182364,
+      "f1-score": 0.5886610373944512,
+      "support": 499.0
+    },
+    "DDoS_ICMP": {
+      "precision": 0.9957155098543273,
+      "recall": 0.9982817869415808,
+      "f1-score": 0.996996996996997,
+      "support": 1164.0
+    },
+    "DDoS_TCP": {
+      "precision": 0.9933920704845814,
+      "recall": 0.9001996007984032,
+      "f1-score": 0.9445026178010472,
+      "support": 501.0
+    },
+    "DDoS_UDP": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1216.0
+    },
+    "Fingerprinting": {
+      "precision": 1.0,
+      "recall": 0.3,
+      "f1-score": 0.46153846153846156,
+      "support": 10.0
+    },
+    "MITM": {
+      "precision": 1.0,
+      "recall": 0.3333333333333333,
+      "f1-score": 0.5,
+      "support": 12.0
+    },
+    "Normal": {
+      "precision": 0.9555976555562133,
+      "recall": 0.999009717150461,
+      "f1-score": 0.9768215928346647,
+      "support": 16157.0
+    },
+    "Password": {
+      "precision": 0.6210526315789474,
+      "recall": 0.2350597609561753,
+      "f1-score": 0.34104046242774566,
+      "support": 502.0
+    },
+    "Port_Scanning": {
+      "precision": 0.7777777777777778,
+      "recall": 0.8982300884955752,
+      "f1-score": 0.8336755646817249,
+      "support": 226.0
+    },
+    "Ransomware": {
+      "precision": 0.96,
+      "recall": 0.44036697247706424,
+      "f1-score": 0.6037735849056604,
+      "support": 109.0
+    },
+    "SQL_injection": {
+      "precision": 0.5935563816604709,
+      "recall": 0.935546875,
+      "f1-score": 0.7263078089461713,
+      "support": 512.0
+    },
+    "Uploading": {
+      "precision": 0.8803418803418803,
+      "recall": 0.27393617021276595,
+      "f1-score": 0.4178498985801217,
+      "support": 376.0
+    },
+    "Vulnerability_scanner": {
+      "precision": 0.9859154929577465,
+      "recall": 0.8383233532934131,
+      "f1-score": 0.9061488673139159,
+      "support": 501.0
+    },
+    "XSS": {
+      "precision": 0.7878787878787878,
+      "recall": 0.16352201257861634,
+      "f1-score": 0.2708333333333333,
+      "support": 159.0
+    },
+    "accuracy": 0.9391700085612581,
+    "macro avg": {
+      "precision": 0.8808502183350437,
+      "recall": 0.647226805665369,
+      "f1-score": 0.6987286087613073,
+      "support": 22193.0
+    },
+    "weighted avg": {
+      "precision": 0.9362940492765245,
+      "recall": 0.9391700085612581,
+      "f1-score": 0.9289097703812798,
+      "support": 22193.0
+    }
+  },
+  "anomaly_test_roc_auc": 0.8815,
+  "anomaly_test_f1": 0.7291,
+  "isolation_score_min": -0.04988331347703934,
+  "isolation_score_max": -0.001030435785651207,
+  "loss_curve_path": "D:\\STT 2026\\ml_engine\\models\\pytorch_deep_deep_autoencoder\\loss_curve.png",
+  "feature_importance_path": null,
+  "timeseries": false,
+  "window_size": null,
+  "best_params": {},
+  "best_anomaly_params": {},
+  "sqlite_storage": null,
+  "can_export_tinyml": true
+}

@@ -48,6 +48,7 @@ export const state = {
   packetFilter: "ALL", // "ALL" | "THREATS"
   audioEnabled: true,
   packetCounter: 1,
+  detectedWifiNetworks: [],
 
   // Trạng thái của bộ phát sinh tấn công mạng thật
   attackStatus: {
@@ -62,6 +63,13 @@ export const state = {
     eventBus.emit("stateChanged", this);
   },
 
+  updateWifiNetworks(networks) {
+    if (!Array.isArray(networks)) return;
+    this.detectedWifiNetworks = networks;
+    eventBus.emit("wifiNetworksUpdated", networks);
+    eventBus.emit("stateChanged", this);
+  },
+
   setInitialState(payload) {
     this.totalPackets = payload.total_packets || 0;
     this.totalThreats = payload.total_threats || 0;
@@ -69,6 +77,10 @@ export const state = {
     this.connectedNodes = payload.connected_nodes || [];
     this.history = payload.history || [];
     this.alerts = payload.alerts || [];
+    if (payload.detected_wifi_networks) {
+      this.detectedWifiNetworks = payload.detected_wifi_networks;
+      eventBus.emit("wifiNetworksUpdated", this.detectedWifiNetworks);
+    }
     if (payload.attack_status) {
       this.attackStatus = Object.assign(this.attackStatus, payload.attack_status);
     }
@@ -90,6 +102,10 @@ export const state = {
     this.totalThreats = totalThreats !== undefined ? totalThreats : this.totalThreats;
     this.currentAnomalyScore = dataPoint.anomaly_score || 0.0;
     this.currentThreatLevel = dataPoint.severity || "NORMAL";
+
+    if (dataPoint.scanned_networks && Array.isArray(dataPoint.scanned_networks) && dataPoint.scanned_networks.length > 0) {
+      this.updateWifiNetworks(dataPoint.scanned_networks);
+    }
 
     this.history.push(dataPoint);
     if (this.history.length > 100) {

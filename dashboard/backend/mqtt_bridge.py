@@ -18,7 +18,7 @@ mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="EdgeAI-We
 loop_holder = {}
 
 
-def on_mqtt_connect(client, userdata, flags, rc, properties=None):
+def on_mqtt_connect(client: mqtt.Client, userdata, flags, rc, properties=None):
     if rc == 0:
         state.broker_connected = True
         print(f"[DashboardBackend] Da ket noi MQTT Broker {MQTT_BROKER_HOST}:{MQTT_BROKER_PORT}")
@@ -84,9 +84,16 @@ def on_mqtt_message(client, userdata, msg):
 
     elif topic == "edge/telemetry/prediction":
         anomaly_score = float(payload.get("anomaly_score", 0.0))
-        is_anomaly = bool(payload.get("is_anomaly", False))
-        threat_type = payload.get("threat_type", "Normal")
-        severity = payload.get("severity", "NORMAL")
+        # TÔN TRỌNG TRIỆT ĐỂ NGƯỠNG ANOMALY DO USER THIẾT LẬP HOẶC KÉO THANH TRÊN UI
+        current_thresh = float(getattr(state, "anomaly_threshold", 0.55))
+        is_anomaly = bool(anomaly_score >= current_thresh)
+        if not is_anomaly:
+            threat_type = "Normal"
+            severity = "NORMAL"
+        else:
+            threat_type = payload.get("threat_type", "Normal")
+            severity = payload.get("severity", "CRITICAL")
+
         raw = payload.get("raw_telemetry", {})
 
         state.current_anomaly_score = anomaly_score
@@ -120,8 +127,19 @@ def on_mqtt_message(client, userdata, msg):
             "class_probabilities": payload.get("class_probabilities", {}),
             "edge_prediction": payload.get("edge_prediction") or raw.get("edge_prediction", "Normal"),
             "edge_flag": bool(payload.get("edge_flag") or raw.get("edge_flag", False)),
-            "latency_ms": payload.get("latency_ms", 0.0)
+            "edge_model": payload.get("edge_model") or raw.get("edge_model", "Edge TinyML"),
+            "edge_features_count": payload.get("edge_features_count") or raw.get("edge_features_count", 56),
+            "host_classifier": payload.get("host_classifier", "Host Classifier"),
+            "host_anomaly_detector": payload.get("host_anomaly_detector", "Anomaly Detector"),
+            "host_features_count": payload.get("host_features_count", 56),
+            "latency_ms": payload.get("latency_ms", 0.0),
+            "scanned_networks": raw.get("scanned_networks", [])
         }
+
+        # Cập nhật danh sách mạng WiFi bắt được từ ESP32 / Host
+        scanned_nets = raw.get("scanned_networks", [])
+        if scanned_nets:
+            state.update_wifi_networks(scanned_nets)
 
         state.add_telemetry(data_point)
 
@@ -130,10 +148,24 @@ def on_mqtt_message(client, userdata, msg):
                 "type": "TELEMETRY_UPDATE",
                 "data": data_point,
                 "total_packets": state.total_packets_inspected,
-                "total_threats": state.total_threats_detected
+                "total_threats": state.total_threats_detected,
+                "detected_wifi_networks": state.detected_wifi_networks
             }),
             main_loop
         )
+
+    elif topic == "edge/telemetry/traffic":
+        # Hỗ trợ nhận trực tiếp scanned_networks nếu chưa qua inference service
+        scanned_nets = payload.get("scanned_networks", [])
+        if scanned_nets:
+            state.update_wifi_networks(scanned_nets)
+            asyncio.run_coroutine_threadsafe(
+                manager.broadcast({
+                    "type": "WIFI_NETWORKS_UPDATE",
+                    "networks": state.detected_wifi_networks
+                }),
+                main_loop
+            )
 
     elif topic == "edge/alerts/high_priority":
         raw_alert = payload.get("raw_telemetry", {})

@@ -37,7 +37,25 @@ async def get_status():
             "scenario": state.attack_scenario,
             "target_ip": state.attack_target_ip,
             "auto_cycle": state.attack_auto_cycle
+        },
+        "system_models": {
+            "classifier": state.host_classifier,
+            "anomaly_detector": state.host_anomaly_detector,
+            "edge_model": state.edge_model,
+            "features_count": state.features_count
         }
+    }
+
+
+@router.get("/system/models")
+async def get_system_models():
+    """Lấy thông tin mô hình Machine Learning & Deep Learning hiện tại."""
+    return {
+        "status": "success",
+        "classifier": state.host_classifier,
+        "anomaly_detector": state.host_anomaly_detector,
+        "edge_model": state.edge_model,
+        "features_count": state.features_count
     }
 
 
@@ -57,6 +75,16 @@ async def get_alerts(limit: int = 20):
 async def get_nodes():
     """Lấy danh sách các thiết bị/probe đang kết nối."""
     return list(state.connected_nodes.values())
+
+
+@router.get("/wifi/networks")
+async def get_wifi_networks():
+    """Lấy danh sách các mạng WiFi (SSID) ESP-32 hoặc Host Probe bắt được qua sóng."""
+    return {
+        "status": "success",
+        "count": len(state.detected_wifi_networks),
+        "networks": state.detected_wifi_networks
+    }
 
 
 @router.get("/attack/status")
@@ -142,3 +170,59 @@ async def set_threshold(req: ThresholdRequest):
             pass
         return {"status": "success", "anomaly_threshold": state.anomaly_threshold}
     return JSONResponse(status_code=400, content={"status": "error", "message": "Nguong threshold hop le: 0.10 - 0.99"})
+
+
+@router.get("/data-lake/summary")
+async def get_data_lake_summary():
+    """Lấy thống kê tổng quan của Data Lakehouse (Parquet/SQLite)."""
+    try:
+        from data_lake.lakehouse import get_lakehouse_manager
+        lake = get_lakehouse_manager()
+        return lake.get_summary_stats()
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+
+@router.get("/data-lake/sessions")
+async def get_data_lake_sessions():
+    """Lấy danh sách các session thu thập gần đây từ Data Lakehouse."""
+    try:
+        from data_lake.lakehouse import get_lakehouse_manager
+        lake = get_lakehouse_manager()
+        stats = lake.get_summary_stats()
+        return stats.get("recent_sessions", [])
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+
+@router.get("/remote-storage/status")
+async def get_remote_storage_status():
+    """Kiểm tra trạng thái kết nối Cloudflare R2 / S3."""
+    try:
+        from data_lake.remote_storage import get_remote_storage_manager
+        mgr = get_remote_storage_manager()
+        available, msg = mgr.is_configured_and_available()
+        return {
+            "status": "success",
+            "available": available,
+            "message": msg,
+            "provider": mgr._provider_name,
+            "endpoint": mgr.endpoint,
+            "bucket": mgr.bucket_name
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "available": False, "message": str(e)})
+
+
+@router.post("/remote-storage/push")
+async def trigger_remote_push():
+    """Kích hoạt đẩy toàn bộ dữ liệu Parquet và catalog lên Cloudflare R2 / S3 tức thì."""
+    try:
+        from data_lake.remote_storage import get_remote_storage_manager
+        mgr = get_remote_storage_manager()
+        res = mgr.sync_lake_to_remote()
+        return res
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "message": str(e)})
+
+

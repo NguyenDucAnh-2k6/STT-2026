@@ -94,8 +94,20 @@ def detect_target_ip() -> str:
     return "8.8.8.8"
 
 
-def burst_udp_flood(target_ip: str, target_port: int = 9999, packets: int = 1500) -> int:
-    """Bắn 1 burst UDP tốc độ cao qua socket thật (~1500 pkts/burst), hướng vào Gateway/Broadcast để ESP32 Promiscuous bắt qua sóng Wi-Fi."""
+def get_broadcast_ip(ip_str: str) -> str:
+    """Xác định địa chỉ IP Broadcast của mạng con (Subnet Broadcast)."""
+    try:
+        if ip_str and "." in ip_str:
+            parts = ip_str.split(".")
+            if len(parts) == 4 and parts[0] in ("192", "10", "172"):
+                return f"{parts[0]}.{parts[1]}.{parts[2]}.255"
+    except Exception:
+        pass
+    return "255.255.255.255"
+
+
+def burst_udp_flood(target_ip: str, target_port: int = 9999, packets: int = 1500, esp32_ip: Optional[str] = None) -> int:
+    """Bắn 1 burst UDP tốc độ cao qua socket thật (~1500 pkts/burst), hướng vào Gateway, Broadcast và ESP32."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -104,19 +116,16 @@ def burst_udp_flood(target_ip: str, target_port: int = 9999, packets: int = 1500
 
     payload = b"EDGEGUARD_AI_ATTACK_SIM_UDP_PAYLOAD_" * 16  # ~608 bytes
     sent = 0
+    bcast_ip = get_broadcast_ip(target_ip)
 
-    # Tự động tính địa chỉ Broadcast mạng con (ví dụ 192.168.1.255)
-    bcast_ip = None
-    if "." in target_ip:
-        parts = target_ip.split(".")
-        if len(parts) == 4 and parts[0] in ("192", "10", "172"):
-            bcast_ip = f"{parts[0]}.{parts[1]}.{parts[2]}.255"
+    targets = [target_ip, bcast_ip, "255.255.255.255"]
+    if esp32_ip and esp32_ip != target_ip:
+        targets.append(esp32_ip)
 
     for i in range(packets):
         try:
-            s.sendto(payload, (target_ip, target_port))
-            if bcast_ip and (i % 3 == 0):
-                s.sendto(payload, (bcast_ip, target_port))
+            dest = targets[i % len(targets)]
+            s.sendto(payload, (dest, target_port))
             sent += 1
             if i % 150 == 0:
                 time.sleep(0.002)  # Micro-sleep giải phóng buffer hệ điều hành
@@ -127,13 +136,13 @@ def burst_udp_flood(target_ip: str, target_port: int = 9999, packets: int = 1500
     return sent
 
 
-def burst_port_scan(target_ip: str, num_ports: int = 350) -> int:
-    """Bắn 1 burst quét cổng TCP SYN phân tán qua socket thật."""
-    def probe(port):
+def burst_port_scan(target_ip: str, num_ports: int = 350, esp32_ip: Optional[str] = None) -> int:
+    """Bắn 1 burst quét cổng TCP SYN phân tán qua socket thật, kết hợp UDP broadcast port probing để ESP32 sniffer bắt được."""
+    def probe_tcp(target, port):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(0.03)
-            s.connect_ex((target_ip, port))
+            s.connect_ex((target, port))
             s.close()
         except Exception:
             pass
@@ -141,54 +150,120 @@ def burst_port_scan(target_ip: str, num_ports: int = 350) -> int:
     start_port = random.randint(20, 1000)
     ports = list(range(start_port, start_port + num_ports))
 
-    with ThreadPoolExecutor(max_workers=50) as ex:
-        ex.map(probe, ports)
+    # 1. Quét TCP tới target_ip
+    with ThreadPoolExecutor(max_workers=40) as ex:
+        ex.map(lambda p: probe_tcp(target_ip, p), ports)
+
+    # 2. Nếu có ESP32 IP: Thăm dò một tập cổng trên ESP32 để kích hoạt cờ SYN trên chip
+    if esp32_ip and esp32_ip != target_ip:
+        esp_ports = random.sample(ports, min(30, len(ports)))
+        with ThreadPoolExecutor(max_workers=15) as ex:
+            ex.map(lambda p: probe_tcp(esp32_ip, p), esp_ports)
+
+    # 3. Phát tán các gói UDP thăm dò cổng tới địa chỉ Broadcast để mọi thiết bị sniffer Over-the-air nhận diện được
+    bcast_ip = get_broadcast_ip(target_ip)
+    try:
+        s_bcast = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s_bcast.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        for p in random.sample(ports, min(50, len(ports))):
+            s_bcast.sendto(b"SCAN_PROBE", (bcast_ip, p))
+            s_bcast.sendto(b"SCAN_PROBE", ("255.255.255.255", p))
+        s_bcast.close()
+    except Exception:
+        pass
+
     return num_ports
 
 
-def burst_tcp_syn_flood(target_ip: str, target_port: int = 80, count: int = 600) -> int:
-    """Bắn 1 burst TCP SYN flood dồn dập qua socket thật."""
-    def send_syn(_):
+def burst_tcp_syn_flood(target_ip: str, target_port: int = 80, count: int = 600, esp32_ip: Optional[str] = None) -> int:
+    """Bắn 1 burst TCP SYN flood dồn dập qua socket thật tới target và ESP32."""
+    def send_syn(target):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(0.04)
-            s.connect_ex((target_ip, target_port))
+            s.settimeout(0.03)
+            s.connect_ex((target, target_port))
             s.close()
         except Exception:
             pass
 
     with ThreadPoolExecutor(max_workers=50) as ex:
-        ex.map(send_syn, range(count))
+        ex.map(lambda _: send_syn(target_ip), range(count))
+
+    # Bắn SYN tới ESP32 nếu có
+    if esp32_ip and esp32_ip != target_ip:
+        with ThreadPoolExecutor(max_workers=20) as ex:
+            ex.map(lambda _: send_syn(esp32_ip), range(min(60, count)))
+
+    # Đồng thời phát các gói UDP flood ngụy trang tăng tải vô tuyến Over-The-Air
+    bcast_ip = get_broadcast_ip(target_ip)
+    try:
+        s_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s_udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        syn_payload = b"TCP_SYN_FLOOD_SIMULATED_PACKET_BURST" * 10
+        for _ in range(120):
+            s_udp.sendto(syn_payload, (bcast_ip, target_port))
+            s_udp.sendto(syn_payload, ("255.255.255.255", target_port))
+        s_udp.close()
+    except Exception:
+        pass
+
     return count
 
 
-def burst_vulnerability_scan(target_ip: str) -> int:
-    """Bắn 1 burst quét thăm dò các cổng dịch vụ tiêu biểu."""
+def burst_vulnerability_scan(target_ip: str, esp32_ip: Optional[str] = None) -> int:
+    """Bắn 1 burst quét thăm dò các cổng dịch vụ tiêu biểu trên toàn mạng."""
     common_vuln_ports = [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 1433, 1521, 3306, 3389, 5432, 5900, 8000, 8080, 8443, 9000]
 
-    def probe_service(port):
+    def probe_service(target, port):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(0.04)
-            s.connect_ex((target_ip, port))
+            s.connect_ex((target, port))
             s.close()
         except Exception:
             pass
 
     ports_to_probe = common_vuln_ports * 4
     with ThreadPoolExecutor(max_workers=30) as ex:
-        ex.map(probe_service, ports_to_probe)
+        ex.map(lambda p: probe_service(target_ip, p), ports_to_probe)
+
+    if esp32_ip and esp32_ip != target_ip:
+        with ThreadPoolExecutor(max_workers=15) as ex:
+            ex.map(lambda p: probe_service(esp32_ip, p), common_vuln_ports)
+
+    bcast_ip = get_broadcast_ip(target_ip)
+    try:
+        s_b = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s_b.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        for p in common_vuln_ports:
+            s_b.sendto(b"VULN_PROBE", (bcast_ip, p))
+        s_b.close()
+    except Exception:
+        pass
+
     return len(ports_to_probe)
 
 
-def burst_uploading(target_ip: str, target_port: int = 443, count: int = 1200) -> int:
+def burst_uploading(target_ip: str, target_port: int = 443, count: int = 1200, esp32_ip: Optional[str] = None) -> int:
     """Bắn luồng truyền tải dữ liệu TCP/UDP dung lượng lớn (Data Exfiltration / Uploading)."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    except Exception:
+        pass
+
     data_chunk = b"EXFILTRATION_DATA_STREAM_CHUNK_" * 45  # ~1400 bytes (MTU size)
+    bcast_ip = get_broadcast_ip(target_ip)
     sent = 0
-    for _ in range(count):
+
+    destinations = [target_ip, bcast_ip]
+    if esp32_ip and esp32_ip != target_ip:
+        destinations.append(esp32_ip)
+
+    for i in range(count):
         try:
-            s.sendto(data_chunk, (target_ip, target_port))
+            dest = destinations[i % len(destinations)]
+            s.sendto(data_chunk, (dest, target_port))
             sent += 1
         except Exception:
             pass
@@ -267,28 +342,29 @@ class AttackTrafficController:
                 sc = self.current_scenario.upper()
                 t0 = time.perf_counter()
 
-                # Bảo vệ ESP32: Không bắn thẳng vào IP của ESP32
                 effective_target = self.gateway_ip if (self.esp32_ip and self.target_ip == self.esp32_ip) else self.target_ip
+                esp_target = self.esp32_ip
 
                 try:
                     if "UDP" in sc:
-                        burst_udp_flood(effective_target, target_port=9999, packets=1500)
+                        burst_udp_flood(effective_target, target_port=9999, packets=1500, esp32_ip=esp_target)
                     elif "PORT" in sc:
-                        burst_port_scan(effective_target, num_ports=180)
+                        burst_port_scan(effective_target, num_ports=180, esp32_ip=esp_target)
                     elif "TCP" in sc or "SYN" in sc:
-                        burst_tcp_syn_flood(effective_target, target_port=80, count=300)
+                        burst_tcp_syn_flood(effective_target, target_port=80, count=300, esp32_ip=esp_target)
                     elif "VULN" in sc:
-                        burst_vulnerability_scan(effective_target)
+                        burst_vulnerability_scan(effective_target, esp32_ip=esp_target)
                     elif "UPLOAD" in sc or "EXFIL" in sc:
-                        burst_uploading(effective_target, target_port=443, count=600)
+                        burst_uploading(effective_target, target_port=443, count=600, esp32_ip=esp_target)
                     else:
-                        burst_udp_flood(effective_target, target_port=9999, packets=1500)
+                        burst_udp_flood(effective_target, target_port=9999, packets=1500, esp32_ip=esp_target)
                 except Exception as e:
                     print(f"[AttackGenerator] Loi khi ban burst socket ({self.current_scenario}): {e}")
 
                 burst_count += 1
                 if burst_count % 4 == 0:
-                    print(f"  -> [AttackSim] Dang phat luong [{self.current_scenario}] tren song Wi-Fi toi {effective_target}...")
+                    esp_info = f" + ESP32 {esp_target}" if esp_target else ""
+                    print(f"  -> [AttackSim] Dang phat luong [{self.current_scenario}] qua Wi-Fi toi {effective_target}{esp_info}...")
 
                 elapsed = time.perf_counter() - t0
                 sleep_time = max(0.05, 0.65 - elapsed)
@@ -320,7 +396,10 @@ class AttackTrafficController:
     def on_mqtt_message(self, client, userdata, msg):
         """Xử lý lệnh điều khiển nhận từ Web Dashboard và cập nhật trạng thái node."""
         try:
-            payload = json.loads(msg.payload.decode("utf-8"))
+            raw_text = msg.payload.decode("utf-8", errors="ignore").strip()
+            if not raw_text or not (raw_text.startswith("{") and raw_text.endswith("}")):
+                return
+            payload = json.loads(raw_text)
             topic = msg.topic
 
             # Ghi nhận IP của ESP32 phần cứng để TUYỆT ĐỐI TRÁNH bắn unicast trực diện vào nó
@@ -363,6 +442,8 @@ class AttackTrafficController:
                     self.set_scenario("Normal")
                 self.publish_status()
 
+        except json.JSONDecodeError:
+            pass
         except Exception as e:
             print(f"[AttackGenerator] Loi phan tich lenh MQTT: {e}")
 

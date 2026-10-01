@@ -1,0 +1,205 @@
+{
+  "timestamp": 1790739823,
+  "features_count": 56,
+  "features": [
+    "arp.opcode",
+    "arp.hw.size",
+    "icmp.checksum",
+    "icmp.seq_le",
+    "icmp.transmit_timestamp",
+    "icmp.unused",
+    "http.file_data",
+    "http.content_length",
+    "http.request.uri.query",
+    "http.request.method",
+    "http.referer",
+    "http.request.full_uri",
+    "http.request.version",
+    "http.response",
+    "http.tls_port",
+    "tcp.ack",
+    "tcp.ack_raw",
+    "tcp.checksum",
+    "tcp.connection.fin",
+    "tcp.connection.rst",
+    "tcp.connection.syn",
+    "tcp.connection.synack",
+    "tcp.dstport",
+    "tcp.flags",
+    "tcp.flags.ack",
+    "tcp.len",
+    "tcp.options",
+    "tcp.payload",
+    "tcp.seq",
+    "tcp.srcport",
+    "udp.port",
+    "udp.stream",
+    "udp.time_delta",
+    "dns.qry.name",
+    "dns.qry.name.len",
+    "dns.qry.qu",
+    "dns.qry.type",
+    "dns.retransmission",
+    "dns.retransmit_request",
+    "dns.retransmit_request_in",
+    "mqtt.conack.flags",
+    "mqtt.conflag.cleansess",
+    "mqtt.conflags",
+    "mqtt.hdrflags",
+    "mqtt.len",
+    "mqtt.msg_decoded_as",
+    "mqtt.msg",
+    "mqtt.msgtype",
+    "mqtt.proto_len",
+    "mqtt.protoname",
+    "mqtt.topic",
+    "mqtt.topic_len",
+    "mqtt.ver",
+    "mbtcp.len",
+    "mbtcp.trans_id",
+    "mbtcp.unit_id"
+  ],
+  "labels_count": 15,
+  "labels": [
+    "Backdoor",
+    "DDoS_HTTP",
+    "DDoS_ICMP",
+    "DDoS_TCP",
+    "DDoS_UDP",
+    "Fingerprinting",
+    "MITM",
+    "Normal",
+    "Password",
+    "Port_Scanning",
+    "Ransomware",
+    "SQL_injection",
+    "Uploading",
+    "Vulnerability_scanner",
+    "XSS"
+  ],
+  "classifier_type": "logistic_regression",
+  "anomaly_detector_type": "lof",
+  "data_source": "hybrid",
+  "data_lake_records_used": 3578,
+  "classifier_accuracy": 0.6804,
+  "classifier_accuracy_std": 0.0051,
+  "classifier_macro_f1": 0.5984,
+  "classifier_macro_f1_std": 0.0085,
+  "cv_strategy": "2-Fold Stratified CV",
+  "cv_folds": 2,
+  "classification_report": {
+    "Backdoor": {
+      "precision": 0.6605504587155964,
+      "recall": 0.8470588235294118,
+      "f1-score": 0.7422680412371134,
+      "support": 510.0
+    },
+    "DDoS_HTTP": {
+      "precision": 0.5641592920353983,
+      "recall": 0.48295454545454547,
+      "f1-score": 0.5204081632653061,
+      "support": 528.0
+    },
+    "DDoS_ICMP": {
+      "precision": 0.9669876203576341,
+      "recall": 0.9985795454545454,
+      "f1-score": 0.9825296995108316,
+      "support": 704.0
+    },
+    "DDoS_TCP": {
+      "precision": 0.8222222222222222,
+      "recall": 0.8671875,
+      "f1-score": 0.844106463878327,
+      "support": 512.0
+    },
+    "DDoS_UDP": {
+      "precision": 0.9986130374479889,
+      "recall": 0.993103448275862,
+      "f1-score": 0.995850622406639,
+      "support": 725.0
+    },
+    "Fingerprinting": {
+      "precision": 1.0,
+      "recall": 0.14,
+      "f1-score": 0.24561403508771928,
+      "support": 50.0
+    },
+    "MITM": {
+      "precision": 0.36645962732919257,
+      "recall": 0.9672131147540983,
+      "f1-score": 0.5315315315315315,
+      "support": 61.0
+    },
+    "Normal": {
+      "precision": 0.5796687607081668,
+      "recall": 0.8353909465020576,
+      "f1-score": 0.6844234659474039,
+      "support": 1215.0
+    },
+    "Password": {
+      "precision": 0.5091743119266054,
+      "recall": 0.22244488977955912,
+      "f1-score": 0.30962343096234307,
+      "support": 499.0
+    },
+    "Port_Scanning": {
+      "precision": 0.8605504587155963,
+      "recall": 0.9305555555555556,
+      "f1-score": 0.894184938036225,
+      "support": 504.0
+    },
+    "Ransomware": {
+      "precision": 0.4540059347181009,
+      "recall": 0.5604395604395604,
+      "f1-score": 0.5016393442622951,
+      "support": 546.0
+    },
+    "SQL_injection": {
+      "precision": 0.4470404984423676,
+      "recall": 0.5562015503875969,
+      "f1-score": 0.49568221070811747,
+      "support": 516.0
+    },
+    "Uploading": {
+      "precision": 0.48091603053435117,
+      "recall": 0.12280701754385964,
+      "f1-score": 0.1956521739130435,
+      "support": 513.0
+    },
+    "Vulnerability_scanner": {
+      "precision": 0.8514056224899599,
+      "recall": 0.8412698412698413,
+      "f1-score": 0.846307385229541,
+      "support": 504.0
+    },
+    "XSS": {
+      "precision": 0.4319526627218935,
+      "recall": 0.14512922465208747,
+      "f1-score": 0.21726190476190477,
+      "support": 503.0
+    },
+    "accuracy": 0.6803548795944233,
+    "macro avg": {
+      "precision": 0.6662471025576715,
+      "recall": 0.6340223709065721,
+      "f1-score": 0.600472227382556,
+      "support": 7890.0
+    },
+    "weighted avg": {
+      "precision": 0.6713036797808679,
+      "recall": 0.6803548795944233,
+      "f1-score": 0.6522833454659623,
+      "support": 7890.0
+    }
+  },
+  "anomaly_f1_score": 0.95,
+  "isolation_score_min": -2.023393154144287,
+  "isolation_score_max": -0.9552580714225769,
+  "loss_curve_path": null,
+  "feature_importance_path": "D:\\STT 2026\\ml_engine\\models\\logistic_regression_lof\\feature_importance.png",
+  "timeseries": false,
+  "window_size": null,
+  "best_params": {},
+  "sqlite_storage": null,
+  "can_export_tinyml": true
+}

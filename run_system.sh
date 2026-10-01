@@ -13,11 +13,11 @@
 #        ./run_system.sh --probe esp32
 #   5. Chay ESP32 kem ban goi tin mang that:
 #        ./run_system.sh --probe esp32 --attack-sim
-#   6. 1-Click tu dong build va nap code cho ESP32 qua CLI (khong can mo Arduino IDE GUI):
-#        ./run_system.sh --probe esp32 --attack-sim --flash
+#   6. 1-Click tu dong build va nap code cho ESP32 qua arduino-cli (khong can mo Arduino IDE GUI):
+#        ./run_system.sh --probe esp32 --attack-sim --arduino_cli true
 #   7. Chi dinh cong Serial ro rang khi nap ESP32:
-#        ./run_system.sh --flash --port /dev/ttyUSB0           # Tren Linux
-#        ./run_system.sh --flash --port /dev/cu.usbserial-0001 # Tren macOS
+#        ./run_system.sh --arduino_cli true --port /dev/ttyUSB0           # Tren Linux
+#        ./run_system.sh --arduino_cli true --port /dev/cu.usbserial-0001 # Tren macOS
 #   8. Xem toan bo danh sach cac flag ho tro:
 #        ./run_system.sh --help
 #

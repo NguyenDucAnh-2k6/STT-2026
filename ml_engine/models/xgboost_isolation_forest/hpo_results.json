@@ -1,0 +1,21 @@
+{
+  "model_type": "xgboost",
+  "anomaly_type": "isolation_forest",
+  "best_macro_f1_cv": 0.9175949499157638,
+  "best_params": {
+    "n_estimators": 180,
+    "max_depth": 8,
+    "learning_rate": 0.04186219081112193,
+    "subsample": 0.6017262123368978,
+    "colsample_bytree": 0.8741136212923317
+  },
+  "best_anomaly_params": {},
+  "n_trials": 15,
+  "cv_folds": 5,
+  "pruner_type": "median",
+  "sample_ratio": 1.0,
+  "train_samples": 132035,
+  "sqlite_db": "D:\\STT 2026\\ml_engine\\models\\xgboost_isolation_forest\\optuna_study.db",
+  "timestamp": 1790786719,
+  "features_count": 56
+}

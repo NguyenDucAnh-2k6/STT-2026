@@ -64,7 +64,9 @@ export class PacketInspectorComponent {
     if (!this.tableBody) return;
 
     const row = document.createElement("tr");
-    const isThreat = data.is_anomaly;
+    const score = Number(data.anomaly_score || 0);
+    const threshold = Number(state.anomalyThreshold || 0.55);
+    const isThreat = Boolean(data.is_anomaly && score >= threshold);
 
     if (isThreat) {
       row.className = "row-threat";

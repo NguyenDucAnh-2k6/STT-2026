@@ -66,6 +66,8 @@ export class WebSocketService {
       state.updateNode(payload.node);
     } else if (type === "ATTACK_STATUS_UPDATE") {
       state.updateAttackStatus(payload.attack_status);
+    } else if (type === "WIFI_NETWORKS_UPDATE") {
+      state.updateWifiNetworks(payload.networks);
     }
   }
 }

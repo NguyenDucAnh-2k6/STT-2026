@@ -11,8 +11,8 @@ rem   3. Chay voi thiet bi ESP32 vat ly qua WiFi/MQTT (Promiscuous Mode):
 rem        run_system.bat --probe esp32
 rem   4. Chay ESP32 kem ban goi tin mang that:
 rem        run_system.bat --probe esp32 --attack-sim
-rem   5. 1-Click tu dong build va nap code cho ESP32 qua CLI (khong can mo Arduino IDE):
-rem        run_system.bat --probe esp32 --attack-sim --flash
+rem   5. 1-Click tu dong build va nap code cho ESP32 qua arduino-cli (khong can mo Arduino IDE):
+rem        run_system.bat --probe esp32 --attack-sim --arduino_cli true
 rem   6. Xem toan bo danh sach cac flag ho tro:
 rem        run_system.bat --help
 rem

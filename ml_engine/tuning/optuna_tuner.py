@@ -30,18 +30,18 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
         pass
 
 import numpy as np
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import f1_score
+from sklearn.model_selection import StratifiedKFold, TimeSeriesSplit, GroupKFold, StratifiedGroupKFold
+from sklearn.metrics import f1_score, roc_auc_score
 
 try:
     import optuna
-    # Thiết lập mức log chuẩn INFO để Optuna hiển thị log màu xanh thông thường
-    optuna.logging.set_verbosity(optuna.logging.INFO)
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
 except ImportError:
     print("[LỖI] Thư viện Optuna chưa được cài đặt. Hãy chạy: pip install optuna")
     sys.exit(1)
 
 from ml_engine.algorithms.classifiers import get_classifier
+from ml_engine.algorithms.anomaly_detectors import get_anomaly_detector
 
 
 def get_search_space(model_type: str, trial: optuna.Trial) -> Dict[str, Any]:
@@ -74,22 +74,60 @@ def get_search_space(model_type: str, trial: optuna.Trial) -> Dict[str, Any]:
             "random_state": 42,
             "n_jobs": -1
         }
+    elif model_type in ("xgboost", "xgb"):
+        return {
+            "n_estimators": trial.suggest_int("n_estimators", 40, 180, step=20),
+            "max_depth": trial.suggest_int("max_depth", 4, 10),
+            "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.25, log=True),
+            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+            "random_state": 42,
+            "n_jobs": -1
+        }
+    elif model_type in ("lightgbm", "lgb"):
+        return {
+            "n_estimators": trial.suggest_int("n_estimators", 40, 180, step=20),
+            "max_depth": trial.suggest_int("max_depth", 4, 12),
+            "num_leaves": trial.suggest_int("num_leaves", 15, 127),
+            "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.25, log=True),
+            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+            "random_state": 42,
+            "n_jobs": -1,
+            "verbose": -1
+        }
+    elif model_type == "catboost":
+        return {
+            "iterations": trial.suggest_int("iterations", 40, 180, step=20),
+            "depth": trial.suggest_int("depth", 4, 9),
+            "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.25, log=True),
+            "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1.0, 10.0),
+            "random_seed": 42,
+            "verbose": 0,
+            "thread_count": -1
+        }
+    elif model_type in ("pytorch_deep", "mlp", "deep_learning", "pytorch", "dnn"):
+        arch_pattern = trial.suggest_categorical("arch_pattern", ["128-64-32", "256-128-64", "128-64"])
+        dims_map = {
+            "128-64-32": (128, 64, 32),
+            "256-128-64": (256, 128, 64),
+            "128-64": (128, 64)
+        }
+        return {
+            "lr": trial.suggest_float("lr", 1e-4, 5e-3, log=True),
+            "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True),
+            "dropout": trial.suggest_float("dropout", 0.1, 0.4),
+            "batch_size": trial.suggest_categorical("batch_size", [128, 256]),
+            "hidden_dims": dims_map[arch_pattern],
+            "epochs": trial.suggest_int("epochs", 8, 15),
+            "random_state": 42,
+            "verbose": False
+        }
     elif model_type == "gradient_boosting":
         return {
-            "n_estimators": trial.suggest_int("n_estimators", 30, 120, step=10),
-            "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.25, log=True),
-            "max_depth": trial.suggest_int("max_depth", 3, 8),
+            "n_estimators": trial.suggest_int("n_estimators", 30, 100, step=10),
+            "learning_rate": trial.suggest_float("learning_rate", 0.03, 0.25, log=True),
+            "max_depth": trial.suggest_int("max_depth", 3, 6),
             "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-            "random_state": 42
-        }
-    elif model_type == "mlp":
-        hidden_layer_sizes = trial.suggest_categorical("hidden_layer_sizes", [(64, 32), (128, 64), (128, 64, 32)])
-        return {
-            "hidden_layer_sizes": hidden_layer_sizes,
-            "activation": trial.suggest_categorical("activation", ["relu", "tanh"]),
-            "alpha": trial.suggest_float("alpha", 1e-5, 1e-2, log=True),
-            "learning_rate_init": trial.suggest_float("learning_rate_init", 1e-4, 1e-2, log=True),
-            "max_iter": 200,
             "random_state": 42
         }
     elif model_type == "ensemble_voting":
@@ -98,9 +136,9 @@ def get_search_space(model_type: str, trial: optuna.Trial) -> Dict[str, Any]:
             "rf_max_depth": trial.suggest_int("rf_max_depth", 5, 14),
             "et_n_estimators": trial.suggest_int("et_n_estimators", 30, 80, step=10),
             "et_max_depth": trial.suggest_int("et_max_depth", 5, 14),
-            "gb_n_estimators": trial.suggest_int("gb_n_estimators", 30, 80, step=10),
-            "gb_max_depth": trial.suggest_int("gb_max_depth", 3, 6),
-            "gb_learning_rate": trial.suggest_float("gb_learning_rate", 0.03, 0.2, log=True),
+            "xgb_n_estimators": trial.suggest_int("xgb_n_estimators", 30, 80, step=10),
+            "xgb_max_depth": trial.suggest_int("xgb_max_depth", 3, 6),
+            "xgb_learning_rate": trial.suggest_float("xgb_learning_rate", 0.03, 0.2, log=True),
             "random_state": 42
         }
     else:
@@ -134,40 +172,22 @@ def optimize_hyperparameters(
     pruner_type: str = "median",
     startup_trials: int = 3,
     warmup_steps: int = 1,
-    random_state: int = 42
+    random_state: int = 42,
+    use_timeseries: bool = False,
+    groups: Optional[np.ndarray] = None
 ) -> Tuple[Dict[str, Any], float, optuna.Study]:
     """
-    Tìm kiếm bộ siêu tham số tối ưu bằng Optuna qua K-Fold Stratified Cross-Validation.
-    Lưu trữ trials vào SQLite database và hiển thị log chuẩn màu xanh của Optuna.
-
-    Parameters:
-    -----------
-    model_type : str
-        Tên kiến trúc mô hình (decision_tree, random_forest, v.v.).
-    X : np.ndarray
-        Ma trận đặc trưng số (full 61 đặc trưng).
-    y : np.ndarray
-        Vector nhãn số nguyên.
-    n_trials : int
-        Số lượng trial thử nghiệm của Optuna.
-    n_splits : int
-        Số fold cho Stratified K-Fold CV (--cv [N]).
-    db_path : str, optional
-        Đường dẫn đến file SQLite database lưu study.
-    pruner_type : str
-        Thuật toán cắt tỉa: median, percentile, hyperband, none.
-    startup_trials : int
-        Số trial khởi động không bị cắt tỉa.
-    warmup_steps : int
-        Số fold tối thiểu trước khi xét cắt tỉa.
-    random_state : int
-        Hạt giống ngẫu nhiên.
-
-    Returns:
-    --------
-    Tuple: (best_params, best_macro_f1, study)
+    Tìm kiếm bộ siêu tham số tối ưu bằng Optuna qua K-Fold Cross-Validation.
+    Hỗ trợ:
+      - Stratified K-Fold CV (cho dữ liệu tabular thường)
+      - TimeSeriesSplit / Walk-Forward CV (cho chuỗi thời gian)
+      - GroupKFold / StratifiedGroupKFold (nếu có thông tin nhóm groups)
+    Lưu trữ trials vào SQLite database và in tiến trình trials theo định dạng người dùng yêu cầu.
     """
-    print(f"\n[Optuna HPO] Khoi dong HPO cho '{model_type}' | {n_trials} Trials | {n_splits}-Fold Stratified CV | Pruner: {pruner_type.upper()}")
+    cv_strategy_name = "TimeSeriesSplit (Walk-Forward CV)" if use_timeseries else (
+        "StratifiedGroupKFold" if groups is not None else "StratifiedKFold"
+    )
+    print(f"\n[Optuna HPO] Khoi dong HPO cho '{model_type}' | {n_trials} Trials | {n_splits}-Fold {cv_strategy_name} | Pruner: {pruner_type.upper()}")
 
     # Cấu hình SQLite storage cho Optuna study
     if db_path is None:
@@ -189,13 +209,26 @@ def optimize_hyperparameters(
     )
     print(f"[Optuna HPO] Su dung SQLite Storage tai: {db_path} (Study: '{study_name}')")
 
-    cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    # Xác định chiến lược phân chia CV
+    if groups is not None and not use_timeseries:
+        try:
+            cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+            splits = list(cv.split(X, y, groups=groups))
+        except Exception:
+            cv = GroupKFold(n_splits=n_splits)
+            splits = list(cv.split(X, y, groups=groups))
+    elif use_timeseries:
+        cv = TimeSeriesSplit(n_splits=n_splits)
+        splits = list(cv.split(X))
+    else:
+        cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        splits = list(cv.split(X, y))
 
     def objective(trial: optuna.Trial) -> float:
         params = get_search_space(model_type, trial)
         fold_scores = []
 
-        for step, (train_idx, val_idx) in enumerate(cv.split(X, y)):
+        for step, (train_idx, val_idx) in enumerate(splits):
             X_tr, X_val = X[train_idx], X[val_idx]
             y_tr, y_val = y[train_idx], y[val_idx]
 
@@ -212,23 +245,130 @@ def optimize_hyperparameters(
 
             # Cắt tỉa sớm nếu trial không khả quan
             if trial.should_prune():
-                print(f"  [Optuna Pruner] ✂️ Trial {trial.number} BI CAT TIA (TrialPruned) tai fold {step + 1}/{n_splits} | F1 trung gian: {current_mean * 100:.2f}%")
                 raise optuna.TrialPruned()
 
         return float(np.mean(fold_scores))
 
+    def trial_progress_callback(cur_study: optuna.Study, trial: optuna.Trial) -> None:
+        params_str = ", ".join(f"'{k}': {v}" for k, v in trial.params.items())
+        if trial.state == optuna.trial.TrialState.COMPLETE:
+            best_trial = cur_study.best_trial
+            print(f"[Optuna] Trial {trial.number} với {{{params_str}}} ends with value Macro F1 = {trial.value:.4f} => Best is trial {best_trial.number} with value: {best_trial.value:.4f}")
+        elif trial.state == optuna.trial.TrialState.PRUNED:
+            print(f"[Optuna] Trial {trial.number} với {{{params_str}}} bị cắt tỉa sớm (Pruned)")
+
     # Chạy tối ưu hóa với log tiêu chuẩn của Optuna
     t0 = time.perf_counter()
-    study.optimize(objective, n_trials=n_trials)
+    study.optimize(objective, n_trials=n_trials, callbacks=[trial_progress_callback], catch=(Exception,))
     elapsed = time.perf_counter() - t0
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
 
+    best_params = dict(study.best_params)
+    if "arch_pattern" in best_params:
+        dims_map = {
+            "128-64-32": (128, 64, 32),
+            "256-128-64": (256, 128, 64),
+            "128-64": (128, 64)
+        }
+        best_params["hidden_dims"] = dims_map.get(best_params["arch_pattern"], (128, 64, 32))
+    best_params.pop("verbose", None)
+
     print(f"\n[Optuna HPO] Hoan tat {len(study.trials)} trials trong {elapsed:.2f}s!")
     print(f"  -> Trials hoan thanh (Complete) : {len(complete_trials)}")
     print(f"  -> Trials bi cat tia (Pruned)   : {len(pruned_trials)} (Tiet kiem {(len(pruned_trials) / max(1, len(study.trials)) * 100):.1f}% thoi gian)")
     print(f"  -> Best Macro F1 ({n_splits}-Fold CV): {study.best_value * 100:.2f}%")
-    print(f"  -> Best Hyperparameters: {json.dumps(study.best_params, indent=2)}\n")
+    print(f"  -> Best Hyperparameters: {json.dumps(best_params, indent=2, default=str)}\n")
 
-    return study.best_params, float(study.best_value), study
+    return best_params, float(study.best_value), study
+
+
+def get_anomaly_search_space(model_type: str, trial: optuna.Trial) -> Dict[str, Any]:
+    """
+    Định nghĩa không gian tìm kiếm siêu tham số cho các mô hình phát hiện bất thường.
+    """
+    name = model_type.lower().strip()
+    if name in ("isolation_forest", "iforest"):
+        return {
+            "n_estimators": trial.suggest_int("n_estimators", 50, 150, step=25),
+            "max_samples": trial.suggest_categorical("max_samples", ["auto", 0.5, 0.8]),
+            "contamination": trial.suggest_float("contamination", 0.01, 0.15),
+            "random_state": 42,
+            "n_jobs": -1
+        }
+    elif name in ("one_class_svm", "ocsvm"):
+        return {
+            "kernel": trial.suggest_categorical("kernel", ["rbf", "linear"]),
+            "nu": trial.suggest_float("nu", 0.01, 0.2),
+            "gamma": trial.suggest_categorical("gamma", ["scale", "auto"])
+        }
+    elif name == "elliptic_envelope":
+        return {
+            "contamination": trial.suggest_float("contamination", 0.01, 0.15),
+            "random_state": 42
+        }
+    elif name == "lof":
+        return {
+            "n_neighbors": trial.suggest_int("n_neighbors", 10, 35, step=5),
+            "contamination": trial.suggest_float("contamination", 0.01, 0.15)
+        }
+    return {}
+
+
+def optimize_anomaly_hyperparameters(
+    anomaly_type: str,
+    X_train_normal: np.ndarray,
+    X_val: np.ndarray,
+    y_val_binary: np.ndarray,
+    n_trials: int = 10,
+    db_path: Optional[str] = None,
+    random_state: int = 42
+) -> Tuple[Dict[str, Any], float, optuna.Study]:
+    """
+    Tối ưu hóa siêu tham số Anomaly Detector bằng Optuna:
+    Huấn luyện trên X_train_normal và đánh giá khả năng phân tách Normal (0) / Anomaly (1) trên X_val (ROC-AUC).
+    """
+    print(f"\n[Optuna HPO] Khoi dong HPO cho Anomaly Detector '{anomaly_type}' | {n_trials} Trials (Target: ROC-AUC / F1)...")
+    if db_path is None:
+        db_path = os.path.join(ROOT_DIR, "ml_engine", "models", "optuna_study.db")
+    os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+    db_uri = f"sqlite:///{os.path.abspath(db_path).replace(os.sep, '/')}"
+
+    study_name = f"hpo_anomaly_{anomaly_type}"
+    sampler = optuna.samplers.TPESampler(seed=random_state)
+    study = optuna.create_study(
+        study_name=study_name,
+        direction="maximize",
+        sampler=sampler,
+        storage=db_uri,
+        load_if_exists=True
+    )
+
+    def objective(trial: optuna.Trial) -> float:
+        params = get_anomaly_search_space(anomaly_type, trial)
+        try:
+            detector = get_anomaly_detector(anomaly_type, **params)
+            detector.fit(X_train_normal)
+
+            if hasattr(detector, "score_samples"):
+                scores = detector.score_samples(X_val)
+                # Điểm số càng thấp càng bất thường -> Đảo dấu để ROC-AUC: điểm cao = Anomaly (1)
+                anomaly_scores = -scores
+                val_auc = float(roc_auc_score(y_val_binary, anomaly_scores))
+                return val_auc
+            elif hasattr(detector, "predict"):
+                preds = detector.predict(X_val)
+                binary_preds = (preds == -1).astype(int)
+                score = float(f1_score(y_val_binary, binary_preds, zero_division=0))
+                return score
+            return 0.5
+        except Exception:
+            return 0.0
+
+    study.optimize(objective, n_trials=n_trials, catch=(Exception,))
+    best_params = dict(study.best_params)
+    print(f"[Optuna HPO] Hoan tat HPO Anomaly Detector! Best Score (ROC-AUC): {study.best_value*100:.2f}% | Best params: {best_params}\n")
+    return best_params, float(study.best_value), study
+
+

@@ -18,24 +18,25 @@ Chỉ chịu trách nhiệm KHỞI ĐỘNG VẬN HÀNH hệ thống thời gian 
 import os
 import sys
 import time
-import re
-import socket
 import argparse
 import subprocess
 import webbrowser
 import signal
 import multiprocessing
 import threading
-from typing import Optional, Tuple
+import shutil
+from typing import Optional, Tuple, Any, List, Dict
 
 # Đảm bảo thư mục gốc dự án luôn nằm trong sys.path
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
+
 from broker.embedded_broker import start_embedded_broker
 from firmware.host_probe.host_sniffer import start_host_sniffer
 from firmware.simulator.attack_traffic_generator import start_attack_traffic_generator, detect_target_ip
+from data_lake import start_lake_collector, DataLakeCollector
 
 # Tự động nạp biến môi trường từ file .env
 try:
@@ -52,546 +53,22 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
         pass
 
 processes = []
-
-
-def detect_host_lan_ip(preferred_iface: Optional[str] = None) -> str:
-    """Tự động phát hiện chính xác địa chỉ IPv4 LAN nội bộ của card Wi-Fi/Ethernet máy tính."""
-    # 1. Windows: Thử truy vấn IP trực tiếp từ card Wi-Fi đang hoạt động
-    if sys.platform == "win32":
-        try:
-            target_iface = preferred_iface
-            if not target_iface:
-                out_if = subprocess.check_output("netsh wlan show interfaces", shell=True, text=True, errors="ignore")
-                m = re.search(r"^\s*Name\s*:\s*(.+)$", out_if, re.M)
-                if m:
-                    target_iface = m.group(1).strip()
-            if target_iface:
-                out_addr = subprocess.check_output(f'netsh interface ipv4 show addresses "{target_iface}"', shell=True, text=True, errors="ignore")
-                m_ip = re.search(r"IP Address:\s*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)", out_addr)
-                if m_ip:
-                    return m_ip.group(1).strip()
-        except Exception:
-            pass
-
-    # 2. Linux: Lấy IP qua nmcli thiết bị mạng wifi
-    elif sys.platform.startswith("linux"):
-        import shutil
-        if shutil.which("nmcli"):
-            try:
-                out = subprocess.check_output(["nmcli", "-g", "IP4.ADDRESS", "device", "show"], text=True, errors="ignore")
-                for line in out.splitlines():
-                    val = line.split("/")[0].strip()
-                    if val and not val.startswith("127."):
-                        return val
-            except Exception:
-                pass
-
-    # 3. macOS: Lấy IP qua ipconfig trên các interface en0/en1
-    elif sys.platform == "darwin":
-        for iface in ["en0", "en1"]:
-            try:
-                out = subprocess.check_output(["ipconfig", "getifaddr", iface], text=True, errors="ignore").strip()
-                if out and not out.startswith("127."):
-                    return out
-            except Exception:
-                pass
-
-    # 4. Fallback qua UDP socket routing table
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
-            return s.getsockname()[0]
-    except Exception:
-        return "127.0.0.1"
-
-
-def auto_detect_wifi_credentials() -> Tuple[Optional[str], Optional[str], str]:
-    """
-    Tự động trích xuất SSID, Mật khẩu WiFi và IPv4 máy tính ngầm (Zero-Config)
-    trên Windows (netsh), Linux (nmcli), macOS (airport / networksetup).
-    Không yêu cầu người dùng phải tự gõ vào .env hay credentials.h.
-    """
-    ssid = None
-    password = None
-    host_ip = "127.0.0.1"
-
-    # 1. Windows: sử dụng lệnh netsh wlan
-    if sys.platform == "win32":
-        try:
-            out_if = subprocess.check_output("netsh wlan show interfaces", shell=True, text=True, errors="ignore")
-            m_iface = re.search(r"^\s*Name\s*:\s*(.+)$", out_if, re.M)
-            iface_name = m_iface.group(1).strip() if m_iface else None
-            host_ip = detect_host_lan_ip(iface_name)
-
-            for line in out_if.splitlines():
-                line = line.strip()
-                if line.startswith("SSID") and not line.startswith("SSID name") and not line.startswith("BSSID"):
-                    parts = line.split(":", 1)
-                    if len(parts) == 2 and parts[1].strip():
-                        ssid = parts[1].strip()
-                        break
-
-            if ssid:
-                out_prof = subprocess.check_output(f'netsh wlan show profile name="{ssid}" key=clear', shell=True, text=True, errors="ignore")
-                for line in out_prof.splitlines():
-                    line = line.strip()
-                    if "Key Content" in line or "Nội dung khóa" in line:
-                        parts = line.split(":", 1)
-                        if len(parts) == 2 and parts[1].strip():
-                            password = parts[1].strip()
-                            break
-        except Exception:
-            pass
-
-    # 2. Linux: sử dụng nmcli (NetworkManager)
-    elif sys.platform.startswith("linux"):
-        import shutil
-        if shutil.which("nmcli"):
-            try:
-                out_active = subprocess.check_output(
-                    ["nmcli", "-t", "-f", "active,ssid", "dev", "wifi"],
-                    text=True, errors="ignore"
-                )
-                for line in out_active.splitlines():
-                    line = line.strip()
-                    if line.startswith("yes:"):
-                        ssid = line.split(":", 1)[1].strip()
-                        break
-                if ssid:
-                    out_sec = subprocess.check_output(
-                        ["nmcli", "-s", "-g", "802-11-wireless-security.psk", "connection", "show", ssid],
-                        text=True, errors="ignore"
-                    )
-                    psk = out_sec.strip()
-                    if psk:
-                        password = psk
-            except Exception:
-                pass
-
-    # 3. macOS: sử dụng airport tool hoặc networksetup
-    elif sys.platform == "darwin":
-        import shutil
-        try:
-            airport_bin = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
-            if os.path.exists(airport_bin):
-                out = subprocess.check_output([airport_bin, "-I"], text=True, errors="ignore")
-                for line in out.splitlines():
-                    line = line.strip()
-                    if line.startswith("SSID:"):
-                        ssid = line.split(":", 1)[1].strip()
-                        break
-            if not ssid and shutil.which("networksetup"):
-                out = subprocess.check_output(["networksetup", "-getairportnetwork", "en0"], text=True, errors="ignore")
-                if "Current Wi-Fi Network:" in out:
-                    ssid = out.split(":", 1)[1].strip()
-
-            if ssid and shutil.which("security"):
-                out_sec = subprocess.check_output(
-                    ["security", "find-generic-password", "-D", "AirPort network password", "-a", ssid, "-w"],
-                    text=True, errors="ignore"
-                )
-                pwd = out_sec.strip()
-                if pwd:
-                    password = pwd
-        except Exception:
-            pass
-
-    return ssid, password, host_ip
-
-
-def update_env_file(root_dir: str, wifi_ssid: str, wifi_pass: str, mqtt_host: str):
-    """Tự động đồng bộ các giá trị mạng phát hiện được vào file .env."""
-    env_path = os.path.join(root_dir, ".env")
-    lines = []
-    if os.path.exists(env_path):
-        with open(env_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-
-    keys_set = set()
-    new_lines = []
-    for line in lines:
-        if line.strip().startswith("WIFI_SSID="):
-            new_lines.append(f'WIFI_SSID="{wifi_ssid}"\n')
-            keys_set.add("WIFI_SSID")
-        elif line.strip().startswith("WIFI_PASSWORD="):
-            new_lines.append(f'WIFI_PASSWORD="{wifi_pass}"\n')
-            keys_set.add("WIFI_PASSWORD")
-        elif line.strip().startswith("MQTT_BROKER_HOST=") or line.strip().startswith("MQTT_HOST="):
-            new_lines.append(f'MQTT_BROKER_HOST="{mqtt_host}"\n')
-            keys_set.add("MQTT_BROKER_HOST")
-        else:
-            new_lines.append(line)
-
-    if "WIFI_SSID" not in keys_set:
-        new_lines.append(f'WIFI_SSID="{wifi_ssid}"\n')
-    if "WIFI_PASSWORD" not in keys_set:
-        new_lines.append(f'WIFI_PASSWORD="{wifi_pass}"\n')
-    if "MQTT_BROKER_HOST" not in keys_set:
-        new_lines.append(f'MQTT_BROKER_HOST="{mqtt_host}"\n')
-
-    try:
-        with open(env_path, "w", encoding="utf-8") as f:
-            f.writelines(new_lines)
-    except Exception:
-        pass
-
-
-def sync_env_to_firmware(root_dir: str):
-    """Đồng bộ tự động WiFi SSID/Password và MQTT IP từ thông tin mạng thực tế vào credentials.h và .env."""
-    credentials_path = os.path.join(root_dir, "firmware", "esp32_probe", "credentials.h")
-    if not os.path.exists(credentials_path):
-        return
-
-    # 1. Tự động phát hiện thông tin mạng thực tế hiện tại (Zero-Config)
-    detected_ssid, detected_pwd, detected_ip = auto_detect_wifi_credentials()
-
-    # Luôn ưu tiên thông tin mạng thực tế mà card mạng đang kết nối hiện tại
-    wifi_ssid = detected_ssid or os.getenv("WIFI_SSID")
-    wifi_pass = detected_pwd or os.getenv("WIFI_PASSWORD")
-
-    # Đối với IP máy chủ MQTT phục vụ ESP32, ưu tiên địa chỉ IP LAN thực tế hiện tại
-    if detected_ip and detected_ip not in ("127.0.0.1", "localhost", "0.0.0.0"):
-        mqtt_host = detected_ip
-    else:
-        mqtt_host = os.getenv("MQTT_HOST") or os.getenv("MQTT_BROKER_HOST") or "127.0.0.1"
-
-    # Tự động cập nhật lại vào .env để các file khác luôn đồng bộ theo mạng mới nhất
-    if wifi_ssid and wifi_pass and mqtt_host:
-        update_env_file(root_dir, wifi_ssid, wifi_pass, mqtt_host)
-
-    if not (wifi_ssid and wifi_pass and mqtt_host):
-        return
-
-    try:
-        with open(credentials_path, "r", encoding="utf-8") as f:
-            content = f.read()
-
-        import re
-        content = re.sub(r'#define WIFI_SSID ".*?"', f'#define WIFI_SSID "{wifi_ssid}"', content)
-        content = re.sub(r'#define WIFI_PASSWORD ".*?"', f'#define WIFI_PASSWORD "{wifi_pass}"', content)
-        content = re.sub(r'#define MQTT_BROKER_HOST ".*?"', f'#define MQTT_BROKER_HOST "{mqtt_host}"', content)
-
-        with open(credentials_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        pwd_mask = f"{wifi_pass[:3]}***" if len(wifi_pass) > 3 else "***"
-        print(f"  -> Da dong bo cau hinh WiFi/MQTT tu dong vao {os.path.relpath(credentials_path, root_dir)}:")
-        print(f"     * WIFI_SSID        : \"{wifi_ssid}\" (Tu dong)")
-        print(f"     * WIFI_PASSWORD    : \"{pwd_mask}\" (Tu dong)")
-    except Exception as e:
-        print(f"  [Canh bao] Khong the dong bo credentials.h: {e}")
-
-
-# Biến toàn cục lưu IP LAN máy tính phục vụ UDP Beacon và Roaming
-ACTIVE_LAN_IP = "127.0.0.1"
-
-
-def udp_broker_beacon_worker(broker_port: int = 1883):
-    """
-    Luồng phát sóng định kỳ UDP Broadcast (Beacon) mỗi 3 giây trong mạng nội bộ.
-    Giúp ESP32 tự động nhận biết địa chỉ IP của máy tính mà không cần nạp lại firmware
-    kể cả khi máy tính chuyển sang Wi-Fi mới hoặc được cấp IP DHCP mới.
-    """
-    import socket
-    import json
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    except Exception:
-        pass
-
-    while True:
-        try:
-            global ACTIVE_LAN_IP
-            if ACTIVE_LAN_IP and ACTIVE_LAN_IP not in ("127.0.0.1", "0.0.0.0"):
-                payload = json.dumps({
-                    "service": "AeroEdge",
-                    "broker_ip": ACTIVE_LAN_IP,
-                    "port": broker_port
-                }).encode("utf-8")
-                s.sendto(payload, ("255.255.255.255", 18830))
-        except Exception:
-            pass
-        time.sleep(3.0)
-
-
-def network_roaming_watcher_worker(root_dir: str):
-    """
-    Luồng nền tự động giám sát card mạng và dải IP thời gian thực (Zero-Config Roaming).
-    Khi phát hiện máy tính chuyển sang Wi-Fi mới (ví dụ từ mạng phòng sang Hotspot di động),
-    tự động cập nhật IP mới vào .env, credentials.h và luồng UDP Beacon.
-    """
-    global ACTIVE_LAN_IP
-    last_ssid, _, last_ip = auto_detect_wifi_credentials()
-    ACTIVE_LAN_IP = last_ip
-
-    while True:
-        time.sleep(4.0)
-        try:
-            curr_ssid, curr_pwd, curr_ip = auto_detect_wifi_credentials()
-            if curr_ip and curr_ip != "127.0.0.1" and (curr_ip != last_ip or (curr_ssid and curr_ssid != last_ssid)):
-                print(f"\n[NetworkWatcher] >>> PHAT HIEN THAY DOI MANG (ROAMING) <<<")
-                print(f"  * Mang cu : SSID='{last_ssid}', IP='{last_ip}'")
-                print(f"  * Mang moi: SSID='{curr_ssid}', IP='{curr_ip}'")
-                print(f"  -> Dang tu dong cap nhat cau hinh & phat song UDP Beacon toi ESP32...")
-                last_ip = curr_ip
-                last_ssid = curr_ssid
-                ACTIVE_LAN_IP = curr_ip
-
-                if curr_ssid and curr_pwd and curr_ip:
-                    update_env_file(root_dir, curr_ssid, curr_pwd, curr_ip)
-                    sync_env_to_firmware(root_dir)
-        except Exception:
-            pass
-
-
-def serial_telemetry_bridge_worker(com_port: str, broker_port: int = 1883):
-    """
-    Cầu nối Telemetry dự phòng qua cáp USB Serial (Dual-Transport High Availability).
-    Khi ESP32 cắm qua cổng USB, luồng này liên tục lắng nghe các gói tin JSON từ Serial.
-    Nếu Wi-Fi bị ngắt do chuyển mạng hoặc router có AP Isolation, dữ liệu từ ESP32
-    vẫn được truyền thẳng vào MQTT Broker cục bộ (127.0.0.1:1883) mà không bị gián đoạn 1 giây nào!
-    """
-    try:
-        import serial
-        import paho.mqtt.client as mqtt
-    except ImportError:
-        return
-
-    mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="ESP32-USB-Serial-Bridge")
-    try:
-        mqtt_client.connect("127.0.0.1", broker_port, keepalive=60)
-        mqtt_client.loop_start()
-    except Exception as e:
-        print(f"[SerialBridge] Khong the ket noi MQTT 127.0.0.1: {e}")
-        return
-
-    print(f"  [SerialBridge] Da kich hoat cau noi USB Serial Telemetry tren {com_port} (115200 baud).")
-    print(f"                 (Dam bao luu luong van truyen 100% ve Web Dashboard ke ca khi mat ket noi Wi-Fi!)")
-
-    last_forwarded_ts = 0.0
-    while True:
-        try:
-            with serial.Serial(com_port, 115200, timeout=2.0) as ser:
-                while True:
-                    line = ser.readline().decode("utf-8", errors="ignore").strip()
-                    if line.startswith("ESP32_TELEMETRY:"):
-                        json_str = line[len("ESP32_TELEMETRY:"):].strip()
-                        now = time.time()
-                        if now - last_forwarded_ts >= 0.5:
-                            mqtt_client.publish("edge/telemetry/traffic", json_str)
-                            last_forwarded_ts = now
-        except Exception:
-            time.sleep(2.0)
-
-
-def find_arduino_cli() -> Optional[str]:
-    """
-    Tìm đường dẫn thực thi của arduino-cli độc lập hoặc tích hợp trong Arduino IDE 2.x
-    hỗ trợ đầy đủ trên Windows, Linux và macOS mà không hardcode đường dẫn ổ đĩa cố định.
-    """
-    import shutil
-    # 1. Kiểm tra PATH hệ thống trước
-    cli_path = shutil.which("arduino-cli")
-    if cli_path and os.path.exists(cli_path):
-        return cli_path
-
-    # 2. Tìm kiếm động theo từng hệ điều hành
-    common_paths = []
-    user_home = os.path.expanduser("~")
-
-    if sys.platform == "win32":
-        local_app_data = os.environ.get("LOCALAPPDATA", os.path.join(user_home, "AppData", "Local"))
-        prog_files = os.environ.get("ProgramFiles", "C:\\Program Files")
-        prog_files_x86 = os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")
-        common_paths.extend([
-            os.path.join(local_app_data, "Programs", "Arduino IDE", "resources", "app", "lib", "backend", "resources", "arduino-cli.exe"),
-            os.path.join(prog_files, "Arduino IDE", "resources", "app", "lib", "backend", "resources", "arduino-cli.exe"),
-            os.path.join(prog_files_x86, "Arduino IDE", "resources", "app", "lib", "backend", "resources", "arduino-cli.exe"),
-            os.path.join(user_home, ".arduino15", "bin", "arduino-cli.exe"),
-            os.path.join(user_home, "bin", "arduino-cli.exe"),
-        ])
-    elif sys.platform == "darwin":
-        common_paths.extend([
-            "/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli",
-            os.path.join(user_home, "Applications", "Arduino IDE.app", "Contents", "Resources", "app", "lib", "backend", "resources", "arduino-cli"),
-            "/opt/homebrew/bin/arduino-cli",
-            "/usr/local/bin/arduino-cli",
-            os.path.join(user_home, ".arduino15", "bin", "arduino-cli"),
-            os.path.join(user_home, "bin", "arduino-cli"),
-            os.path.join(user_home, ".local", "bin", "arduino-cli"),
-        ])
-    else:
-        # Linux / Unix / WSL
-        common_paths.extend([
-            "/usr/local/bin/arduino-cli",
-            "/usr/bin/arduino-cli",
-            os.path.join(user_home, ".local", "bin", "arduino-cli"),
-            os.path.join(user_home, "bin", "arduino-cli"),
-            os.path.join(user_home, ".arduino15", "bin", "arduino-cli"),
-            os.path.join(user_home, ".arduino-ide", "resources", "app", "lib", "backend", "resources", "arduino-cli"),
-            "/opt/arduino-ide/resources/app/lib/backend/resources/arduino-cli",
-        ])
-
-    for path in common_paths:
-        if path and os.path.exists(path):
-            return path
-    return None
-
-
-def find_esp32_com_port(arduino_cli_path: Optional[str] = None) -> Optional[str]:
-    """
-    Tự động phát hiện cổng nối tiếp (COM port trên Windows, /dev/ttyUSB* trên Linux, /dev/cu.* trên macOS)
-    kết nối với bo mạch ESP32 (CP210x, CH340, CH9102, FTDI, USB-UART).
-    Nếu không tìm thấy thiết bị, trả về None (không hardcode).
-    """
-    import glob
-
-    # 1. Thử qua thư viện pyserial nếu có (chạy đồng nhất và chuẩn xác nhất trên mọi OS)
-    try:
-        import serial.tools.list_ports
-        ports = list(serial.tools.list_ports.comports())
-        for p in ports:
-            desc = (p.description or "").upper()
-            hwid = (p.hwid or "").upper()
-            if any(k in desc or k in hwid for k in ("CP210", "CH340", "CH9102", "SILICON", "USB", "UART", "ESP32", "FTDI")):
-                return p.device
-        if ports:
-            for p in ports:
-                if p.device.upper() not in ("COM1", "/DEV/TTYS0", "/DEV/TTY"):
-                    return p.device
-    except ImportError:
-        pass
-
-    # 2. Thử qua PowerShell Win32_SerialPort (trên Windows)
-    if sys.platform == "win32":
-        try:
-            cmd = 'powershell -NoProfile -Command "Get-CimInstance Win32_SerialPort | Select-Object DeviceID, Description | ConvertTo-Json"'
-            out = subprocess.check_output(cmd, shell=True, text=True, errors="ignore")
-            import json
-            data = json.loads(out)
-            if isinstance(data, dict):
-                data = [data]
-            for item in data:
-                desc = str(item.get("Description", "")).upper()
-                dev_id = str(item.get("DeviceID", "")).strip()
-                if any(k in desc for k in ("CP210", "CH340", "CH9102", "SILICON", "USB", "UART", "ESP32")):
-                    return dev_id
-            for item in data:
-                dev_id = str(item.get("DeviceID", "")).strip()
-                if dev_id and dev_id.upper() not in ("COM1", "COM3"):
-                    return dev_id
-        except Exception:
-            pass
-
-    # 3. Thử quét cổng thiết bị USB Serial trên Linux
-    elif sys.platform.startswith("linux"):
-        linux_candidates = (
-            glob.glob("/dev/serial/by-id/*") +
-            glob.glob("/dev/ttyUSB*") +
-            glob.glob("/dev/ttyACM*")
-        )
-        if linux_candidates:
-            return os.path.realpath(linux_candidates[0])
-
-    # 4. Thử quét cổng thiết bị USB Serial trên macOS
-    elif sys.platform == "darwin":
-        mac_candidates = (
-            glob.glob("/dev/cu.usbserial*") +
-            glob.glob("/dev/cu.SLAB_USBtoUART*") +
-            glob.glob("/dev/cu.wchusbserial*") +
-            glob.glob("/dev/cu.usbmodem*")
-        )
-        if mac_candidates:
-            return mac_candidates[0]
-
-    # 5. Thử truy vấn qua `arduino-cli board list` (hoạt động đa nền tảng)
-    if arduino_cli_path and os.path.exists(arduino_cli_path):
-        try:
-            out = subprocess.check_output([arduino_cli_path, "board", "list"], text=True, errors="ignore")
-            for line in out.splitlines():
-                if "(USB)" in line or "serial" in line.lower():
-                    parts = line.split()
-                    if parts:
-                        candidate = parts[0].strip()
-                        if candidate.upper() not in ("PORT", "COM1", "/DEV/TTYS0"):
-                            return candidate
-        except Exception:
-            pass
-
-    return None
-
-
-def flash_esp32_cli(root_dir: str, com_port: Optional[str] = None) -> bool:
-    """Biên dịch và nạp firmware ESP32 qua CLI không cần mở Arduino IDE GUI."""
-    arduino_cli = find_arduino_cli()
-    if not arduino_cli:
-        print("  [Lỗi CLI] Không tìm thấy executable của arduino-cli trên máy tính!")
-        print("  -> Vui lòng cài đặt Arduino IDE 2.x hoặc cài arduino-cli độc lập vào PATH.")
-        print("  -> Tải arduino-cli chính thức tại: https://arduino.github.io/arduino-cli/latest/installation/")
-        return False
-
-    ino_path = os.path.join(root_dir, "firmware", "esp32_probe", "esp32_probe.ino")
-    if not os.path.exists(ino_path):
-        print(f"  [Lỗi CLI] Không tìm thấy file sketch: {ino_path}")
-        return False
-
-    port = com_port or find_esp32_com_port(arduino_cli)
-    if not port:
-        print("\n  [Lỗi CLI] Không tìm thấy bo mạch ESP32 nào đang cắm vào cổng USB/Serial!")
-        print("  -> Gợi ý khắc phục:")
-        print("     1. Cắm cáp USB nối ESP32 với máy tính (đảm bảo cáp truyền được data, không phải chỉ sạc).")
-        print("     2. Hoặc chỉ định cổng trực tiếp bằng cờ --port <CỔNG>:")
-        if sys.platform == "win32":
-            print("        Ví dụ Windows: python run_system.py --flash --port COM4")
-        elif sys.platform.startswith("linux"):
-            print("        Ví dụ Linux:   ./run_system.sh --flash --port /dev/ttyUSB0")
-            print("        (Nếu bị Permission Denied: chạy 'sudo usermod -a -G dialout $USER' rồi đăng nhập lại)")
-        else:
-            print("        Ví dụ macOS:   ./run_system.sh --flash --port /dev/cu.usbserial-0001")
-        return False
-
-    print("\n" + "=" * 70)
-    print(f"   [CLI FLASH] DANG BIEN DICH VA NAP FIRMWARE ESP32 TAI CONG {port}...")
-    print("=" * 70)
-
-    # 1. Biên dịch
-    print(f"  [1/2] Biên dịch sketch {os.path.relpath(ino_path, root_dir)} (FQBN: esp32:esp32:esp32)...")
-    cmd_compile = [arduino_cli, "compile", "--fqbn", "esp32:esp32:esp32", ino_path]
-    try:
-        ret_compile = subprocess.run(cmd_compile, capture_output=True, text=True)
-        if ret_compile.returncode != 0:
-            print(f"  [Lỗi Biên Dịch]:\n{ret_compile.stderr or ret_compile.stdout}")
-            return False
-        print("  -> Biên dịch thành công!")
-    except Exception as e:
-        print(f"  [Lỗi thực thi compile]: {e}")
-        return False
-
-    # 2. Nạp code qua cổng COM
-    print(f"  [2/2] Nạp firmware lên board ESP32 qua cổng {port}...")
-    cmd_upload = [arduino_cli, "upload", "-p", port, "--fqbn", "esp32:esp32:esp32", ino_path]
-    try:
-        ret_upload = subprocess.run(cmd_upload, capture_output=True, text=True)
-        if ret_upload.returncode != 0:
-            err_msg = ret_upload.stderr or ret_upload.stdout
-            if "PermissionError" in err_msg or "port is busy" in err_msg or "Access is denied" in err_msg:
-                print(f"\n  [CANH BAO QUAN TRONG] Cong {port} dang bi chiem dung boi tien trinh khac!")
-                print("  -> Vui long DONG Arduino IDE (hoac tat Serial Monitor) de giai phong cong COM, sau do chay lai!")
-            else:
-                print(f"  [Lỗi Nạp Code]:\n{err_msg}")
-            return False
-        print(f"  -> Nạp firmware thành công lên ESP32 qua cổng {port}!")
-        print("=" * 70 + "\n")
-        return True
-    except Exception as e:
-        print(f"  [Lỗi thực thi upload]: {e}")
-        return False
-
-
-def check_port_in_use(port: int) -> bool:
-    """Kiểm tra xem một cổng mạng TCP đã có tiến trình nào chiếm dụng hay chưa."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(('127.0.0.1', port)) == 0
+lake_collector: Optional[DataLakeCollector] = None
+enable_remote_push: bool = False
+
+
+
+from launcher import (
+    detect_host_lan_ip,
+    auto_detect_wifi_credentials,
+    sync_env_to_firmware,
+    check_port_in_use,
+    udp_broker_beacon_worker,
+    network_roaming_watcher_worker,
+    serial_telemetry_bridge_worker,
+    find_esp32_com_port,
+    flash_esp32_cli,
+)
 
 
 def cleanup(sig=None, frame=None):
@@ -599,6 +76,14 @@ def cleanup(sig=None, frame=None):
     print("\n\n" + "=" * 60)
     print("   DANG DUNG TOAN BO HE THONG EDGE AI SECURITY...")
     print("=" * 60)
+    global lake_collector
+    if lake_collector is not None:
+        try:
+            print("  [DataLake] Dang chot session va dong bo Parquet file vao kho du lieu...")
+            lake_collector.stop()
+        except Exception as e:
+            print(f"  [DataLake] Canh bao khi dong lake collector: {e}")
+
     for p in processes:
         if isinstance(p, multiprocessing.Process):
             if p.is_alive():
@@ -611,8 +96,290 @@ def cleanup(sig=None, frame=None):
                     p.wait(timeout=2.0)
                 except subprocess.TimeoutExpired:
                     p.kill()
+
+    global enable_remote_push
+    if enable_remote_push:
+        try:
+            from data_lake.remote_storage import get_remote_storage_manager
+            print("  [RemoteStorage] Dang dong bo toan bo phien lam viec len Cloudflare R2 / S3...")
+            res = get_remote_storage_manager().sync_lake_to_remote()
+            if res.get("success"):
+                print(f"  [RemoteStorage] [OK] {res.get('message')}")
+            else:
+                print(f"  [RemoteStorage] {res.get('message')}")
+        except Exception as e:
+            print(f"  [RemoteStorage] Canh bao dong bo: {e}")
+
     print("   [OK] Tat ca tien trinh da dung an toan. Tam biet!\n")
     sys.exit(0)
+
+
+
+def str_to_bool(val: Any) -> bool:
+    """Chuyển đổi linh hoạt giá trị từ CLI thành boolean."""
+    if isinstance(val, bool):
+        return val
+    s = str(val).lower().strip()
+    if s in ("true", "1", "yes", "y", "t", "on"):
+        return True
+    elif s in ("false", "0", "no", "n", "f", "off"):
+        return False
+    raise argparse.ArgumentTypeError(f"Gia tri boolean khong hop le: '{val}' (chap nhan: true/false, 1/0)")
+
+
+class SmartBooleanAction(argparse.Action):
+    """
+    Action thông minh cho các cờ boolean CLI:
+    - Cho phép gõ trực tiếp cờ để BẬT: --attack-sim, --arduino-cli, --push-remote.
+    - Cho phép gõ tiền tố --no-... để TẮT: --no-attack-sim, --no-arduino-cli.
+    - Cho phép truyền tham số tường minh: --attack-sim true / false / 1 / 0.
+    """
+    def __init__(self, option_strings, dest, default=False, required=False, help=None, metavar="true/false"):
+        opts = []
+        for opt in option_strings:
+            opts.append(opt)
+            if opt.startswith("--") and not opt.startswith("--no-"):
+                neg_opt = f"--no-{opt[2:]}"
+                if neg_opt not in opts:
+                    opts.append(neg_opt)
+        super().__init__(
+            option_strings=opts,
+            dest=dest,
+            nargs="?",
+            const=True,
+            default=default,
+            required=required,
+            help=help,
+            metavar=metavar
+        )
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if option_string and option_string.startswith("--no-"):
+            if values is None:
+                setattr(namespace, self.dest, False)
+            else:
+                val_bool = str_to_bool(values)
+                setattr(namespace, self.dest, not val_bool)
+        elif values is None:
+            setattr(namespace, self.dest, True)
+        else:
+            setattr(namespace, self.dest, str_to_bool(values))
+
+
+def resolve_models_dir(root_dir: str, classifier: str, anomaly_model: str, custom_dir: Optional[str] = None) -> Tuple[str, str]:
+    """
+    Truy vết và tự động chuẩn bị thư mục chứa model artifacts cho BẤT KỲ tổ hợp dual model nào:
+    1. Nếu người dùng chỉ định custom_dir: dùng custom_dir.
+    2. Kiểm tra thư mục chuyên biệt: ml_engine/models/{classifier}_{anomaly_model}
+    3. Nếu chưa có sẵn, tự động truy quét các folder artifacts con trong ml_engine/models/
+       để tìm Classifier ({classifier}) và Anomaly Detector ({anomaly_model}) tương ứng,
+       sau đó tự động tổng hợp tổ hợp dual model mới hoàn chỉnh kèm tinyml_model.h.
+    """
+    if custom_dir:
+        return custom_dir, f"Thu muc chi dinh qua --models-dir ({custom_dir})"
+
+    base_models = os.path.join(root_dir, "ml_engine", "models")
+    clf_clean = classifier.lower().strip()
+    ano_clean = anomaly_model.lower().strip()
+
+    # Chuẩn hóa alias
+    if clf_clean in ("dnn", "mlp", "deep_learning"):
+        clf_clean = "pytorch_deep"
+    if ano_clean == "autoencoder":
+        ano_clean = "deep_autoencoder"
+
+    target_combo_dir = os.path.join(base_models, f"{clf_clean}_{ano_clean}")
+
+    # 1. Kiểm tra nếu thư mục tổ hợp đã tồn tại đầy đủ artifacts
+    if os.path.exists(target_combo_dir):
+        clf_p = os.path.join(target_combo_dir, "attack_classifier.joblib")
+        iso_p = os.path.join(target_combo_dir, "isolation_forest.joblib")
+        sc_p = os.path.join(target_combo_dir, "scaler.joblib")
+        pr_p = os.path.join(target_combo_dir, "preprocessor.joblib")
+        if os.path.exists(clf_p) and os.path.exists(iso_p) and (os.path.exists(sc_p) or os.path.exists(pr_p)):
+            return target_combo_dir, f"Thu muc to hop chuyen biet ({clf_clean}_{ano_clean})"
+
+    # 2. Quét các folder con để tìm từng model thành phần
+    found_clf_dir = None
+    found_ano_dir = None
+    shared_prep_dir = None
+
+    if os.path.exists(base_models):
+        for entry in sorted(os.listdir(base_models)):
+            subpath = os.path.join(base_models, entry)
+            if not os.path.isdir(subpath):
+                continue
+
+            meta_file = os.path.join(subpath, "model_metadata.json")
+            clf_file = os.path.join(subpath, "attack_classifier.joblib")
+            ano_file = os.path.join(subpath, "isolation_forest.joblib")
+
+            # Tìm classifier khớp
+            if os.path.exists(clf_file) and not found_clf_dir:
+                matched = False
+                if os.path.exists(meta_file):
+                    try:
+                        import json
+                        with open(meta_file, "r", encoding="utf-8") as f:
+                            mdata = json.load(f)
+                            m_clf = mdata.get("classifier_type", "").lower()
+                            if m_clf in ("dnn", "mlp", "deep_learning"):
+                                m_clf = "pytorch_deep"
+                            if m_clf == clf_clean:
+                                matched = True
+                    except Exception:
+                        pass
+                if not matched and clf_clean in entry.lower():
+                    matched = True
+                if matched:
+                    found_clf_dir = subpath
+
+            # Tìm anomaly detector khớp
+            if os.path.exists(ano_file) and not found_ano_dir:
+                matched = False
+                if os.path.exists(meta_file):
+                    try:
+                        import json
+                        with open(meta_file, "r", encoding="utf-8") as f:
+                            mdata = json.load(f)
+                            m_ano = mdata.get("anomaly_detector_type", "").lower()
+                            if m_ano == "autoencoder":
+                                m_ano = "deep_autoencoder"
+                            if m_ano == ano_clean:
+                                matched = True
+                    except Exception:
+                        pass
+                if not matched and ano_clean in entry.lower():
+                    matched = True
+                if matched:
+                    found_ano_dir = subpath
+
+            if (os.path.exists(os.path.join(subpath, "scaler.joblib")) or
+                os.path.exists(os.path.join(subpath, "preprocessor.joblib"))) and not shared_prep_dir:
+                shared_prep_dir = subpath
+
+    # 3. Tự động tổng hợp tổ hợp dual model nếu tìm thấy cả 2 thành phần
+    if found_clf_dir and found_ano_dir:
+        os.makedirs(target_combo_dir, exist_ok=True)
+        print(f"\n  [Dual Model Synthesis] Dang tong hop to hop moi '{clf_clean} + {ano_clean}'...")
+        print(f"    * Nguon Classifier ({clf_clean})      : {os.path.basename(found_clf_dir)}")
+        print(f"    * Nguon Anomaly Model ({ano_clean})   : {os.path.basename(found_ano_dir)}")
+
+        # Copy classifier artifacts
+        shutil.copy2(os.path.join(found_clf_dir, "attack_classifier.joblib"), os.path.join(target_combo_dir, "attack_classifier.joblib"))
+        if os.path.exists(os.path.join(found_clf_dir, "classifier_dnn.tflite")):
+            shutil.copy2(os.path.join(found_clf_dir, "classifier_dnn.tflite"), os.path.join(target_combo_dir, "classifier_dnn.tflite"))
+
+        # Copy anomaly detector artifacts
+        shutil.copy2(os.path.join(found_ano_dir, "isolation_forest.joblib"), os.path.join(target_combo_dir, "isolation_forest.joblib"))
+        if os.path.exists(os.path.join(found_ano_dir, "anomaly_autoencoder.tflite")):
+            shutil.copy2(os.path.join(found_ano_dir, "anomaly_autoencoder.tflite"), os.path.join(target_combo_dir, "anomaly_autoencoder.tflite"))
+
+        # Copy scaler/preprocessor
+        prep_src = shared_prep_dir or found_clf_dir or found_ano_dir
+        if os.path.exists(os.path.join(prep_src, "scaler.joblib")):
+            shutil.copy2(os.path.join(prep_src, "scaler.joblib"), os.path.join(target_combo_dir, "scaler.joblib"))
+        if os.path.exists(os.path.join(prep_src, "preprocessor.joblib")):
+            shutil.copy2(os.path.join(prep_src, "preprocessor.joblib"), os.path.join(target_combo_dir, "preprocessor.joblib"))
+
+        # Tự động xuất C Header tinyml_model.h hoàn chỉnh cho tổ hợp này
+        try:
+            import joblib
+            from ml_engine.exporter.tinyml_exporter import export_model_to_c_header
+            clf_obj = joblib.load(os.path.join(target_combo_dir, "attack_classifier.joblib"))
+            ano_obj = joblib.load(os.path.join(target_combo_dir, "isolation_forest.joblib"))
+            prep_obj = joblib.load(os.path.join(target_combo_dir, "preprocessor.joblib")) if os.path.exists(os.path.join(target_combo_dir, "preprocessor.joblib")) else None
+            h_path = os.path.join(target_combo_dir, "tinyml_model.h")
+            export_model_to_c_header(clf_obj, ano_obj, h_path, preprocessor=prep_obj)
+            print(f"    * Da tao C Header tinyml_model.h cho to hop: {h_path}")
+        except Exception as e:
+            print(f"    [Warning] Khong the tu dong tao tinyml_model.h cho to hop: {e}")
+
+        # Tự động xuất model_metadata.json cho tổ hợp mới
+        try:
+            import json
+            combo_meta = {
+                "classifier_type": clf_clean,
+                "anomaly_detector_type": ano_clean,
+                "synthesized": True,
+                "classifier_source": os.path.basename(found_clf_dir),
+                "anomaly_source": os.path.basename(found_ano_dir),
+                "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            clf_meta_path = os.path.join(found_clf_dir, "model_metadata.json")
+            if os.path.exists(clf_meta_path):
+                with open(clf_meta_path, "r", encoding="utf-8") as f:
+                    clf_m = json.load(f)
+                    for k in ("features", "labels", "features_count", "labels_count", "classifier_accuracy", "classifier_macro_f1"):
+                        if k in clf_m:
+                            combo_meta[k] = clf_m[k]
+            with open(os.path.join(target_combo_dir, "model_metadata.json"), "w", encoding="utf-8") as f:
+                json.dump(combo_meta, f, indent=2)
+        except Exception:
+            pass
+
+        return target_combo_dir, f"To hop tu dong tong hop ({clf_clean} + {ano_clean})"
+
+    # Fallback: Quét folder đầu tiên hợp lệ
+    if os.path.exists(base_models):
+        for entry in sorted(os.listdir(base_models)):
+            subpath = os.path.join(base_models, entry)
+            if os.path.isdir(subpath):
+                clf_p = os.path.join(subpath, "attack_classifier.joblib")
+                iso_p = os.path.join(subpath, "isolation_forest.joblib")
+                if os.path.exists(clf_p) and os.path.exists(iso_p):
+                    return subpath, f"Thu muc model fallback tu dong tim thay ({entry})"
+
+    return target_combo_dir, f"Thu muc model ({clf_clean}_{ano_clean})"
+
+
+def sync_tinyml_header_to_firmware(root_dir: str, models_dir: str, classifier: str, anomaly_model: str) -> bool:
+    """
+    Tự động sao chép và ghi đè C Header TinyML (tinyml_model.h) và các file .tflite (nếu có)
+    từ thư mục models tương ứng sang firmware/esp32_probe/.
+    """
+    candidate_paths = [
+        os.path.join(models_dir, "tinyml_model.h"),
+        os.path.join(root_dir, "ml_engine", "models", f"{classifier.lower()}_{anomaly_model.lower()}", "tinyml_model.h"),
+    ]
+    base_models = os.path.join(root_dir, "ml_engine", "models")
+    if os.path.exists(base_models):
+        for entry in sorted(os.listdir(base_models)):
+            candidate_paths.append(os.path.join(base_models, entry, "tinyml_model.h"))
+
+    source_header = None
+    for cp in candidate_paths:
+        if os.path.exists(cp) and os.path.getsize(cp) > 500:
+            source_header = cp
+            break
+
+    if not source_header:
+        print("  [TinyML Sync] Canh bao: Khong tim thay tep tinyml_model.h hop le de dong bo!")
+        return False
+
+    firmware_dir = os.path.join(root_dir, "firmware", "esp32_probe")
+    os.makedirs(firmware_dir, exist_ok=True)
+    dest_header = os.path.join(firmware_dir, "tinyml_model.h")
+
+    try:
+        shutil.copy2(source_header, dest_header)
+        sz = os.path.getsize(dest_header)
+        print(f"  [TinyML Sync] Da tu dong dong bo & ghi de tinyml_model.h sang firmware ESP32 ({sz:,} bytes):")
+        print(f"                Nguon : {source_header}")
+        print(f"                Dich  : {dest_header}")
+
+        # Đồng bộ thêm các file .tflite nếu có trong models_dir
+        for tflite_name in ("classifier_dnn.tflite", "anomaly_autoencoder.tflite"):
+            tf_src = os.path.join(models_dir, tflite_name)
+            if os.path.exists(tf_src):
+                tf_dest = os.path.join(firmware_dir, tflite_name)
+                shutil.copy2(tf_src, tf_dest)
+                print(f"                TFLite: {tflite_name} ({os.path.getsize(tf_dest):,} bytes) -> firmware")
+
+        return True
+    except Exception as e:
+        print(f"  [TinyML Sync Warning] Khong the ghi de tinyml_model.h sang firmware: {e}")
+        return False
 
 
 def main():
@@ -624,7 +391,7 @@ def main():
         "--threshold",
         type=float,
         default=0.55,
-        help="Nguong canh bao Anomaly Score (mac dinh: 0.55)"
+        help="Nguong canh bao Anomaly Score tren toan he thong (mac dinh: 0.55)"
     )
     parser.add_argument(
         "--broker-port",
@@ -642,12 +409,14 @@ def main():
         "--probe",
         default="host",
         choices=["host", "esp32", "sim"],
-        help="Chon nguon telemetry: 'host' (mac dinh: bat luu luong mang that qua card mang), 'esp32' (cho ESP32 vat ly qua WiFi)"
+        help="Nguon du lieu Telemetry: 'host' (bat goi tin mang that tren PC), 'esp32' (cho du lieu tu phan cung ESP32 vat ly), 'sim' (gia lap telemetry)"
     )
     parser.add_argument(
         "--no-sim",
-        action="store_true",
-        help="Tuong duong --probe esp32 (cho phan cung ESP32 ket noi qua WiFi)"
+        dest="no_sim",
+        action=SmartBooleanAction,
+        default=False,
+        help="Chay che do phan cung ESP32 vat ly (tuong duong --probe esp32)"
     )
     parser.add_argument(
         "--window",
@@ -657,33 +426,116 @@ def main():
     )
     parser.add_argument(
         "--no-browser",
-        action="store_true",
-        help="Khong tu dong mo trinh duyet"
+        dest="no_browser",
+        action=SmartBooleanAction,
+        default=False,
+        help="Khong tu dong mo trinh duyet Web Dashboard khi khoi dong (go --no-browser de tat mo browser)"
     )
     parser.add_argument(
         "--attack-sim",
-        action="store_true",
-        help="Kich hoat bo ban goi tin doc hai mang that (Port Scan, UDP Flood, SYN Flood, Vuln Scan, Exfil) dieu khien truc tiep tu nut bam Web Dashboard"
+        dest="attack_sim",
+        action=SmartBooleanAction,
+        default=False,
+        help="Kich hoat bo ban goi tin doc hai mang that (Port Scan, UDP Flood, SYN Flood, Vuln Scan, Exfiltration) qua raw socket, dieu khien tu Dashboard (Go --attack-sim de BAT; hoac --no-attack-sim de TAT)"
     )
     parser.add_argument(
         "--attack-target",
         default=None,
-        help="IP dich de ban goi tin doc hai khi co --attack-sim (mac dinh: tu dong nhan dien Gateway IP hoac localhost)"
+        help="IP dich de ban goi tin doc hai khi dung --attack-sim (mac dinh: tu dong do tim Gateway / Broadcast / ESP32 IP)"
+    )
+    parser.add_argument(
+        "--arduino-cli",
+        "--arduino_cli",
+        dest="arduino_cli",
+        action=SmartBooleanAction,
+        default=False,
+        help="Tu dong bien dich va nap firmware sang ESP32 qua arduino-cli (Go --arduino-cli de BAT; hoac --no-arduino-cli de TAT)"
     )
     parser.add_argument(
         "--flash",
+        dest="arduino_cli",
         action="store_true",
-        help="Tu dong bien dich va nap firmware ESP32 qua CLI (khong can mo Arduino IDE GUI)"
+        help=argparse.SUPPRESS
     )
     parser.add_argument(
         "--port",
         "--com-port",
         dest="com_port",
         default=None,
-        help="Chi dinh cong Serial / COM cua ESP32 khi dung --flash (mac dinh: tu dong do tim. Vi du: COM4 tren Windows, /dev/ttyUSB0 tren Linux, /dev/cu.usbserial-0001 tren macOS)"
+        help="Chi dinh cong Serial/COM cua ESP32 (mac dinh: tu dong do tim, vd: COM4 tren Windows, /dev/ttyUSB0 tren Linux)"
+    )
+    parser.add_argument(
+        "--record-lake",
+        dest="record_lake",
+        action=SmartBooleanAction,
+        default=True,
+        help="Tu dong ghi luu toan bo telemetries vao Data Lakehouse Parquet/SQLite (Mac dinh: BAT; go --no-record-lake hoac --no-record de TAT)"
+    )
+    parser.add_argument(
+        "--classifier",
+        default="decision_tree",
+        choices=[
+            "decision_tree", "random_forest", "extra_trees", "xgboost", "xgb",
+            "lightgbm", "lgb", "catboost", "gradient_boosting", "pytorch_deep", "dnn", "mlp", "deep_learning",
+            "logistic_regression", "ensemble_voting"
+        ],
+        help=(
+            "Loai Attack Classifier can nap (8 mo hinh phan loai chinh):\n"
+            "  [Nhom Edge TinyML C Header / TFLite cho ESP32]:\n"
+            "  * decision_tree      : Cây quyết định (C Header TinyML siêu nhẹ)\n"
+            "  * random_forest      : Rừng cây ngẫu nhiên (C Header TinyML soft-voting)\n"
+            "  * extra_trees        : Extra Trees Ensemble (C Header TinyML)\n"
+            "  * pytorch_deep / dnn : Deep Neural Network (TFLite FlatBuffer C array cho ESP32)\n"
+            "  * logistic_regression: Hồi quy Logistic tuyến tính (C Header Softmax)\n"
+            "  [Nhom High-Performance Server GBDT]:\n"
+            "  * xgboost / xgb      : XGBoost Gradient Boosting\n"
+            "  * lightgbm / lgb     : LightGBM Histogram GBDT\n"
+            "  * catboost           : CatBoost Classifier\n"
+            "  * gradient_boosting  : Scikit-learn Gradient Boosting Baseline\n"
+            "  * ensemble_voting    : Tổ hợp mềm Soft-Voting Ensemble (RF + ET + XGB)"
+        )
+    )
+    parser.add_argument(
+        "--anomaly-model",
+        default="isolation_forest",
+        choices=[
+            "isolation_forest", "deep_autoencoder", "autoencoder",
+            "one_class_svm", "elliptic_envelope", "lof"
+        ],
+        help=(
+            "Loai Anomaly Detector can nap (6 mo hinh phat hien bat thuong):\n"
+            "  [Nhom Edge TinyML C Header / TFLite cho ESP32]:\n"
+            "  * isolation_forest   : Cô lập rừng cây ngẫu nhiên (C Header TinyML)\n"
+            "  * deep_autoencoder   : Deep Autoencoder (TFLite FlatBuffer C array cho ESP32)\n"
+            "  * one_class_svm      : One-Class SVM RBF Kernel (C Header TinyML)\n"
+            "  * elliptic_envelope  : Robust Gaussian Mahalanobis (C Header TinyML)\n"
+            "  * lof                : Local Outlier Factor K-Nearest Density (C Header TinyML)"
+        )
+    )
+    parser.add_argument(
+        "--models-dir",
+        default=None,
+        help="Chi dinh truc tiep thu muc chua artifacts mo hinh (mac dinh: tu dong tim kiem hoac tong hop to hop)"
+    )
+    parser.add_argument(
+        "--push-remote",
+        dest="push_remote",
+        action=SmartBooleanAction,
+        default=False,
+        help="Tu dong dong bo toan bo phan vung Parquet len Cloudflare R2 / S3 (Go --push-remote de BAT; hoac --no-push-remote de TAT)"
+    )
+    parser.add_argument(
+        "--no-record",
+        dest="record_lake",
+        action="store_false",
+        help="Tat che do ghi vao Data Lakehouse (tuong duong --no-record-lake)"
     )
 
     args = parser.parse_args()
+
+    # Thiết lập trạng thái remote push toàn cục
+    global enable_remote_push
+    enable_remote_push = getattr(args, "push_remote", False) or (os.getenv("R2_AUTO_SYNC", "false").lower() in ("true", "1", "yes"))
 
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
@@ -704,18 +556,25 @@ def main():
 
     print("=" * 70)
     print("   EDGE AI NETWORK ANOMALY DETECTION SYSTEM - RUNTIME LAUNCHER")
-    print(f"   [Mode: INFERENCE ONLY (LOAD ARTIFACTS)] | [Probe: {probe_mode.upper()}]")
+    print(f"   [Mode: INFERENCE ONLY] | [Probe: {probe_mode.upper()}]")
+    print(f"   [Target Models: Classifier='{args.classifier}', Anomaly='{args.anomaly_model}']")
+    if enable_remote_push:
+        print("   [Cloud Sync: KICH HOAT (Tu dong push len Cloudflare R2 / S3)]")
     if args.attack_sim:
         print("   [Attack Simulator: KICH HOAT (Ban goi tin mang that, dieu khien tu Web UI)]")
-    if args.flash:
-        print("   [CLI Auto-Flash ESP32: KICH HOAT (Tu dong build & nap qua CLI)]")
+    if args.arduino_cli:
+        print("   [CLI Auto-Flash ESP32 (arduino-cli): KICH HOAT (Tu dong build & nap qua CLI)]")
     print("=" * 70)
 
     # Dong bo cau hinh credentials neu co thiet lap (tu dong lay SSID/Pass qua netsh ngam)
     sync_env_to_firmware(root_dir)
 
-    # 0. Neu co yeu cau nap firmware cho ESP32 qua CLI
-    if args.flash:
+    # Tu dong xac dinh thu muc model va dong bo C Header TinyML sang firmware ESP32
+    models_dir, models_source = resolve_models_dir(root_dir, args.classifier, args.anomaly_model, args.models_dir)
+    sync_tinyml_header_to_firmware(root_dir, models_dir, args.classifier, args.anomaly_model)
+
+    # 0. Neu co yeu cau nap firmware cho ESP32 qua CLI (arduino-cli)
+    if args.arduino_cli:
         flash_ok = flash_esp32_cli(root_dir, com_port=args.com_port)
         if not flash_ok:
             print("  [Nhac nho] Ban van co the mo Arduino IDE de nap code bang tay neu muon.")
@@ -739,47 +598,96 @@ def main():
         else:
             print("  [Canh bao] Chua khoi dong duoc broker, he thong se tiep tuc...")
 
-    # 2. Kiem tra Model Artifacts (Khong con training trong run_system)
-    print("\n[2/5] Kiem tra Artifacts mo hinh Machine Learning...")
-    model_path = os.path.join(root_dir, "ml_engine", "models", "attack_classifier.joblib")
-    meta_path = os.path.join(root_dir, "ml_engine", "models", "model_metadata.json")
-    scaler_path = os.path.join(root_dir, "ml_engine", "models", "scaler.joblib")
+    # 1.1 Khoi dong Data Lakehouse Collector neu co bat
+    global lake_collector
+    if getattr(args, "record_lake", True):
+        try:
+            lake_collector = start_lake_collector(
+                broker_host="127.0.0.1",
+                broker_port=args.broker_port,
+                buffer_size=50,
+                flush_interval=5.0
+            )
+            print(f"  -> Data Lakehouse Collector: DA SAN SANG (Ghi Parquet vao data_lake/raw/ | Session: {lake_collector.session_id})")
+        except Exception as e:
+            print(f"  [DataLake] Canh bao: Khong the khoi dong Data Lake Collector: {e}")
 
-    if not (os.path.exists(model_path) and os.path.exists(meta_path) and os.path.exists(scaler_path)):
+    # 1.2 Khoi dong Periodic Cloud Sync neu bat --push-remote
+    if enable_remote_push:
+        try:
+            from data_lake.remote_storage import get_remote_storage_manager
+            r_mgr = get_remote_storage_manager()
+            ok_r, msg_r = r_mgr.is_configured_and_available()
+            if ok_r:
+                print(f"  -> Remote Storage ({r_mgr._provider_name}): DA SAN SANG ({r_mgr.endpoint} | Bucket: {r_mgr.bucket_name})")
+                def _periodic_sync_worker():
+                    while True:
+                        time.sleep(300)
+                        try:
+                            r_mgr.sync_lake_to_remote()
+                        except Exception:
+                            pass
+                t_r = threading.Thread(target=_periodic_sync_worker, daemon=True)
+                t_r.start()
+            else:
+                print(f"  [RemoteStorage] Canh bao: {msg_r}")
+        except Exception as e:
+            print(f"  [RemoteStorage] Canh bao khoi tao: {e}")
+
+    # 2. Kiem tra Model Artifacts theo co --classifier & --anomaly-model
+    models_dir, models_source = resolve_models_dir(root_dir, args.classifier, args.anomaly_model, args.models_dir)
+    print("\n[2/5] Kiem tra Artifacts mo hinh Machine Learning...")
+    print(f"  * Thu muc nguon : {models_dir}")
+    print(f"  * Chi tiet nguon: {models_source}")
+
+
+    model_path = os.path.join(models_dir, "attack_classifier.joblib")
+    iso_path = os.path.join(models_dir, "isolation_forest.joblib")
+    meta_path = os.path.join(models_dir, "model_metadata.json")
+    scaler_path = os.path.join(models_dir, "scaler.joblib")
+    prep_path = os.path.join(models_dir, "preprocessor.joblib")
+
+    has_scaler = os.path.exists(scaler_path) or os.path.exists(prep_path)
+    if not (os.path.exists(model_path) and os.path.exists(iso_path) and has_scaler):
         print("\n" + "=" * 76)
         print("  [NHAC NHO QUAN TRONG] CHUA TIM THAY ARTIFACTS MO HINH MACHINE LEARNING!")
         print("=" * 76)
-        print("  He thong van hanh (run_system.py) hoat dong o che do suy luan thuan tuy,")
-        print("  khong con tu dong huan luyen de dam bao tinh on dinh va toc do khoi dong.")
-        print("\n  Vui long chay quy trinh huan luyen offline truoc de tao artifacts:")
-        print("      python ml_engine/train.py --classifier decision_tree")
+        print(f"  He thong da tim kiem tai: {models_dir}")
+        print("  nhung khong co du cac tep weights can thiet.")
+        print("\n  Vui long chay quy trinh huan luyen offline cho cap model nay truoc:")
+        print(f"      python ml_engine/train.py --classifier {args.classifier} --anomaly-model {args.anomaly_model}")
         print("\n  Hoac toi uu hoa sieu tham so (HPO) voi Optuna:")
-        print("      python ml_engine/train.py --classifier random_forest --optuna")
+        print(f"      python ml_engine/train.py --classifier {args.classifier} --optuna")
         print("\n  Sau khi huan luyen thanh cong va xuat artifacts, hay chay lai:")
-        print("      python run_system.py")
+        print(f"      python run_system.py --classifier {args.classifier} --anomaly-model {args.anomaly_model}")
         print("=" * 76 + "\n")
         cleanup()
         sys.exit(1)
 
+    clf_name = args.classifier
+    det_name = args.anomaly_model
     import json
     try:
-        with open(meta_path, "r", encoding="utf-8") as f:
-            meta = json.load(f)
-        clf_name = meta.get("classifier_type", "Unknown")
-        det_name = meta.get("anomaly_detector_type", "Unknown")
-        feat_cnt = meta.get("features_count", len(meta.get("features", [])))
-        lbl_cnt = meta.get("labels_count", len(meta.get("labels", [])))
-        acc = meta.get("classifier_accuracy", 0.0)
-        macro_f1 = meta.get("classifier_macro_f1", 0.0)
-        print(f"  -> Da load thanh cong Artifacts da huan luyen:")
-        print(f"     * Classifier Model       : {clf_name} (Accuracy: {acc*100:.2f}%, Macro F1: {macro_f1*100:.2f}%)")
-        print(f"     * Anomaly Detector       : {det_name}")
-        print(f"     * Schema Features        : {feat_cnt} dac trung (Edge-IIoTset)")
-        print(f"     * Nhan phan loai tan cong: {lbl_cnt} lop")
+        if os.path.exists(meta_path):
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            clf_name = meta.get("classifier_type", args.classifier)
+            det_name = meta.get("anomaly_detector_type", args.anomaly_model)
+            feat_cnt = meta.get("features_count", len(meta.get("features", [])))
+            lbl_cnt = meta.get("labels_count", len(meta.get("labels", [])))
+            acc = meta.get("classifier_accuracy", 0.0)
+            macro_f1 = meta.get("classifier_macro_f1", 0.0)
+            print(f"  -> Da load thanh cong Artifacts da huan luyen:")
+            print(f"     * Classifier Model       : {clf_name} (Accuracy: {acc*100:.2f}%, Macro F1: {macro_f1*100:.2f}%)")
+            print(f"     * Anomaly Detector       : {det_name}")
+            print(f"     * Schema Features        : {feat_cnt} dac trung (Edge-IIoTset)")
+            print(f"     * Nhan phan loai tan cong: {lbl_cnt} lop")
+        else:
+            print(f"  -> Da tim thay artifacts model tai {models_dir} (Classifier: {clf_name}, Detector: {det_name})")
     except Exception as e:
-        print(f"  -> Da tim thay artifacts model tai ml_engine/models (Chi tiet meta: {e})")
+        print(f"  -> Da tim thay artifacts model tai {models_dir} (Chi tiet meta: {e})")
 
-    # 3. Khoi dong ML Inference Service
+    # 3. Khoi dong ML Inference Service voi dung MODELS_DIR
     print("\n[3/5] Khoi dong ML Real-time Inference Engine...")
     inference_script = os.path.join(root_dir, "ml_engine", "inference_service.py")
     env_inf = os.environ.copy()
@@ -787,9 +695,11 @@ def main():
     env_inf["MQTT_BROKER_HOST"] = "127.0.0.1"
     env_inf["MQTT_PORT"] = str(args.broker_port)
     env_inf["ANOMALY_THRESHOLD"] = str(args.threshold)
+    env_inf["MODELS_DIR"] = models_dir
     p_inference = subprocess.Popen([python_exe, inference_script], env=env_inf)
     processes.append(p_inference)
     time.sleep(1.0)
+
 
     # 4. Khoi dong Dashboard Backend (FastAPI)
     print(f"\n[4/5] Khoi dong Web Dashboard Server tren port {args.dashboard_port}...")
@@ -865,6 +775,7 @@ def main():
     print(f"  -> Model Classifier     : {clf_name}")
     print(f"  -> Model Anomaly        : {det_name}")
     print(f"  -> Probe Source         : {probe_mode.upper()} ({probe_desc})")
+    print(f"  -> Data Lakehouse       : {'BAT (Luu data_lake/raw/ partitioned theo ngay)' if getattr(args, 'record_lake', True) else 'TAT'}")
     print(f"  -> Attack Simulation    : {'BAT (Dieu khien on-demand tu Web UI)' if args.attack_sim else 'TAT'}")
     print(f"  -> Nguong canh bao      : {args.threshold}")
     print("  -> Nhan Ctrl + C de dung toan bo he thong.")
@@ -882,7 +793,6 @@ def main():
             time.sleep(1)
     except KeyboardInterrupt:
         cleanup()
-
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()

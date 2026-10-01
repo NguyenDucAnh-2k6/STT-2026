@@ -1055,3 +1055,70 @@ table.packet-table tr.row-threat:hover {
     flex: 0 0 auto;
   }
 }
+
+/* ==========================================================================
+   WIFI OVER-THE-AIR SPECTRUM & DISCOVERED NETWORKS COMPONENT
+   ========================================================================== */
+.wifi-spectrum-card {
+  border-color: rgba(0, 240, 255, 0.2);
+  transition: var(--transition-smooth);
+}
+.wifi-spectrum-card:hover {
+  border-color: rgba(0, 240, 255, 0.4);
+}
+.wifi-item-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  transition: var(--transition-smooth);
+}
+.wifi-item-card:hover {
+  background: rgba(23, 31, 48, 0.85);
+  border-color: rgba(0, 240, 255, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 240, 255, 0.08);
+}
+.wifi-signal-meter {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+}
+.wifi-signal-bar {
+  width: 3.5px;
+  border-radius: 1px;
+  background: rgba(148, 163, 184, 0.25);
+  transition: background 0.2s ease;
+}
+.wifi-signal-bar:nth-child(1) { height: 4px; }
+.wifi-signal-bar:nth-child(2) { height: 8px; }
+.wifi-signal-bar:nth-child(3) { height: 12px; }
+.wifi-signal-bar:nth-child(4) { height: 16px; }
+
+.wifi-signal-excellent .wifi-signal-bar { background: var(--emerald-safe); }
+.wifi-signal-good .wifi-signal-bar:nth-child(-n+3) { background: var(--cyan-neon); }
+.wifi-signal-fair .wifi-signal-bar:nth-child(-n+2) { background: var(--amber-warning); }
+.wifi-signal-weak .wifi-signal-bar:nth-child(1) { background: var(--crimson-danger); }
+
+/* ==========================================================================
+   DATA LAKEHOUSE & CLOUD REMOTE STORAGE MODAL
+   ========================================================================== */
+.modal-overlay {
+  animation: modalFadeIn 0.25s ease-out;
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.modal-content {
+  animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modalSlideUp {
+  from { transform: translateY(16px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
