@@ -427,6 +427,43 @@ class DataLakeManager:
             return pd.DataFrame()
         return pd.concat(dfs, ignore_index=True)
 
+    def load_labeled_dataset(self, valid_labels: Optional[List[str]] = None) -> pd.DataFrame:
+        """
+        Trích xuất toàn bộ dữ liệu CÓ NHÃN GROUND-TRUTH HỢP LỆ từ Data Lake.
+        Tự động lờ đi (bỏ qua) tất cả các bản ghi không có nhãn, nhãn rỗng, nhãn không xác định
+        hoặc nhãn chung chung như 'Attacking', 'IDLE', 'Unknown', 'ZeroDay_Anomaly'.
+        """
+        full_df = self.load_all_training_data()
+        if full_df.empty:
+            return pd.DataFrame()
+
+        label_col = "ground_truth_scenario" if "ground_truth_scenario" in full_df.columns else "label"
+        if label_col not in full_df.columns:
+            return pd.DataFrame()
+
+        canonical_map = {
+            "normal": "Normal", "ddos_udp": "DDoS_UDP", "ddos_icmp": "DDoS_ICMP",
+            "sql_injection": "SQL_injection", "vulnerability_scanner": "Vulnerability_scanner",
+            "ddos_tcp": "DDoS_TCP", "ddos_http": "DDoS_HTTP", "uploading": "Uploading",
+            "backdoor": "Backdoor", "port_scanning": "Port_Scanning", "xss": "XSS",
+            "ransomware": "Ransomware", "password": "Password", "fingerprinting": "Fingerprinting",
+            "mitm": "MITM"
+        }
+
+        # Bỏ qua các giá trị rỗng/null/unknown
+        cleaned = full_df[label_col].astype(str).str.strip().str.lower()
+        mapped_labels = cleaned.map(canonical_map)
+
+        # Lọc chỉ lấy những dòng có nhãn thuộc 15 lớp chuẩn Edge-IIoTset
+        valid_mask = mapped_labels.notna()
+        labeled_df = full_df[valid_mask].copy()
+        labeled_df[label_col] = mapped_labels[valid_mask].values
+
+        if valid_labels:
+            labeled_df = labeled_df[labeled_df[label_col].isin(valid_labels)]
+
+        return labeled_df
+
 
 # Singleton instance
 _lake_manager_instance: Optional[DataLakeManager] = None

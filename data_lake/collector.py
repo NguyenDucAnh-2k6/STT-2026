@@ -78,18 +78,41 @@ class DataLakeCollector:
 
         if topic == "edge/attack/status":
             scenario = payload.get("scenario", "Normal")
-            status = payload.get("status", "IDLE")
-            self.current_scenario = scenario if status in ["ACTIVE", "RUNNING"] else "Normal"
-            self.is_attack_active = bool(status in ["ACTIVE", "RUNNING"] and scenario != "Normal")
+            status = str(payload.get("status", "IDLE")).upper()
+            is_active = status in ["ACTIVE", "RUNNING", "ATTACKING"]
+            
+            canonical_map = {
+                "normal": "Normal", "ddos_udp": "DDoS_UDP", "ddos_icmp": "DDoS_ICMP",
+                "sql_injection": "SQL_injection", "vulnerability_scanner": "Vulnerability_scanner",
+                "ddos_tcp": "DDoS_TCP", "ddos_http": "DDoS_HTTP", "uploading": "Uploading",
+                "backdoor": "Backdoor", "port_scanning": "Port_Scanning", "xss": "XSS",
+                "ransomware": "Ransomware", "password": "Password", "fingerprinting": "Fingerprinting",
+                "mitm": "MITM"
+            }
+            clean_sc = canonical_map.get(str(scenario).strip().lower(), scenario)
+            self.current_scenario = clean_sc if (is_active and clean_sc != "Normal") else "Normal"
+            self.is_attack_active = bool(is_active and clean_sc != "Normal")
 
         elif topic == "edge/telemetry/prediction":
             self.latest_prediction = payload
 
         elif topic == "edge/telemetry/traffic":
             ground_truth = self.current_scenario
+            if ground_truth == "Normal" and payload.get("attack_scenario") and payload.get("attack_scenario") != "Normal":
+                ground_truth = payload.get("attack_scenario")
+
+            canonical_map = {
+                "normal": "Normal", "ddos_udp": "DDoS_UDP", "ddos_icmp": "DDoS_ICMP",
+                "sql_injection": "SQL_injection", "vulnerability_scanner": "Vulnerability_scanner",
+                "ddos_tcp": "DDoS_TCP", "ddos_http": "DDoS_HTTP", "uploading": "Uploading",
+                "backdoor": "Backdoor", "port_scanning": "Port_Scanning", "xss": "XSS",
+                "ransomware": "Ransomware", "password": "Password", "fingerprinting": "Fingerprinting",
+                "mitm": "MITM"
+            }
+            clean_gt = canonical_map.get(str(ground_truth).strip().lower(), ground_truth)
             self.lake.record_telemetry(
                 telemetry=payload,
-                ground_truth=ground_truth,
+                ground_truth=clean_gt,
                 prediction=self.latest_prediction
             )
 

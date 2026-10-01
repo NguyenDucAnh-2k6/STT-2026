@@ -85,12 +85,20 @@ class EdgeTrafficPreprocessor:
         Học phân phối thống kê và fit các encoder trên từng module con chuyên biệt,
         sau đó fit StandardScaler trên toàn bộ ma trận đặc trưng.
         """
-        # 1. Fit từng module con theo giao thức để học baseline thực nghiệm từ dữ liệu thật
+        # 1. Fit từng module con theo giao thức để học baseline thực nghiệm từ dữ liệu Normal thật
+        # Đảm bảo khi thiếu trường trong telemetry thời gian thực, giá trị mặc định luôn là mức baseline an toàn (Normal)
+        normal_df = X_df
+        if y is not None:
+            y_series = pd.Series(y).astype(str)
+            norm_mask = (y_series.str.lower() == "normal")
+            if norm_mask.sum() > 0:
+                normal_df = X_df.loc[norm_mask]
+
         transformed_parts = []
         self.feature_baselines_ = {}
 
         for name, sub in self.sub_preprocessors.items():
-            sub.fit(X_df)
+            sub.fit(df=normal_df, full_df=X_df)
             self.feature_baselines_.update(sub.learned_baselines_)
             part_df = sub.transform(X_df)
             transformed_parts.append(part_df)

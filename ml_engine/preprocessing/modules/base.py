@@ -11,6 +11,24 @@ import numpy as np
 import pandas as pd
 
 
+def normalize_categorical_value(val: Any) -> str:
+    """Chuẩn hóa giá trị phân loại về dạng chuỗi thống nhất, giải quyết triệt để 0 vs 0.0 vs hex rò rỉ."""
+    if val is None:
+        return "0"
+    s = str(val).strip()
+    if s in ("0", "0.0", "0.000000", "0x0", "0x00000000", "", "nan", "None", "-"):
+        return "0"
+    try:
+        f = float(s)
+        if f == 0.0:
+            return "0"
+        if f.is_integer():
+            return str(int(f))
+    except (ValueError, OverflowError):
+        pass
+    return s
+
+
 class BaseSubPreprocessor(ABC):
     """Lớp cơ sở trừu tượng cho các module con tiền xử lý đặc trưng mạng."""
 
@@ -20,18 +38,20 @@ class BaseSubPreprocessor(ABC):
         self.learned_baselines_: Dict[str, float] = {}
         self.is_fitted: bool = False
 
-    def fit(self, df: pd.DataFrame) -> "BaseSubPreprocessor":
+    def fit(self, df: pd.DataFrame, full_df: Optional[pd.DataFrame] = None) -> "BaseSubPreprocessor":
         """
         Học phân phối thống kê thực nghiệm (Empirical Distribution) từ dữ liệu thực tế:
         - Giá trị median cho đặc trưng liên tục (tránh ảnh hưởng bởi ngoại lai cực đoan).
         - Giá trị mode cho đặc trưng phân loại / cờ giao thức.
+        - Khám phá toàn bộ từ điển danh mục (category vocabulary) từ full_df.
         """
         for feat in self.feature_names:
             if feat in df.columns:
                 series = df[feat]
                 if feat in self.cat_cols or series.dtype == "object":
-                    mode_val = series.mode()
-                    val = mode_val.iloc[0] if not mode_val.empty else 0.0
+                    norm_series = series.map(normalize_categorical_value)
+                    mode_val = norm_series.mode()
+                    val = mode_val.iloc[0] if not mode_val.empty else "0"
                     try:
                         self.learned_baselines_[feat] = float(val)
                     except (ValueError, TypeError):
@@ -43,7 +63,8 @@ class BaseSubPreprocessor(ABC):
             else:
                 self.learned_baselines_[feat] = 0.0
 
-        self._fit_internal(df)
+        vocab_df = full_df if full_df is not None else df
+        self._fit_internal(vocab_df)
         self.is_fitted = True
         return self
 

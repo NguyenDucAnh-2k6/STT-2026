@@ -24,6 +24,7 @@ class DecisionTreeWrapper(BaseAttackClassifier):
         min_samples_split: int = 6,
         min_samples_leaf: int = 2,
         random_state: int = 42,
+        class_weight: str = "balanced",
         **kwargs
     ):
         self.model = DecisionTreeClassifier(
@@ -31,6 +32,7 @@ class DecisionTreeWrapper(BaseAttackClassifier):
             min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf,
             random_state=random_state,
+            class_weight=class_weight,
             **kwargs
         )
 
@@ -56,6 +58,10 @@ class DecisionTreeWrapper(BaseAttackClassifier):
         return True
 
     @property
+    def classes_(self) -> Any:
+        return getattr(self.model, "classes_", None)
+
+    @property
     def underlying_estimator(self) -> Any:
         return self.model
 
@@ -69,6 +75,7 @@ class RandomForestWrapper(BaseAttackClassifier):
         max_depth: int = 12,
         random_state: int = 42,
         n_jobs: int = -1,
+        class_weight: str = "balanced",
         **kwargs
     ):
         self.model = RandomForestClassifier(
@@ -76,6 +83,7 @@ class RandomForestWrapper(BaseAttackClassifier):
             max_depth=max_depth,
             random_state=random_state,
             n_jobs=n_jobs,
+            class_weight=class_weight,
             **kwargs
         )
 
@@ -98,7 +106,7 @@ class RandomForestWrapper(BaseAttackClassifier):
 
     @property
     def can_export_tinyml(self) -> bool:
-        return False
+        return True
 
     @property
     def underlying_estimator(self) -> Any:
@@ -114,6 +122,7 @@ class ExtraTreesWrapper(BaseAttackClassifier):
         max_depth: int = 12,
         random_state: int = 42,
         n_jobs: int = -1,
+        class_weight: str = "balanced",
         **kwargs
     ):
         self.model = ExtraTreesClassifier(
@@ -121,6 +130,7 @@ class ExtraTreesWrapper(BaseAttackClassifier):
             max_depth=max_depth,
             random_state=random_state,
             n_jobs=n_jobs,
+            class_weight=class_weight,
             **kwargs
         )
 
@@ -143,7 +153,7 @@ class ExtraTreesWrapper(BaseAttackClassifier):
 
     @property
     def can_export_tinyml(self) -> bool:
-        return False
+        return True
 
     @property
     def underlying_estimator(self) -> Any:

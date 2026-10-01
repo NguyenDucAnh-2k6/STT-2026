@@ -37,7 +37,25 @@ async def get_status():
             "scenario": state.attack_scenario,
             "target_ip": state.attack_target_ip,
             "auto_cycle": state.attack_auto_cycle
+        },
+        "system_models": {
+            "classifier": state.host_classifier,
+            "anomaly_detector": state.host_anomaly_detector,
+            "edge_model": state.edge_model,
+            "features_count": state.features_count
         }
+    }
+
+
+@router.get("/system/models")
+async def get_system_models():
+    """Lấy thông tin mô hình Machine Learning & Deep Learning hiện tại."""
+    return {
+        "status": "success",
+        "classifier": state.host_classifier,
+        "anomaly_detector": state.host_anomaly_detector,
+        "edge_model": state.edge_model,
+        "features_count": state.features_count
     }
 
 

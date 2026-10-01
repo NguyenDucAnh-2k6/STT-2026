@@ -8,10 +8,17 @@ Bắn lưu lượng mạng thật qua sóng Wi-Fi từ Laptop để ESP32 bắt 
 """
 
 import os
+import sys
 import socket
 import time
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 try:
     from dotenv import load_dotenv

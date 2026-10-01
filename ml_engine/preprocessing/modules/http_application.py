@@ -12,8 +12,7 @@ Quản lý 9 đặc trưng của giao thức ứng dụng HTTP:
 from typing import Dict, Any, List
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import OrdinalEncoder
-from .base import BaseSubPreprocessor
+from .base import BaseSubPreprocessor, normalize_categorical_value
 
 HTTP_FEATURES: List[str] = [
     "http.file_data",
@@ -42,17 +41,19 @@ class HTTPApplicationPreprocessor(BaseSubPreprocessor):
 
     def __init__(self):
         super().__init__(feature_names=HTTP_FEATURES, cat_cols=HTTP_CAT_COLS)
-        self.encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
         self._cat_maps: Dict[str, Dict[str, float]] = {}
 
     def _fit_internal(self, df: pd.DataFrame):
         valid_cats = [c for c in self.cat_cols if c in df.columns]
-        if valid_cats:
-            str_df = df[valid_cats].fillna("0.0").astype(str)
-            self.encoder.fit(str_df)
-            for idx, col in enumerate(valid_cats):
-                cats = self.encoder.categories_[idx]
-                self._cat_maps[col] = {str(c): float(i) for i, c in enumerate(cats)}
+        for col in valid_cats:
+            norm_series = df[col].map(normalize_categorical_value)
+            unique_cats = sorted(norm_series.unique())
+            if "0" not in unique_cats:
+                unique_cats.insert(0, "0")
+            else:
+                unique_cats.remove("0")
+                unique_cats.insert(0, "0")
+            self._cat_maps[col] = {cat: float(idx) for idx, cat in enumerate(unique_cats)}
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         out = pd.DataFrame(index=df.index)
@@ -60,7 +61,8 @@ class HTTPApplicationPreprocessor(BaseSubPreprocessor):
             if col in df.columns:
                 if col in self.cat_cols and col in self._cat_maps:
                     mapping = self._cat_maps[col]
-                    out[col] = df[col].astype(str).map(lambda v: mapping.get(v, -1.0)).astype(np.float32)
+                    default_idx = mapping.get("0", 0.0)
+                    out[col] = df[col].map(lambda v: mapping.get(normalize_categorical_value(v), default_idx)).astype(np.float32)
                 else:
                     out[col] = pd.to_numeric(df[col], errors="coerce").fillna(self.learned_baselines_.get(col, 0.0))
             else:
@@ -73,7 +75,9 @@ class HTTPApplicationPreprocessor(BaseSubPreprocessor):
             if feat in telemetry:
                 val = telemetry[feat]
                 if feat in self.cat_cols and feat in self._cat_maps:
-                    res[feat] = self._cat_maps[feat].get(str(val), -1.0)
+                    mapping = self._cat_maps[feat]
+                    default_idx = mapping.get("0", 0.0)
+                    res[feat] = mapping.get(normalize_categorical_value(val), default_idx)
                 else:
                     try:
                         res[feat] = float(val)
@@ -92,6 +96,7 @@ class HTTPApplicationPreprocessor(BaseSubPreprocessor):
         if "http_method" in telemetry or "method" in telemetry:
             m = str(telemetry.get("http_method", telemetry.get("method", ""))).upper()
             if m and "http.request.method" in self._cat_maps:
-                res["http.request.method"] = self._cat_maps["http.request.method"].get(m, -1.0)
+                mapping = self._cat_maps["http.request.method"]
+                res["http.request.method"] = mapping.get(normalize_categorical_value(m), mapping.get("0", 0.0))
 
         return res

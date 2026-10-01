@@ -129,10 +129,11 @@ class LocalOutlierFactorWrapper(BaseAnomalyDetector):
         n_jobs: int = -1,
         **kwargs
     ):
+        novelty = kwargs.pop("novelty", True)
         self.model = LocalOutlierFactor(
             n_neighbors=n_neighbors,
             contamination=contamination,
-            novelty=True,
+            novelty=novelty,
             n_jobs=n_jobs,
             **kwargs
         )

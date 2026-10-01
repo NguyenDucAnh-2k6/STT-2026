@@ -45,7 +45,7 @@ class LogisticRegressionWrapper(BaseAttackClassifier):
 
     @property
     def can_export_tinyml(self) -> bool:
-        return False
+        return True
 
     @property
     def underlying_estimator(self) -> Any:

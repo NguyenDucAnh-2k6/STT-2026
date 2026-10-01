@@ -210,12 +210,22 @@ class PyTorchDeepWrapper(BaseAttackClassifier):
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, drop_last=False)
         val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False)
 
-        criterion = nn.CrossEntropyLoss()
+        # Tính trọng số nghịch đảo tần suất lớp (Balanced Class Weights) để loại bỏ hoàn toàn thiên vị (bias)
+        from sklearn.utils.class_weight import compute_class_weight
+        try:
+            classes_arr = np.arange(self.num_classes)
+            cls_weights = compute_class_weight(class_weight="balanced", classes=classes_arr, y=y_tr)
+            cls_weights = np.clip(cls_weights, 0.2, 5.0)  # Giới hạn an toàn tránh bùng nổ gradient
+            weight_tensor = torch.tensor(cls_weights, dtype=torch.float32).to(device)
+            criterion = nn.CrossEntropyLoss(weight=weight_tensor)
+        except Exception:
+            criterion = nn.CrossEntropyLoss()
+
         optimizer = optim.AdamW(self.net.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=3)
 
         if is_verbose:
-            print(f"\n[PyTorch Network] Khoi tao {arch_desc}")
+            print(f"\n[PyTorch Network] Khoi tao {arch_desc} (Class-Weighted Loss Enabled)")
             print(f"  -> Thiet bi huan luyen: {device} | Batch Size: {self.batch_size} | Epochs: {self.epochs}")
             print("=" * 75)
             print(f" {'EPOCH':^8} | {'TRAIN LOSS':^12} | {'TRAIN ACC':^11} | {'VAL LOSS':^12} | {'VAL ACC':^11} | {'LR':^8}")
@@ -294,9 +304,8 @@ class PyTorchDeepWrapper(BaseAttackClassifier):
         """Vẽ biểu đồ huấn luyện Train | Val Loss và Train | Val Accuracy."""
         try:
             import matplotlib.pyplot as plt
-            if target_plot_dir is None:
-                root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-                target_plot_dir = os.path.join(root_dir, "ml_engine", "models")
+            if not target_plot_dir:
+                return
             os.makedirs(target_plot_dir, exist_ok=True)
             self.plot_path = os.path.join(target_plot_dir, "loss_curve.png")
 
@@ -359,7 +368,7 @@ class PyTorchDeepWrapper(BaseAttackClassifier):
 
     @property
     def can_export_tinyml(self) -> bool:
-        return False
+        return True
 
     @property
     def underlying_estimator(self) -> Any:

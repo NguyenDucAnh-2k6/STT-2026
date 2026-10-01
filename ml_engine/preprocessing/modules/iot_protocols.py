@@ -13,8 +13,7 @@ Quản lý các đặc trưng của giao thức IoT và hệ thống điều khi
 from typing import Dict, Any, List
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import OrdinalEncoder
-from .base import BaseSubPreprocessor
+from .base import BaseSubPreprocessor, normalize_categorical_value
 
 IOT_FEATURES: List[str] = [
     "dns.qry.name",
@@ -44,7 +43,6 @@ IOT_FEATURES: List[str] = [
 
 IOT_CAT_COLS: List[str] = [
     "dns.qry.name",
-    "mqtt.conack.flags",
     "mqtt.msg",
     "mqtt.protoname",
     "mqtt.topic"
@@ -56,17 +54,20 @@ class IoTProtocolsPreprocessor(BaseSubPreprocessor):
 
     def __init__(self):
         super().__init__(feature_names=IOT_FEATURES, cat_cols=IOT_CAT_COLS)
-        self.encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
         self._cat_maps: Dict[str, Dict[str, float]] = {}
 
     def _fit_internal(self, df: pd.DataFrame):
         valid_cats = [c for c in self.cat_cols if c in df.columns]
-        if valid_cats:
-            str_df = df[valid_cats].fillna("0.0").astype(str)
-            self.encoder.fit(str_df)
-            for idx, col in enumerate(valid_cats):
-                cats = self.encoder.categories_[idx]
-                self._cat_maps[col] = {str(c): float(i) for i, c in enumerate(cats)}
+        for col in valid_cats:
+            norm_series = df[col].map(normalize_categorical_value)
+            unique_cats = sorted(norm_series.unique())
+            # Luôn đảm bảo category '0' (mặc định/không xuất hiện) có index 0
+            if "0" not in unique_cats:
+                unique_cats.insert(0, "0")
+            else:
+                unique_cats.remove("0")
+                unique_cats.insert(0, "0")
+            self._cat_maps[col] = {cat: float(idx) for idx, cat in enumerate(unique_cats)}
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         out = pd.DataFrame(index=df.index)
@@ -74,7 +75,8 @@ class IoTProtocolsPreprocessor(BaseSubPreprocessor):
             if col in df.columns:
                 if col in self.cat_cols and col in self._cat_maps:
                     mapping = self._cat_maps[col]
-                    out[col] = df[col].astype(str).map(lambda v: mapping.get(v, -1.0)).astype(np.float32)
+                    default_idx = mapping.get("0", 0.0)
+                    out[col] = df[col].map(lambda v: mapping.get(normalize_categorical_value(v), default_idx)).astype(np.float32)
                 else:
                     out[col] = pd.to_numeric(df[col], errors="coerce").fillna(self.learned_baselines_.get(col, 0.0))
             else:
@@ -87,7 +89,9 @@ class IoTProtocolsPreprocessor(BaseSubPreprocessor):
             if feat in telemetry:
                 val = telemetry[feat]
                 if feat in self.cat_cols and feat in self._cat_maps:
-                    res[feat] = self._cat_maps[feat].get(str(val), -1.0)
+                    mapping = self._cat_maps[feat]
+                    default_idx = mapping.get("0", 0.0)
+                    res[feat] = mapping.get(normalize_categorical_value(val), default_idx)
                 else:
                     try:
                         res[feat] = float(val)
@@ -101,7 +105,8 @@ class IoTProtocolsPreprocessor(BaseSubPreprocessor):
             q_name = str(telemetry["dns_query"])
             res["dns.qry.name.len"] = float(len(q_name))
             if "dns.qry.name" in self._cat_maps:
-                res["dns.qry.name"] = self._cat_maps["dns.qry.name"].get(q_name, -1.0)
+                mapping = self._cat_maps["dns.qry.name"]
+                res["dns.qry.name"] = mapping.get(normalize_categorical_value(q_name), mapping.get("0", 0.0))
 
         # Trích xuất đo đạc MQTT thực tế nếu có
         if "mqtt_topic" in telemetry:

@@ -31,7 +31,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
 
 import numpy as np
 from sklearn.model_selection import StratifiedKFold, TimeSeriesSplit, GroupKFold, StratifiedGroupKFold
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, roc_auc_score
 
 try:
     import optuna
@@ -41,6 +41,7 @@ except ImportError:
     sys.exit(1)
 
 from ml_engine.algorithms.classifiers import get_classifier
+from ml_engine.algorithms.anomaly_detectors import get_anomaly_detector
 
 
 def get_search_space(model_type: str, trial: optuna.Trial) -> Dict[str, Any]:
@@ -117,9 +118,9 @@ def get_search_space(model_type: str, trial: optuna.Trial) -> Dict[str, Any]:
             "dropout": trial.suggest_float("dropout", 0.1, 0.4),
             "batch_size": trial.suggest_categorical("batch_size", [128, 256]),
             "hidden_dims": dims_map[arch_pattern],
-            "epochs": trial.suggest_int("epochs", 10, 15),
+            "epochs": trial.suggest_int("epochs", 8, 15),
             "random_state": 42,
-            "verbose": True
+            "verbose": False
         }
     elif model_type == "gradient_boosting":
         return {
@@ -258,7 +259,7 @@ def optimize_hyperparameters(
 
     # Chạy tối ưu hóa với log tiêu chuẩn của Optuna
     t0 = time.perf_counter()
-    study.optimize(objective, n_trials=n_trials, callbacks=[trial_progress_callback])
+    study.optimize(objective, n_trials=n_trials, callbacks=[trial_progress_callback], catch=(Exception,))
     elapsed = time.perf_counter() - t0
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
@@ -281,4 +282,93 @@ def optimize_hyperparameters(
     print(f"  -> Best Hyperparameters: {json.dumps(best_params, indent=2, default=str)}\n")
 
     return best_params, float(study.best_value), study
+
+
+def get_anomaly_search_space(model_type: str, trial: optuna.Trial) -> Dict[str, Any]:
+    """
+    Định nghĩa không gian tìm kiếm siêu tham số cho các mô hình phát hiện bất thường.
+    """
+    name = model_type.lower().strip()
+    if name in ("isolation_forest", "iforest"):
+        return {
+            "n_estimators": trial.suggest_int("n_estimators", 50, 150, step=25),
+            "max_samples": trial.suggest_categorical("max_samples", ["auto", 0.5, 0.8]),
+            "contamination": trial.suggest_float("contamination", 0.01, 0.15),
+            "random_state": 42,
+            "n_jobs": -1
+        }
+    elif name in ("one_class_svm", "ocsvm"):
+        return {
+            "kernel": trial.suggest_categorical("kernel", ["rbf", "linear"]),
+            "nu": trial.suggest_float("nu", 0.01, 0.2),
+            "gamma": trial.suggest_categorical("gamma", ["scale", "auto"])
+        }
+    elif name == "elliptic_envelope":
+        return {
+            "contamination": trial.suggest_float("contamination", 0.01, 0.15),
+            "random_state": 42
+        }
+    elif name == "lof":
+        return {
+            "n_neighbors": trial.suggest_int("n_neighbors", 10, 35, step=5),
+            "contamination": trial.suggest_float("contamination", 0.01, 0.15)
+        }
+    return {}
+
+
+def optimize_anomaly_hyperparameters(
+    anomaly_type: str,
+    X_train_normal: np.ndarray,
+    X_val: np.ndarray,
+    y_val_binary: np.ndarray,
+    n_trials: int = 10,
+    db_path: Optional[str] = None,
+    random_state: int = 42
+) -> Tuple[Dict[str, Any], float, optuna.Study]:
+    """
+    Tối ưu hóa siêu tham số Anomaly Detector bằng Optuna:
+    Huấn luyện trên X_train_normal và đánh giá khả năng phân tách Normal (0) / Anomaly (1) trên X_val (ROC-AUC).
+    """
+    print(f"\n[Optuna HPO] Khoi dong HPO cho Anomaly Detector '{anomaly_type}' | {n_trials} Trials (Target: ROC-AUC / F1)...")
+    if db_path is None:
+        db_path = os.path.join(ROOT_DIR, "ml_engine", "models", "optuna_study.db")
+    os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+    db_uri = f"sqlite:///{os.path.abspath(db_path).replace(os.sep, '/')}"
+
+    study_name = f"hpo_anomaly_{anomaly_type}"
+    sampler = optuna.samplers.TPESampler(seed=random_state)
+    study = optuna.create_study(
+        study_name=study_name,
+        direction="maximize",
+        sampler=sampler,
+        storage=db_uri,
+        load_if_exists=True
+    )
+
+    def objective(trial: optuna.Trial) -> float:
+        params = get_anomaly_search_space(anomaly_type, trial)
+        try:
+            detector = get_anomaly_detector(anomaly_type, **params)
+            detector.fit(X_train_normal)
+
+            if hasattr(detector, "score_samples"):
+                scores = detector.score_samples(X_val)
+                # Điểm số càng thấp càng bất thường -> Đảo dấu để ROC-AUC: điểm cao = Anomaly (1)
+                anomaly_scores = -scores
+                val_auc = float(roc_auc_score(y_val_binary, anomaly_scores))
+                return val_auc
+            elif hasattr(detector, "predict"):
+                preds = detector.predict(X_val)
+                binary_preds = (preds == -1).astype(int)
+                score = float(f1_score(y_val_binary, binary_preds, zero_division=0))
+                return score
+            return 0.5
+        except Exception:
+            return 0.0
+
+    study.optimize(objective, n_trials=n_trials, catch=(Exception,))
+    best_params = dict(study.best_params)
+    print(f"[Optuna HPO] Hoan tat HPO Anomaly Detector! Best Score (ROC-AUC): {study.best_value*100:.2f}% | Best params: {best_params}\n")
+    return best_params, float(study.best_value), study
+
 

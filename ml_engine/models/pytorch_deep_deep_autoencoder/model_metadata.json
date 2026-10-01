@@ -1,5 +1,5 @@
 {
-  "timestamp": 1790128441,
+  "timestamp": 1790778439,
   "features_count": 56,
   "features": [
     "arp.opcode",
@@ -80,126 +80,137 @@
   "classifier_type": "pytorch_deep",
   "anomaly_detector_type": "deep_autoencoder",
   "data_source": "hybrid",
-  "data_lake_records_used": 1680,
-  "classifier_accuracy": 0.9903,
-  "classifier_accuracy_std": 0.0006,
-  "classifier_macro_f1": 0.8142,
-  "classifier_macro_f1_std": 0.002,
+  "data_lake_records_used": 4789,
+  "data_lake_labeled_records_used": 4794,
+  "sample_ratio": 0.05,
+  "test_size": 0.2,
+  "refit_full": false,
+  "train_samples": 93562,
+  "test_samples": 22193,
+  "classifier_accuracy": 0.9392,
+  "classifier_accuracy_cv": 0.942,
+  "classifier_accuracy_std": 0.0015,
+  "classifier_macro_f1": 0.6987,
+  "classifier_macro_f1_cv": 0.6714,
+  "classifier_macro_f1_std": 0.0248,
+  "classifier_weighted_f1": 0.9289,
   "cv_strategy": "5-Fold Stratified CV",
   "cv_folds": 5,
   "classification_report": {
     "Backdoor": {
-      "precision": 0.9130434782608695,
-      "recall": 0.927710843373494,
-      "f1-score": 0.9203187250996016,
+      "precision": 0.9221311475409836,
+      "recall": 0.9036144578313253,
+      "f1-score": 0.9127789046653144,
       "support": 249.0
     },
     "DDoS_HTTP": {
-      "precision": 0.939622641509434,
-      "recall": 0.9979959919839679,
-      "f1-score": 0.967930029154519,
+      "precision": 0.7393939393939394,
+      "recall": 0.48897795591182364,
+      "f1-score": 0.5886610373944512,
       "support": 499.0
     },
     "DDoS_ICMP": {
-      "precision": 0.992320819112628,
-      "recall": 0.9991408934707904,
-      "f1-score": 0.9957191780821918,
+      "precision": 0.9957155098543273,
+      "recall": 0.9982817869415808,
+      "f1-score": 0.996996996996997,
       "support": 1164.0
     },
     "DDoS_TCP": {
-      "precision": 0.9311023622047244,
-      "recall": 0.9441117764471058,
-      "f1-score": 0.9375619425173439,
+      "precision": 0.9933920704845814,
+      "recall": 0.9001996007984032,
+      "f1-score": 0.9445026178010472,
       "support": 501.0
     },
     "DDoS_UDP": {
-      "precision": 0.990228013029316,
+      "precision": 1.0,
       "recall": 1.0,
-      "f1-score": 0.9950900163666121,
+      "f1-score": 1.0,
       "support": 1216.0
     },
     "Fingerprinting": {
-      "precision": 0.0,
-      "recall": 0.0,
-      "f1-score": 0.0,
+      "precision": 1.0,
+      "recall": 0.3,
+      "f1-score": 0.46153846153846156,
       "support": 10.0
     },
     "MITM": {
-      "precision": 0.0,
-      "recall": 0.0,
-      "f1-score": 0.0,
+      "precision": 1.0,
+      "recall": 0.3333333333333333,
+      "f1-score": 0.5,
       "support": 12.0
     },
     "Normal": {
-      "precision": 0.9998762299647256,
-      "recall": 1.0,
-      "f1-score": 0.9999381111523703,
+      "precision": 0.9555976555562133,
+      "recall": 0.999009717150461,
+      "f1-score": 0.9768215928346647,
       "support": 16157.0
     },
     "Password": {
-      "precision": 0.9940239043824701,
-      "recall": 0.9940239043824701,
-      "f1-score": 0.9940239043824701,
+      "precision": 0.6210526315789474,
+      "recall": 0.2350597609561753,
+      "f1-score": 0.34104046242774566,
       "support": 502.0
     },
     "Port_Scanning": {
-      "precision": 0.8106995884773662,
-      "recall": 0.8716814159292036,
-      "f1-score": 0.8400852878464818,
+      "precision": 0.7777777777777778,
+      "recall": 0.8982300884955752,
+      "f1-score": 0.8336755646817249,
       "support": 226.0
     },
     "Ransomware": {
-      "precision": 0.9240506329113924,
-      "recall": 0.6697247706422018,
-      "f1-score": 0.776595744680851,
+      "precision": 0.96,
+      "recall": 0.44036697247706424,
+      "f1-score": 0.6037735849056604,
       "support": 109.0
     },
     "SQL_injection": {
-      "precision": 0.9760479041916168,
-      "recall": 0.955078125,
-      "f1-score": 0.9654491609081934,
+      "precision": 0.5935563816604709,
+      "recall": 0.935546875,
+      "f1-score": 0.7263078089461713,
       "support": 512.0
     },
     "Uploading": {
-      "precision": 0.9285714285714286,
-      "recall": 0.9680851063829787,
-      "f1-score": 0.9479166666666666,
+      "precision": 0.8803418803418803,
+      "recall": 0.27393617021276595,
+      "f1-score": 0.4178498985801217,
       "support": 376.0
     },
     "Vulnerability_scanner": {
-      "precision": 0.9878296146044625,
-      "recall": 0.9720558882235529,
-      "f1-score": 0.9798792756539235,
+      "precision": 0.9859154929577465,
+      "recall": 0.8383233532934131,
+      "f1-score": 0.9061488673139159,
       "support": 501.0
     },
     "XSS": {
-      "precision": 0.9849624060150376,
-      "recall": 0.8238993710691824,
-      "f1-score": 0.8972602739726028,
+      "precision": 0.7878787878787878,
+      "recall": 0.16352201257861634,
+      "f1-score": 0.2708333333333333,
       "support": 159.0
     },
-    "accuracy": 0.9903122606227188,
+    "accuracy": 0.9391700085612581,
     "macro avg": {
-      "precision": 0.8248252682156981,
-      "recall": 0.8082338724603298,
-      "f1-score": 0.8145178877655884,
+      "precision": 0.8808502183350437,
+      "recall": 0.647226805665369,
+      "f1-score": 0.6987286087613073,
       "support": 22193.0
     },
     "weighted avg": {
-      "precision": 0.9895107205894186,
-      "recall": 0.9903122606227188,
-      "f1-score": 0.9897147917954695,
+      "precision": 0.9362940492765245,
+      "recall": 0.9391700085612581,
+      "f1-score": 0.9289097703812798,
       "support": 22193.0
     }
   },
-  "anomaly_f1_score": 0.95,
-  "isolation_score_min": -0.0612216480076313,
-  "isolation_score_max": -0.0009765791473910213,
+  "anomaly_test_roc_auc": 0.8815,
+  "anomaly_test_f1": 0.7291,
+  "isolation_score_min": -0.04988331347703934,
+  "isolation_score_max": -0.001030435785651207,
   "loss_curve_path": "D:\\STT 2026\\ml_engine\\models\\pytorch_deep_deep_autoencoder\\loss_curve.png",
   "feature_importance_path": null,
   "timeseries": false,
   "window_size": null,
   "best_params": {},
+  "best_anomaly_params": {},
   "sqlite_storage": null,
-  "can_export_tinyml": false
+  "can_export_tinyml": true
 }

@@ -361,7 +361,7 @@
               >
                 <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
               </svg>
-              Biến Thiên Chỉ Số Anomaly Score (Isolation Forest)
+              Biến Thiên Chỉ Số Anomaly Score (<span id="anomaly-model-title" style="color: var(--cyan-neon);">Autoencoder</span>)
             </h3>
             <div style="display: flex; align-items: center; gap: 8px">
               <span style="font-size: 11px; color: var(--text-muted)"
@@ -434,7 +434,7 @@
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                     Phán Quyết Biên (Edge TinyML - ESP32)
                   </span>
-                  <span style="font-size: 10px; color: var(--text-muted);">C-Tree (8 đặc trưng) &bull; Suy luận tức thời trên chip</span>
+                  <span id="edge-model-info" style="font-size: 10px; color: var(--text-muted);">TinyML &bull; Suy luận tức thời trên chip</span>
                 </div>
                 <span id="edge-inference-badge" style="font-size: 11px; font-family: var(--font-mono); font-weight: 700; padding: 3px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: var(--emerald-safe); border: 1px solid rgba(16, 185, 129, 0.3);">
                   Normal
@@ -448,7 +448,7 @@
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
                     Phân Phối Xác Suất (Host Server ML)
                   </span>
-                  <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">61 Features &bull; predict_proba</span>
+                  <span id="host-model-info" style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">Host ML &bull; predict_proba</span>
                 </div>
                 <div id="prob-bars-list" style="display: flex; flex-direction: column; gap: 6px;">
                   <div style="font-size: 11px; color: var(--text-muted); text-align: center; padding: 6px 0;">Đang thu thập phân phối xác suất...</div>
@@ -474,7 +474,7 @@
               <div class="node-box" style="color: var(--purple-accent)">
                 ML Engine
               </div>
-              <span>IsoForest &bull; TinyML</span>
+              <span id="pipeline-ml-label">Autoencoder &bull; PyTorch Deep</span>
             </div>
             <span class="flow-arrow">&rarr;</span>
             <div class="flow-node">

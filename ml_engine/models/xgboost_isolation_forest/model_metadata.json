@@ -1,0 +1,222 @@
+{
+  "timestamp": 1790786840,
+  "features_count": 56,
+  "features": [
+    "arp.opcode",
+    "arp.hw.size",
+    "icmp.checksum",
+    "icmp.seq_le",
+    "icmp.transmit_timestamp",
+    "icmp.unused",
+    "http.file_data",
+    "http.content_length",
+    "http.request.uri.query",
+    "http.request.method",
+    "http.referer",
+    "http.request.full_uri",
+    "http.request.version",
+    "http.response",
+    "http.tls_port",
+    "tcp.ack",
+    "tcp.ack_raw",
+    "tcp.checksum",
+    "tcp.connection.fin",
+    "tcp.connection.rst",
+    "tcp.connection.syn",
+    "tcp.connection.synack",
+    "tcp.dstport",
+    "tcp.flags",
+    "tcp.flags.ack",
+    "tcp.len",
+    "tcp.options",
+    "tcp.payload",
+    "tcp.seq",
+    "tcp.srcport",
+    "udp.port",
+    "udp.stream",
+    "udp.time_delta",
+    "dns.qry.name",
+    "dns.qry.name.len",
+    "dns.qry.qu",
+    "dns.qry.type",
+    "dns.retransmission",
+    "dns.retransmit_request",
+    "dns.retransmit_request_in",
+    "mqtt.conack.flags",
+    "mqtt.conflag.cleansess",
+    "mqtt.conflags",
+    "mqtt.hdrflags",
+    "mqtt.len",
+    "mqtt.msg_decoded_as",
+    "mqtt.msg",
+    "mqtt.msgtype",
+    "mqtt.proto_len",
+    "mqtt.protoname",
+    "mqtt.topic",
+    "mqtt.topic_len",
+    "mqtt.ver",
+    "mbtcp.len",
+    "mbtcp.trans_id",
+    "mbtcp.unit_id"
+  ],
+  "labels_count": 15,
+  "labels": [
+    "Backdoor",
+    "DDoS_HTTP",
+    "DDoS_ICMP",
+    "DDoS_TCP",
+    "DDoS_UDP",
+    "Fingerprinting",
+    "MITM",
+    "Normal",
+    "Password",
+    "Port_Scanning",
+    "Ransomware",
+    "SQL_injection",
+    "Uploading",
+    "Vulnerability_scanner",
+    "XSS"
+  ],
+  "classifier_type": "xgboost",
+  "anomaly_detector_type": "isolation_forest",
+  "data_source": "hybrid",
+  "data_lake_records_used": 5430,
+  "data_lake_labeled_records_used": 5795,
+  "sample_ratio": 1.0,
+  "test_size": 0.2,
+  "refit_full": true,
+  "train_samples": 132035,
+  "test_samples": 31560,
+  "classifier_accuracy": 0.9482,
+  "classifier_accuracy_cv": 0.9495,
+  "classifier_accuracy_std": 0.0006,
+  "classifier_macro_f1": 0.9173,
+  "classifier_macro_f1_cv": 0.9176,
+  "classifier_macro_f1_std": 0.0018,
+  "classifier_weighted_f1": 0.9504,
+  "cv_strategy": "5-Fold Stratified CV",
+  "cv_folds": 5,
+  "classification_report": {
+    "Backdoor": {
+      "precision": 1.0,
+      "recall": 0.973516429622364,
+      "f1-score": 0.9865805168986084,
+      "support": 2039.0
+    },
+    "DDoS_HTTP": {
+      "precision": 0.8384338433843385,
+      "recall": 0.8821022727272727,
+      "f1-score": 0.859713890170743,
+      "support": 2112.0
+    },
+    "DDoS_ICMP": {
+      "precision": 0.9989350372736954,
+      "recall": 0.9985805535841022,
+      "f1-score": 0.9987577639751553,
+      "support": 2818.0
+    },
+    "DDoS_TCP": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2050.0
+    },
+    "DDoS_UDP": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2900.0
+    },
+    "Fingerprinting": {
+      "precision": 0.9760479041916168,
+      "recall": 0.815,
+      "f1-score": 0.888283378746594,
+      "support": 200.0
+    },
+    "MITM": {
+      "precision": 0.39705882352941174,
+      "recall": 1.0,
+      "f1-score": 0.5684210526315789,
+      "support": 243.0
+    },
+    "Normal": {
+      "precision": 0.9993810604497627,
+      "recall": 0.9967078189300411,
+      "f1-score": 0.9980426496342846,
+      "support": 4860.0
+    },
+    "Password": {
+      "precision": 0.943768115942029,
+      "recall": 0.8148148148148148,
+      "f1-score": 0.8745635240397529,
+      "support": 1998.0
+    },
+    "Port_Scanning": {
+      "precision": 0.9245102723363593,
+      "recall": 0.9607745779543198,
+      "f1-score": 0.9422936449963477,
+      "support": 2014.0
+    },
+    "Ransomware": {
+      "precision": 1.0,
+      "recall": 0.8938215102974828,
+      "f1-score": 0.943934267762204,
+      "support": 2185.0
+    },
+    "SQL_injection": {
+      "precision": 0.895040924410207,
+      "recall": 0.9015518913676043,
+      "f1-score": 0.8982846098091326,
+      "support": 2062.0
+    },
+    "Uploading": {
+      "precision": 0.9553478712357217,
+      "recall": 0.8958130477117819,
+      "f1-score": 0.9246231155778895,
+      "support": 2054.0
+    },
+    "Vulnerability_scanner": {
+      "precision": 0.9863636363636363,
+      "recall": 0.9692307692307692,
+      "f1-score": 0.9777221526908636,
+      "support": 2015.0
+    },
+    "XSS": {
+      "precision": 0.8585675430643699,
+      "recall": 0.9422885572139303,
+      "f1-score": 0.8984819734345351,
+      "support": 2010.0
+    },
+    "accuracy": 0.9481622306717363,
+    "macro avg": {
+      "precision": 0.9182303354787432,
+      "recall": 0.9362801495636323,
+      "f1-score": 0.9173135026911793,
+      "support": 31560.0
+    },
+    "weighted avg": {
+      "precision": 0.9561841833849348,
+      "recall": 0.9481622306717363,
+      "f1-score": 0.9503572371309785,
+      "support": 31560.0
+    }
+  },
+  "anomaly_test_roc_auc": 0.5612,
+  "anomaly_test_f1": 0.5542,
+  "isolation_score_min": -0.6081160456150907,
+  "isolation_score_max": -0.3278294759698978,
+  "loss_curve_path": null,
+  "feature_importance_path": "D:\\STT 2026\\ml_engine\\models\\xgboost_isolation_forest\\feature_importance.png",
+  "timeseries": false,
+  "window_size": null,
+  "best_params": {
+    "n_estimators": 180,
+    "max_depth": 8,
+    "learning_rate": 0.04186219081112193,
+    "subsample": 0.6017262123368978,
+    "colsample_bytree": 0.8741136212923317
+  },
+  "best_anomaly_params": {},
+  "sqlite_storage": "D:\\STT 2026\\ml_engine\\models\\xgboost_isolation_forest\\optuna_study.db",
+  "can_export_tinyml": false
+}

@@ -44,13 +44,13 @@ SUPPORTED_CLASSIFIERS: Dict[str, Dict[str, Any]] = {
     },
     "random_forest": {
         "class": RandomForestWrapper,
-        "description": "Random Forest Ensemble (Độ chính xác cao, ổn định vượt trội trên dữ liệu nhiễu)",
-        "edge_ready": False
+        "description": "Random Forest Ensemble (Độ chính xác cao, hỗ trợ xuất C Header TinyML cho ESP32)",
+        "edge_ready": True
     },
     "extra_trees": {
         "class": ExtraTreesWrapper,
-        "description": "Extra Trees Classifier (Phân tán cực đại, huấn luyện đa luồng cực nhanh)",
-        "edge_ready": False
+        "description": "Extra Trees Classifier (Phân tán cực đại, hỗ trợ xuất C Header TinyML cho ESP32)",
+        "edge_ready": True
     },
     "xgboost": {
         "class": XGBoostWrapper,
@@ -79,23 +79,23 @@ SUPPORTED_CLASSIFIERS: Dict[str, Dict[str, Any]] = {
     },
     "pytorch_deep": {
         "class": PyTorchDeepWrapper,
-        "description": "PyTorch Deep Learning (Kiến trúc EdgeDeepNet DNN, in loss/acc epoch & vẽ loss curve)",
-        "edge_ready": False
+        "description": "PyTorch Deep Learning (Kiến trúc EdgeDeepNet DNN, hỗ trợ xuất C Header TinyML cho ESP32)",
+        "edge_ready": True
     },
     "dnn": {
         "class": PyTorchDeepWrapper,
-        "description": "Deep Neural Network (Edge-IIoTset DNN)",
-        "edge_ready": False
+        "description": "Deep Neural Network (Edge-IIoTset DNN, hỗ trợ xuất C Header TinyML cho ESP32)",
+        "edge_ready": True
     },
     "mlp": {
         "class": PyTorchDeepWrapper,
         "description": "Deep Learning Alias (PyTorch Neural Network)",
-        "edge_ready": False
+        "edge_ready": True
     },
     "deep_learning": {
         "class": PyTorchDeepWrapper,
         "description": "Deep Learning Alias (PyTorch Neural Network)",
-        "edge_ready": False
+        "edge_ready": True
     },
     "gradient_boosting": {
         "class": GradientBoostingWrapper,
@@ -104,8 +104,8 @@ SUPPORTED_CLASSIFIERS: Dict[str, Dict[str, Any]] = {
     },
     "logistic_regression": {
         "class": LogisticRegressionWrapper,
-        "description": "Logistic Regression Baseline (Tuyến tính, suy luận siêu tốc)",
-        "edge_ready": False
+        "description": "Logistic Regression Baseline (Tuyến tính, hỗ trợ xuất C Header TinyML cho ESP32)",
+        "edge_ready": True
     },
     "ensemble_voting": {
         "class": EnsembleVotingWrapper,

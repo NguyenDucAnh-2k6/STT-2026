@@ -132,7 +132,7 @@ class DeepAutoencoderAnomalyDetector(BaseAnomalyDetector):
 
         # Trích xuất trọng số (Weights & Biases) dạng Numpy để phục vụ export TFLite / C Header
         self._extract_weights()
-        print(f"  -> Ngưỡng phát hiện bất thường Autoencoder (Threshold MSE): {self.threshold_:.6f}")
+        print(f"  -> [Autoencoder] Nguong phat hien bat thuong (Threshold MSE): {self.threshold_:.6f}")
         return self
 
     def _extract_weights(self):

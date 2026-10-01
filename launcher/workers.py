@@ -105,9 +105,15 @@ def serial_telemetry_bridge_worker(com_port: str, broker_port: int = 1883):
                     line = ser.readline().decode("utf-8", errors="ignore").strip()
                     if line.startswith("ESP32_TELEMETRY:"):
                         json_str = line[len("ESP32_TELEMETRY:"):].strip()
-                        now = time.time()
-                        if now - last_forwarded_ts >= 0.5:
-                            mqtt_client.publish("edge/telemetry/traffic", json_str)
-                            last_forwarded_ts = now
+                        # Kiểm tra tính toàn vẹn cú pháp JSON trước khi forward sang MQTT
+                        if json_str.startswith("{") and json_str.endswith("}"):
+                            try:
+                                json.loads(json_str)  # Xác thực gói tin trọn vẹn
+                                now = time.time()
+                                if now - last_forwarded_ts >= 0.5:
+                                    mqtt_client.publish("edge/telemetry/traffic", json_str)
+                                    last_forwarded_ts = now
+                            except Exception:
+                                pass  # Bỏ qua dòng bị đọc dở hoặc rách frame do buffer Serial
         except Exception:
             time.sleep(2.0)
