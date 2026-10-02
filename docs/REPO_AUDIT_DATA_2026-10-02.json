@@ -1,0 +1,127 @@
+{
+  "files": 32,
+  "rows": 5810,
+  "read_errors": [],
+  "schemas": [
+    {
+      "columns": [
+        "session_id",
+        "timestamp",
+        "datetime_iso",
+        "probe_type",
+        "sniffer_mode",
+        "channel",
+        "packet_rate",
+        "byte_rate",
+        "avg_packet_size",
+        "syn_ratio",
+        "ack_ratio",
+        "udp_ratio",
+        "icmp_ratio",
+        "unique_dst_ports",
+        "tcp_count",
+        "udp_count",
+        "icmp_count",
+        "ground_truth_scenario",
+        "is_attack",
+        "predicted_threat",
+        "anomaly_score",
+        "confidence",
+        "edge_prediction",
+        "edge_flag"
+      ],
+      "files": 32
+    }
+  ],
+  "labels": {
+    "Normal": 5445,
+    "DDoS_UDP": 182,
+    "DDoS_TCP": 79,
+    "Uploading": 56,
+    "Vulnerability_scanner": 30,
+    "Port_Scanning": 18
+  },
+  "probe_types": {
+    "esp32": 5810
+  },
+  "sniffer_modes": {
+    "all-networks": 5810
+  },
+  "timestamps": {
+    "min": 5084,
+    "max": 1790788782386,
+    "uptime_rows": 2833
+  },
+  "duplicates_session_timestamp": 19,
+  "is_attack_mismatch": 0,
+  "nulls": {
+    "session_id": 0,
+    "timestamp": 0,
+    "datetime_iso": 0,
+    "probe_type": 0,
+    "sniffer_mode": 0,
+    "channel": 0,
+    "packet_rate": 0,
+    "byte_rate": 0,
+    "avg_packet_size": 0,
+    "syn_ratio": 0,
+    "ack_ratio": 0,
+    "udp_ratio": 0,
+    "icmp_ratio": 0,
+    "unique_dst_ports": 0,
+    "tcp_count": 0,
+    "udp_count": 0,
+    "icmp_count": 0,
+    "ground_truth_scenario": 0,
+    "is_attack": 0,
+    "predicted_threat": 0,
+    "anomaly_score": 0,
+    "confidence": 0,
+    "edge_prediction": 0,
+    "edge_flag": 0,
+    "_file": 0
+  },
+  "normal_edge_flag": 1972,
+  "normal_predicted_non_normal": 3578,
+  "negative_features": {
+    "packet_rate": 0,
+    "byte_rate": 0,
+    "avg_packet_size": 0,
+    "unique_dst_ports": 0
+  },
+  "rate_size_mismatch_gt_10pct": 23,
+  "label_examples": {
+    "packet_rate": {
+      "DDoS_TCP": 91.0,
+      "DDoS_UDP": 2191.55,
+      "Normal": 36.5,
+      "Port_Scanning": 724.9449999999999,
+      "Uploading": 836.2,
+      "Vulnerability_scanner": 29.0
+    },
+    "syn_ratio": {
+      "DDoS_TCP": 0.0,
+      "DDoS_UDP": 0.02,
+      "Normal": 0.0,
+      "Port_Scanning": 0.9723999999999999,
+      "Uploading": 0.02,
+      "Vulnerability_scanner": 0.0
+    },
+    "ack_ratio": {
+      "DDoS_TCP": 0.0,
+      "DDoS_UDP": 0.08,
+      "Normal": 0.03,
+      "Port_Scanning": 0.08,
+      "Uploading": 0.96,
+      "Vulnerability_scanner": 0.0
+    },
+    "udp_ratio": {
+      "DDoS_TCP": 0.0,
+      "DDoS_UDP": 0.9932,
+      "Normal": 0.0622,
+      "Port_Scanning": 0.04,
+      "Uploading": 0.26765,
+      "Vulnerability_scanner": 0.0
+    }
+  }
+}
