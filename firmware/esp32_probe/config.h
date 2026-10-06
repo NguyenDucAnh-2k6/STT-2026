@@ -62,6 +62,7 @@
   -1 // Reset pin (-1 nếu dùng chung reset ESP32, hoặc GPIO 16 trên bo mạch
      // Heltec WiFi Kit 32)
 #define SCREEN_ADDRESS 0x3C // Địa chỉ I2C SSD1306 mặc định (0x3C hoặc 0x3D)
+#define OLED_I2C_ADDR SCREEN_ADDRESS // Bí danh tương thích
 
 // --- Sơ đồ chân I2C phần cứng trên ESP32 ---
 // Khớp chính xác với màu dây cắm thực tế của bạn:
@@ -71,6 +72,8 @@
 // - Xanh : ESP32 D21 -> OLED SDA
 #define PIN_I2C_SDA 21 // Chân SDA I2C OLED (GPIO 21 - Dây xanh)
 #define PIN_I2C_SCL 23 // Chân SCL/SCK I2C OLED (GPIO 23 - Dây vàng)
+#define PIN_OLED_SDA PIN_I2C_SDA // Bí danh tương thích
+#define PIN_OLED_SCL PIN_I2C_SCL // Bí danh tương thích
 
 #define PIN_RED_LED 4 // Đèn LED đỏ ngoại vi cảnh báo tấn công (GPIO 4)
 #define PIN_BUZZER 19 // Còi chíp Buzzer báo động âm thanh (GPIO 19)

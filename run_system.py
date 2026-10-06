@@ -496,7 +496,7 @@ def main():
         )
     )
     parser.add_argument(
-        "--anomaly-model",
+        "--anomaly-model", "--anomaly_model",
         default="isolation_forest",
         choices=[
             "isolation_forest", "deep_autoencoder", "autoencoder",

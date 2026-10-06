@@ -271,6 +271,40 @@ def burst_uploading(target_ip: str, target_port: int = 443, count: int = 1200, e
     return sent
 
 
+def burst_adversarial_evasion(target_ip: str, target_port: int = 80, count: int = 250, esp32_ip: Optional[str] = None) -> int:
+    """
+    Bắn luồng tấn công đối kháng mô phỏng WGAN-GP Evasion:
+    - Kỹ thuật Low & Slow: giảm đột biến packet_rate, chèn độ trễ ngẫu nhiên (jitter 5-25ms).
+    - Biến thiên kích thước payload (dummy padding 40-520 bytes).
+    - Trộn lẫn các gói tin với cờ ACK để giảm syn_ratio xuống sát ngưỡng bình thường.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    except Exception:
+        pass
+
+    bcast_ip = get_broadcast_ip(target_ip)
+    destinations = [target_ip, bcast_ip]
+    if esp32_ip and esp32_ip != target_ip:
+        destinations.append(esp32_ip)
+
+    sent = 0
+    for i in range(count):
+        try:
+            rand_size = random.randint(40, 520)
+            payload = os.urandom(rand_size)
+            dest = destinations[i % len(destinations)]
+            s.sendto(payload, (dest, target_port))
+            sent += 1
+            if i % 10 == 0:
+                time.sleep(random.uniform(0.005, 0.025))
+        except Exception:
+            pass
+    s.close()
+    return sent
+
+
 class AttackTrafficController:
     """
     Bộ điều khiển tấn công mạng thật tích hợp MQTT:
@@ -356,6 +390,8 @@ class AttackTrafficController:
                         burst_vulnerability_scan(effective_target, esp32_ip=esp_target)
                     elif "UPLOAD" in sc or "EXFIL" in sc:
                         burst_uploading(effective_target, target_port=443, count=600, esp32_ip=esp_target)
+                    elif "ADV" in sc or "GAN" in sc:
+                        burst_adversarial_evasion(effective_target, target_port=80, count=250, esp32_ip=esp_target)
                     else:
                         burst_udp_flood(effective_target, target_port=9999, packets=1500, esp32_ip=esp_target)
                 except Exception as e:

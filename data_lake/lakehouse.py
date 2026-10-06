@@ -155,19 +155,36 @@ class DataLakeManager:
                 "probe_type": self.current_probe_type,
                 "sniffer_mode": self.current_sniffer_mode,
                 "channel": str(telemetry.get("channel", "1")),
-                # Đặc trưng lưu lượng cơ sở
+                # Đặc trưng lưu lượng cơ sở (Traffic Volume)
                 "packet_rate": float(telemetry.get("packet_rate", 0.0)),
                 "byte_rate": float(telemetry.get("byte_rate", 0.0)),
                 "avg_packet_size": float(telemetry.get("avg_packet_size", 0.0)),
-                "syn_ratio": float(telemetry.get("syn_ratio", 0.0)),
-                "ack_ratio": float(telemetry.get("ack_ratio", 0.0)),
+                "packet_size_std": float(telemetry.get("packet_size_std", 0.0)),
+                # Phân bố giao thức (Protocol Distribution)
+                "tcp_ratio": float(telemetry.get("tcp_ratio", 0.0)),
                 "udp_ratio": float(telemetry.get("udp_ratio", 0.0)),
                 "icmp_ratio": float(telemetry.get("icmp_ratio", 0.0)),
+                # Cờ và trạng thái TCP chi tiết (TCP Flags & Semantic State)
+                "syn_ratio": float(telemetry.get("syn_ratio", 0.0)),
+                "ack_ratio": float(telemetry.get("ack_ratio", 0.0)),
+                "rst_ratio": float(telemetry.get("rst_ratio", 0.0)),
+                "fin_ratio": float(telemetry.get("fin_ratio", 0.0)),
+                "syn_completion_ratio": float(telemetry.get("syn_completion_ratio", 1.0)),
+                # Độ đa dạng địa chỉ và cổng (Endpoint Diversity - Phản ánh "D" trong DDoS)
+                "unique_src_ports": int(telemetry.get("unique_src_ports", 0)),
                 "unique_dst_ports": int(telemetry.get("unique_dst_ports", 0)),
+                "unique_src_ips": int(telemetry.get("unique_src_ips", 0)),
+                "unique_dst_ips": int(telemetry.get("unique_dst_ips", 0)),
+                "src_dst_pair_count": int(telemetry.get("src_dst_pair_count", 0)),
+                # Động lực học thời gian & Entropy (Temporal Dynamics & Port Entropy)
+                "mean_iat": float(telemetry.get("mean_iat", 0.0)),
+                "std_iat": float(telemetry.get("std_iat", 0.0)),
+                "dst_port_entropy": float(telemetry.get("dst_port_entropy", 0.0)),
+                # Số lượng gói tin
                 "tcp_count": int(telemetry.get("tcp_count", 0)),
                 "udp_count": int(telemetry.get("udp_count", 0)),
                 "icmp_count": int(telemetry.get("icmp_count", 0)),
-                # Nhãn Ground-Truth
+                # Nhãn Ground-Truth (Chỉ dùng cho Evaluation - Tuyệt đối không rò rỉ vào feature input)
                 "ground_truth_scenario": ground_truth,
                 "is_attack": is_attack,
             }
@@ -463,6 +480,18 @@ class DataLakeManager:
             labeled_df = labeled_df[labeled_df[label_col].isin(valid_labels)]
 
         return labeled_df
+
+    @staticmethod
+    def sanitize_features_for_training(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Bảo vệ ngăn chặn rò rỉ dữ liệu (Prevent Data Leakage):
+        Loại bỏ tuyệt đối toàn bộ metadata phiên, nhãn ground-truth và kết quả dự đoán của mô hình
+        khỏi tập đặc trưng đầu vào (input features).
+        """
+        from ml_engine.config.schema import DATA_LEAKAGE_METADATA_COLUMNS
+        leakage_cols = [c for c in DATA_LEAKAGE_METADATA_COLUMNS if c in df.columns]
+        return df.drop(columns=leakage_cols, errors="ignore")
+
 
 
 # Singleton instance

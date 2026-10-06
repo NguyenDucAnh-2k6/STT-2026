@@ -1,0 +1,149 @@
+{
+  "timestamp": 1790910194,
+  "total_lake_parquet_files": 34,
+  "total_lake_records": 6168,
+  "total_lake_normal_records": 5803,
+  "features_analyzed": 56,
+  "drift_summary": {
+    "significant_drift_count": 11,
+    "significant_drift_pct": 19.64,
+    "moderate_shift_count": 2,
+    "moderate_shift_pct": 3.57,
+    "no_shift_count": 43,
+    "no_shift_pct": 76.79
+  },
+  "false_alarm_analysis": {
+    "edge_normal_false_positive_pct": 18.55,
+    "lake_normal_false_positive_pct": 0.0,
+    "mean_score_edge_normal": -0.488,
+    "mean_score_lake_normal": -0.3194
+  },
+  "top_drifting_features": [
+    {
+      "feature": "tcp.dstport",
+      "psi": 10.0037,
+      "ks_statistic": 0.4957,
+      "ks_pvalue": 3.68e-321,
+      "wasserstein_dist": 0.2266,
+      "status": "SIGNIFICANT_DRIFT",
+      "edge_mean": 0.5428,
+      "edge_std": 1.1523,
+      "lake_mean": 0.3165,
+      "lake_std": 1.0354
+    },
+    {
+      "feature": "tcp.checksum",
+      "psi": 8.2837,
+      "ks_statistic": 0.5103,
+      "ks_pvalue": 3.1e-321,
+      "wasserstein_dist": 0.7615,
+      "status": "SIGNIFICANT_DRIFT",
+      "edge_mean": 0.2927,
+      "edge_std": 0.8782,
+      "lake_mean": 0.2289,
+      "lake_std": 0.0
+    },
+    {
+      "feature": "tcp.seq",
+      "psi": 7.9117,
+      "ks_statistic": 0.437,
+      "ks_pvalue": 5.98e-321,
+      "wasserstein_dist": 0.6723,
+      "status": "SIGNIFICANT_DRIFT",
+      "edge_mean": 0.5506,
+      "edge_std": 2.3113,
+      "lake_mean": -0.1217,
+      "lake_std": 0.0
+    },
+    {
+      "feature": "tcp.ack",
+      "psi": 6.3507,
+      "ks_statistic": 0.4093,
+      "ks_pvalue": 7.035e-321,
+      "wasserstein_dist": 0.0251,
+      "status": "SIGNIFICANT_DRIFT",
+      "edge_mean": -0.2229,
+      "edge_std": 0.1301,
+      "lake_mean": -0.248,
+      "lake_std": 0.0
+    },
+    {
+      "feature": "tcp.srcport",
+      "psi": 3.7949,
+      "ks_statistic": 0.5729,
+      "ks_pvalue": 5.53e-322,
+      "wasserstein_dist": 1.0784,
+      "status": "SIGNIFICANT_DRIFT",
+      "edge_mean": 0.259,
+      "edge_std": 1.1228,
+      "lake_mean": -0.8187,
+      "lake_std": 0.1992
+    },
+    {
+      "feature": "tcp.flags",
+      "psi": 3.6154,
+      "ks_statistic": 0.3813,
+      "ks_pvalue": 9.539084339791597e-291,
+      "wasserstein_dist": 0.4558,
+      "status": "SIGNIFICANT_DRIFT",
+      "edge_mean": 0.3946,
+      "edge_std": 0.7126,
+      "lake_mean": 0.3312,
+      "lake_std": 0.1543
+    },
+    {
+      "feature": "tcp.len",
+      "psi": 3.1276,
+      "ks_statistic": 0.7639,
+      "ks_pvalue": 0.0,
+      "wasserstein_dist": 0.2154,
+      "status": "SIGNIFICANT_DRIFT",
+      "edge_mean": -0.0062,
+      "edge_std": 0.3044,
+      "lake_mean": 0.1618,
+      "lake_std": 0.3165
+    },
+    {
+      "feature": "tcp.ack_raw",
+      "psi": 2.3186,
+      "ks_statistic": 0.3139,
+      "ks_pvalue": 2.089715815498723e-195,
+      "wasserstein_dist": 0.509,
+      "status": "SIGNIFICANT_DRIFT",
+      "edge_mean": 0.3199,
+      "edge_std": 0.859,
+      "lake_mean": 0.8289,
+      "lake_std": 0.0
+    },
+    {
+      "feature": "mqtt.hdrflags",
+      "psi": 1.6093,
+      "ks_statistic": 0.2217,
+      "ks_pvalue": 7.274934802795582e-97,
+      "wasserstein_dist": 0.8259,
+      "status": "SIGNIFICANT_DRIFT",
+      "edge_mean": 0.6976,
+      "edge_std": 2.3835,
+      "lake_mean": -0.1284,
+      "lake_std": 0.0
+    },
+    {
+      "feature": "mqtt.msgtype",
+      "psi": 1.6093,
+      "ks_statistic": 0.2217,
+      "ks_pvalue": 7.274934802795582e-97,
+      "wasserstein_dist": 0.8259,
+      "status": "SIGNIFICANT_DRIFT",
+      "edge_mean": 0.6976,
+      "edge_std": 2.3835,
+      "lake_mean": -0.1284,
+      "lake_std": 0.0
+    }
+  ],
+  "charts": [
+    "01_pca_distribution_shift.png",
+    "02_feature_psi_drift_ranking.png",
+    "03_density_comparison_kde.png",
+    "04_anomaly_score_impact.png"
+  ]
+}

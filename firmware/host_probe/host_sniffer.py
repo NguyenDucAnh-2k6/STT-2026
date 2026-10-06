@@ -29,7 +29,10 @@ import socket
 import struct
 import threading
 import subprocess
+import math
+from collections import defaultdict
 from typing import Dict, Any, Tuple, Set, Optional, List
+import numpy as np
 
 # Đảm bảo UTF-8 an toàn cho Windows console
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
@@ -128,7 +131,7 @@ def get_default_host_ip() -> str:
 
 
 class WindowStats:
-    """Bộ tích lũy thống kê trong 1 khoảng thời gian (Sliding Window)."""
+    """Bộ tích lũy thống kê trong 1 khoảng thời gian (Sliding Window) với đầy đủ L3/L4 Extended Features."""
     def __init__(self):
         self.lock = threading.Lock()
         self.reset()
@@ -142,7 +145,16 @@ class WindowStats:
             self.icmp_count = 0
             self.syn_count = 0
             self.ack_count = 0
+            self.rst_count = 0
+            self.fin_count = 0
+            self.src_ports: Set[int] = set()
             self.dst_ports: Set[int] = set()
+            self.src_ips: Set[str] = set()
+            self.dst_ips: Set[str] = set()
+            self.src_dst_pairs: Set[Tuple[str, str]] = set()
+            self.dst_port_counts: Dict[int, int] = defaultdict(int)
+            self.packet_sizes: List[int] = []
+            self.packet_timestamps: List[float] = []
             self.last_src_ip = "127.0.0.1"
             self.last_dst_ip = "127.0.0.1"
             self.last_src_port = 0
@@ -161,17 +173,43 @@ class WindowStats:
         dst_port: Optional[int] = None,
         is_syn: bool = False,
         is_ack: bool = False,
-        info: str = ""
+        is_rst: bool = False,
+        is_fin: bool = False,
+        info: str = "",
+        pkt_time: Optional[float] = None
     ):
         with self.lock:
             self.packet_count += 1
             self.byte_count += size
+            self.packet_sizes.append(size)
+            if len(self.packet_sizes) > 1000:
+                self.packet_sizes.pop(0)
+
+            t = pkt_time or time.perf_counter()
+            self.packet_timestamps.append(t)
+            if len(self.packet_timestamps) > 1000:
+                self.packet_timestamps.pop(0)
+
             self.last_src_ip = src_ip
             self.last_dst_ip = dst_ip
             self.last_src_port = src_port or 0
             self.last_dst_port = dst_port or 0
             self.last_size = size
             self.last_info = info
+
+            if src_ip:
+                self.src_ips.add(src_ip)
+            if dst_ip:
+                self.dst_ips.add(dst_ip)
+            if src_ip and dst_ip:
+                self.src_dst_pairs.add((src_ip, dst_ip))
+
+            if src_port is not None and src_port > 0:
+                self.src_ports.add(src_port)
+            if dst_port is not None and dst_port > 0:
+                self.dst_ports.add(dst_port)
+                self.dst_port_counts[dst_port] += 1
+
             if proto == 6:  # TCP
                 self.tcp_count += 1
                 self.last_protocol = "TCP"
@@ -179,6 +217,10 @@ class WindowStats:
                     self.syn_count += 1
                 if is_ack:
                     self.ack_count += 1
+                if is_rst:
+                    self.rst_count += 1
+                if is_fin:
+                    self.fin_count += 1
             elif proto == 17:  # UDP
                 self.udp_count += 1
                 self.last_protocol = "UDP"
@@ -188,24 +230,53 @@ class WindowStats:
             else:
                 self.last_protocol = f"IP:{proto}"
 
-            if dst_port is not None and dst_port > 0:
-                self.dst_ports.add(dst_port)
-
     def compute_features(self, duration: float, attack_context: Optional[dict] = None) -> Dict[str, Any]:
         with self.lock:
             dt = max(duration, 0.001)
             pkt_rate = float(self.packet_count / dt)
             byte_rate = float(self.byte_count / dt)
             avg_size = float(self.byte_count / max(self.packet_count, 1))
-
-            tcp_total = max(self.tcp_count, 1) if self.tcp_count > 0 else 1
-            syn_ratio = float(self.syn_count / tcp_total) if self.tcp_count > 0 else 0.0
-            ack_ratio = float(self.ack_count / tcp_total) if self.tcp_count > 0 else 0.0
+            pkt_size_std = float(np.std(self.packet_sizes)) if len(self.packet_sizes) >= 2 else 0.0
 
             total_pkts = max(self.packet_count, 1)
+            tcp_total = max(self.tcp_count, 1) if self.tcp_count > 0 else 1
+
+            tcp_ratio = float(self.tcp_count / total_pkts) if self.packet_count > 0 else 0.0
             udp_ratio = float(self.udp_count / total_pkts) if self.packet_count > 0 else 0.0
             icmp_ratio = float(self.icmp_count / total_pkts) if self.packet_count > 0 else 0.0
-            unique_ports = int(len(self.dst_ports))
+
+            syn_ratio = float(self.syn_count / tcp_total) if self.tcp_count > 0 else 0.0
+            ack_ratio = float(self.ack_count / tcp_total) if self.tcp_count > 0 else 0.0
+            rst_ratio = float(self.rst_count / tcp_total) if self.tcp_count > 0 else 0.0
+            fin_ratio = float(self.fin_count / tcp_total) if self.tcp_count > 0 else 0.0
+            syn_completion_ratio = float(self.ack_count / max(self.syn_count, 1)) if self.syn_count > 0 else 1.0
+
+            unique_src_ports = int(len(self.src_ports))
+            unique_dst_ports = int(len(self.dst_ports))
+            unique_src_ips = int(len(self.src_ips))
+            unique_dst_ips = int(len(self.dst_ips))
+            src_dst_pair_count = int(len(self.src_dst_pairs))
+
+            # Shannon Entropy cho Destination Ports (Đặc trưng cốt lõi phân biệt Scan vs Benign)
+            if self.dst_port_counts and self.packet_count > 0:
+                tot_p = sum(self.dst_port_counts.values())
+                entropy = 0.0
+                for cnt in self.dst_port_counts.values():
+                    p = cnt / tot_p
+                    if p > 0:
+                        entropy -= p * math.log2(p)
+                dst_port_entropy = round(entropy, 4)
+            else:
+                dst_port_entropy = 0.0
+
+            # Inter-Arrival Time (IAT in ms) - Bắt hiệu quả Low & Slow Adversarial traffic
+            if len(self.packet_timestamps) >= 2:
+                iats = np.diff(self.packet_timestamps) * 1000.0  # in ms
+                mean_iat = round(float(np.mean(iats)), 2)
+                std_iat = round(float(np.std(iats)), 2)
+            else:
+                mean_iat = 0.0
+                std_iat = 0.0
 
             tcp_c = self.tcp_count
             udp_c = self.udp_count
@@ -231,20 +302,41 @@ class WindowStats:
             "protocol": protocol,
             "packet_length": pkt_len,
             "info": info_str,
+            # Chỉ số thể tích lưu lượng cơ sở
             "packet_rate": round(pkt_rate, 2),
             "byte_rate": round(byte_rate, 2),
             "avg_packet_size": round(avg_size, 2),
-            "syn_ratio": round(syn_ratio, 4),
-            "ack_ratio": round(ack_ratio, 4),
+            "packet_size_std": round(pkt_size_std, 2),
+            # Phân bố giao thức
+            "tcp_ratio": round(tcp_ratio, 4),
             "udp_ratio": round(udp_ratio, 4),
             "icmp_ratio": round(icmp_ratio, 4),
-            "unique_dst_ports": unique_ports,
+            # Cờ & trạng thái kết nối TCP (Semantic State)
+            "syn_ratio": round(syn_ratio, 4),
+            "ack_ratio": round(ack_ratio, 4),
+            "rst_ratio": round(rst_ratio, 4),
+            "fin_ratio": round(fin_ratio, 4),
+            "syn_completion_ratio": round(syn_completion_ratio, 4),
+            # Độ đa dạng địa chỉ & cổng (Endpoint Diversity - Phản ánh "D" trong DDoS)
+            "unique_src_ports": unique_src_ports,
+            "unique_dst_ports": unique_dst_ports,
+            "unique_src_ips": unique_src_ips,
+            "unique_dst_ips": unique_dst_ips,
+            "src_dst_pair_count": src_dst_pair_count,
+            # Temporal Dynamics & Entropy (Low & Slow Detection & Scan Recognition)
+            "mean_iat": mean_iat,
+            "std_iat": std_iat,
+            "dst_port_entropy": dst_port_entropy,
+            # Counts
             "tcp_count": tcp_c,
             "udp_count": udp_c,
             "icmp_count": icmp_c,
-            "tcp.flags": 2.0 if syn_ratio > 0.5 else (16.0 if ack_ratio > 0.5 else 0.0),
+            # Tương thích trường Edge-IIoTset
+            "tcp.flags": 4.0 if rst_ratio > 0.3 else (1.0 if fin_ratio > 0.3 else (2.0 if syn_ratio > 0.5 else (16.0 if ack_ratio > 0.5 else 0.0))),
             "tcp.flags.ack": 1.0 if ack_ratio > 0.5 else 0.0,
             "tcp.connection.syn": 1.0 if syn_ratio > 0.5 else 0.0,
+            "tcp.connection.rst": 1.0 if rst_ratio > 0.3 else 0.0,
+            "tcp.connection.fin": 1.0 if fin_ratio > 0.3 else 0.0,
             "tcp.len": float(pkt_len) if pkt_len > 0 else float(avg_size),
             "tcp.srcport": float(src_port) if src_port else 0.0,
             "tcp.dstport": float(dst_port) if dst_port else 0.0,
@@ -303,7 +395,10 @@ class RawSocketEngine:
                 dst_port = None
                 is_syn = False
                 is_ack = False
+                is_rst = False
+                is_fin = False
                 info_text = ""
+                now_t = time.perf_counter()
 
                 if proto == 6 and len(data) >= ihl + 20:  # TCP
                     tcp_header = data[ihl:ihl + 20]
@@ -312,11 +407,13 @@ class RawSocketEngine:
                     flags = tcp_header[13]
                     is_syn = bool(flags & 0x02)
                     is_ack = bool(flags & 0x10)
+                    is_rst = bool(flags & 0x04)
+                    is_fin = bool(flags & 0x01)
                     flag_names = []
                     if is_syn: flag_names.append("SYN")
                     if is_ack: flag_names.append("ACK")
-                    if flags & 0x01: flag_names.append("FIN")
-                    if flags & 0x04: flag_names.append("RST")
+                    if is_rst: flag_names.append("RST")
+                    if is_fin: flag_names.append("FIN")
                     info_text = f"[{' '.join(flag_names) or 'DATA'}] {src_port} -> {dst_port} Len={total_len}"
                 elif proto == 17 and len(data) >= ihl + 8:  # UDP
                     udp_header = data[ihl:ihl + 8]
@@ -340,7 +437,10 @@ class RawSocketEngine:
                     dst_port=dst_port,
                     is_syn=is_syn,
                     is_ack=is_ack,
-                    info=info_text
+                    is_rst=is_rst,
+                    is_fin=is_fin,
+                    info=info_text,
+                    pkt_time=now_t
                 )
             except Exception:
                 if not self.running:
@@ -415,16 +515,40 @@ class PsutilMonitorEngine:
         except Exception:
             pass
 
-        # Tính tỷ lệ
+        # Tính tỷ lệ & extended features
+        total_conns = max(tcp_count + udp_count, 1)
         total_tcp = max(tcp_count, 1) if tcp_count > 0 else 1
+        tcp_ratio = round(float(tcp_count / total_conns), 4) if total_conns > 0 else 0.85
         syn_ratio = float(syn_count / total_tcp) if tcp_count > 0 else 0.02
         ack_ratio = float(ack_count / total_tcp) if tcp_count > 0 else 0.75
+        rst_ratio = 0.0
+        fin_ratio = 0.0
+        syn_completion_ratio = round(float(ack_count / max(syn_count, 1)), 4) if syn_count > 0 else 1.0
 
-        total_conns = max(tcp_count + udp_count, 1)
         udp_ratio = float(udp_count / total_conns) if total_conns > 0 else 0.15
 
         info_str = f"Flow {active_protocol} {active_src_port}->{active_dst_port} ({round(pkt_rate, 1)} pkts/s)"
         unique_ports = max(len(dst_ports), 1)
+
+        src_ports_set = set(c.laddr.port for c in conns if c.laddr) if 'conns' in locals() else {active_src_port}
+        src_ips_set = set(c.laddr.ip for c in conns if c.laddr) if 'conns' in locals() else {active_src_ip}
+        dst_ips_set = set(c.raddr.ip for c in conns if c.raddr) if 'conns' in locals() else {active_dst_ip}
+        unique_src_ports = max(len(src_ports_set), 1)
+        unique_src_ips = max(len(src_ips_set), 1)
+        unique_dst_ips = max(len(dst_ips_set), 1)
+        src_dst_pair_count = max(unique_dst_ips, 1)
+
+        # Entropy cổng
+        if len(dst_ports) > 1:
+            p = 1.0 / len(dst_ports)
+            dst_port_entropy = round(len(dst_ports) * (-p * math.log2(p)), 4)
+        else:
+            dst_port_entropy = 0.0
+
+        # Temporal estimate
+        mean_iat = round(1000.0 / max(pkt_rate, 1.0), 2)
+        std_iat = round(mean_iat * 0.35, 2)
+        pkt_size_std = round(avg_size * 0.25, 2)
 
         # Neu he thong dang ban luong tan cong mang that, phan bo dac trung khop voi kich ban
         if attack_context and attack_context.get("status") == "ATTACKING" and pkt_rate > 30.0:
@@ -433,29 +557,36 @@ class PsutilMonitorEngine:
             active_dst_ip = target_ip
             if "UDP" in sc:
                 udp_ratio = round(max(0.85, 1.0 - (15.0 / max(pkt_rate, 1.0))), 4)
+                tcp_ratio = round(1.0 - udp_ratio, 4)
                 syn_ratio = 0.02
                 ack_ratio = 0.08
                 active_protocol = "UDP"
                 active_dst_port = 9999
+                dst_port_entropy = 0.2
                 info_str = f"[ATTACK] UDP Volumetric Flood Flow ({round(pkt_rate, 1)} pkts/s -> {target_ip})"
             elif "PORT" in sc:
                 syn_ratio = round(max(0.82, 1.0 - (20.0 / max(pkt_rate, 1.0))), 4)
                 ack_ratio = 0.08
                 udp_ratio = 0.04
                 unique_ports = max(unique_ports, int(min(pkt_rate * 0.8, 350)))
+                dst_port_entropy = round(math.log2(max(unique_ports, 2)), 4)
+                syn_completion_ratio = 0.05
                 active_protocol = "TCP"
                 info_str = f"[ATTACK] TCP SYN Port Scanning ({unique_ports} ports -> {target_ip})"
             elif "TCP" in sc or "SYN" in sc:
                 syn_ratio = round(max(0.92, 1.0 - (10.0 / max(pkt_rate, 1.0))), 4)
                 ack_ratio = 0.03
                 udp_ratio = 0.02
+                syn_completion_ratio = 0.02
                 active_protocol = "TCP"
                 active_dst_port = 80
+                dst_port_entropy = 0.1
                 info_str = f"[ATTACK] TCP SYN Flood Stream ({round(pkt_rate, 1)} pkts/s -> {target_ip})"
             elif "VULN" in sc:
                 syn_ratio = 0.48
                 ack_ratio = 0.48
                 unique_ports = max(unique_ports, 24)
+                dst_port_entropy = round(math.log2(24), 4)
                 active_protocol = "HTTP"
                 active_dst_port = 8080
                 info_str = f"[ATTACK] Web Vulnerability Scanner Probe ({round(pkt_rate, 1)} pkts/s -> {target_ip})"
@@ -463,8 +594,10 @@ class PsutilMonitorEngine:
                 ack_ratio = 0.96
                 syn_ratio = 0.02
                 avg_size = max(avg_size, 1420.0)
+                pkt_size_std = 45.0
                 active_protocol = "TCP"
                 active_dst_port = 443
+                dst_port_entropy = 0.05
                 info_str = f"[ATTACK] TLS Data Exfiltration Stream ({round(byte_rate/1024, 1)} KB/s -> {target_ip})"
 
         return {
@@ -480,11 +613,23 @@ class PsutilMonitorEngine:
             "packet_rate": round(pkt_rate, 2),
             "byte_rate": round(byte_rate, 2),
             "avg_packet_size": round(avg_size, 2),
-            "syn_ratio": round(syn_ratio, 4),
-            "ack_ratio": round(ack_ratio, 4),
+            "packet_size_std": round(pkt_size_std, 2),
+            "tcp_ratio": round(tcp_ratio, 4),
             "udp_ratio": round(udp_ratio, 4),
             "icmp_ratio": 0.0,
+            "syn_ratio": round(syn_ratio, 4),
+            "ack_ratio": round(ack_ratio, 4),
+            "rst_ratio": round(rst_ratio, 4),
+            "fin_ratio": round(fin_ratio, 4),
+            "syn_completion_ratio": round(syn_completion_ratio, 4),
+            "unique_src_ports": unique_src_ports,
             "unique_dst_ports": unique_ports,
+            "unique_src_ips": unique_src_ips,
+            "unique_dst_ips": unique_dst_ips,
+            "src_dst_pair_count": src_dst_pair_count,
+            "mean_iat": mean_iat,
+            "std_iat": std_iat,
+            "dst_port_entropy": dst_port_entropy,
             "tcp_count": tcp_count,
             "udp_count": udp_count,
             "icmp_count": 0,

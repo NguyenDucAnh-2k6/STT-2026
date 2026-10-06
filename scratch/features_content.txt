@@ -1,0 +1,467 @@
+A. L3/L4 — nên bổ sung ngay
+Hiện tại bạn chưa có một số thông tin rất có giá trị.
+src_ip_count
+Số lượng source IP khác nhau trong window.
+Ví dụ DDoS:
+src_ip_count ↑↑
+đặc biệt hữu ích để phân biệt:
+single-source flood
+với:
+distributed flood
+Tức là nó giúp telemetry phản ánh chữ D trong DDoS.
+unique_src_ports
+Bạn đang có:
+unique_dst_ports
+nhưng chưa có:
+unique_src_ports
+Hai cái hoàn toàn khác nhau.
+Ví dụ:
+Port scan:
+src = attacker:random_port
+dst = victim:21
+dst = victim:22
+dst = victim:23
+dst = victim:80
+...
+→ unique_dst_ports ↑
+Trong một số traffic pattern khác:
+src_port thay đổi rất mạnh
+dst_port cố định
+→ unique_src_ports ↑
+Feature này rất rẻ để tính.
+dst_ip_count
+Bạn cũng nên có:
+unique_dst_ips
+Điều này cực kỳ hữu ích với:
+scanning
+worm propagation
+lateral movement
+DDoS
+reconnaissance
+Ví dụ:
+1 source → 1,000 destination IPs
+rất khác:
+1 source → 1 destination IP
+dù packet_rate giống nhau.
+src_dst_pair_count
+Đếm số cặp:
+(source IP, destination IP)
+khác nhau.
+Nó giúp phân biệt:
+one-to-one
+one-to-many
+many-to-one
+many-to-many
+Đây là một feature rất đáng thêm cho network anomaly detection.
+4. TCP flags — đây là thứ tôi đặc biệt khuyên thêm
+Hiện tại bạn có:
+syn_ratio
+ack_ratio
+nhưng nên giữ TCP flag counts/ratios chi tiết hơn:
+fin_ratio
+rst_ratio
+psh_ratio
+và nếu parser cho phép:
+syn_ack_ratio
+fin_ack_ratio
+rst_ratio
+Đặc biệt:
+RST
+Một số scan / failed connection pattern có:
+SYN → RST
+Trong khi một connection bình thường có:
+SYN
+SYN-ACK
+ACK
+...
+FIN
+Do đó:
+rst_ratio
+có thể khá hữu ích.
+5. TCP connection-state features
+Đây còn quan trọng hơn việc thêm hàng chục statistical features.
+Bạn nên cố gắng suy ra:
+connection_attempts
+established_connections
+failed_connections
+hoặc ít nhất:
+syn_count
+syn_ack_count
+ack_count
+rst_count
+Từ đó có thể tạo:
+SYN completion ratio
+về ý tưởng:
+Rcompletion=NestablishedNSYNR_{completion} = \frac{N_{established}} {N_{SYN}}
+SYN flood thường tạo:
+SYN ↑↑
+established ↓
+→ completion ratio giảm.
+Đây là một feature có semantic meaning tốt hơn chỉ syn_ratio.
+6. Time-series features — rất đáng thêm
+Hiện tại bạn có:
+timestamp
+packet_rate
+byte_rate
+nhưng timestamp bản thân nó không giúp model nhiều.
+Cái đáng giá là các feature mô tả temporal dynamics:
+packet_rate_std
+byte_rate_std
+packet_rate_max
+packet_rate_min
+trong một rolling window.
+Ví dụ:
+Normal:
+100 105 98 103 101 97
+DDoS:
+100 105 102 5000 5200 5100
+Mean có thể đã đủ phân biệt, nhưng variance/burstiness cho model thêm information.
+burstiness
+Một cách đơn giản:
+B=σpacket rateμpacket rateB = \frac{\sigma_{packet\ rate}} {\mu_{packet\ rate}}
+hoặc dùng coefficient of variation.
+Điều này đặc biệt hữu ích với:
+flood
+scanning
+low-and-slow adversarial traffic
+7. Inter-arrival time — tôi rất khuyên thêm
+Đây là feature bạn đang thiếu rõ ràng.
+Cho packet timestamps:
+t1,t2,…,tnt_1,t_2,\ldots,t_n
+tính:
+Δti=ti−ti−1\Delta t_i=t_i-t_{i-1}
+Sau đó:
+mean_iat
+std_iat
+min_iat
+max_iat
+hoặc chỉ:
+mean_inter_arrival_time
+std_inter_arrival_time
+Đây là feature rất hữu ích để phân biệt:
+Normal traffic
+       vs
+burst flood
+       vs
+low-and-slow attack
+Đặc biệt với Adversarial WGAN-GP Low & Slow mà bạn đang mô phỏng, IAT là feature rất đáng quan tâm.
+8. Packet-size distribution
+Bạn hiện có:
+avg_packet_size
+Nhưng mean có thể che mất rất nhiều information.
+Ví dụ:
+Traffic A:
+100, 100, 100, 100, 100
+Traffic B:
+20, 180, 20, 180, 20
+có thể có cùng mean.
+Do đó nếu tài nguyên cho phép, thêm:
+packet_size_std
+packet_size_min
+packet_size_max
+Hoặc tốt hơn:
+packet_size_p50
+packet_size_p90
+packet_size_p95
+Nhưng không cần lấy hết. std + p95 thường đã rất hữu ích.
+9. L7 features — bắt buộc nếu bạn thật sự muốn hỗ trợ DDoS_HTTP
+Đây là phần quan trọng nhất.
+Hiện tại:
+DDoS_HTTP
+và
+DDoS_TCP
+có thể trông khá giống nhau ở L3/L4.
+Ví dụ:
+HTTP Flood
+TCP SYN
+TCP SYN-ACK
+TCP ACK
+HTTP GET
+HTTP GET
+HTTP GET
+...
+Nếu chỉ aggregate:
+packet_rate
+byte_rate
+tcp_count
+syn_ratio
+ack_ratio
+thì model có thể không biết:
+"Đây là HTTP flood"
+nó chỉ biết:
+"TCP traffic rất nhiều."
+Nên thêm:
+http_request_count
+http_response_count
+và nếu parse HTTP:
+GET_count
+POST_count
+PUT_count
+DELETE_count
+cùng:
+unique_http_paths
+http_status_4xx_ratio
+http_status_5xx_ratio
+Nếu hệ thống của bạn chạy HTTPS thì payload HTTP bị mã hóa, lúc đó cần cân nhắc:
+TLS metadata
+SNI
+destination/service
+packet-size/time patterns
+thay vì plaintext HTTP payload.
+10. DNS features
+Nếu MITM của bạn bao gồm DNS spoofing hoặc bạn muốn phát hiện DNS-related behavior, nên có:
+dns_query_count
+dns_response_count
+unique_dns_domains
+dns_response_size
+dns_error_ratio
+Đặc biệt:
+query → response ratio
+có thể hữu ích.
+Nhưng nếu MITM của bạn thực sự chỉ là ARP spoofing, DNS feature không giải quyết được vấn đề chính.
+11. ARP features — rất quan trọng cho MITM
+Đây là một thiếu sót lớn.
+Nếu muốn nói hệ thống phát hiện:
+MITM / ARP Spoofing
+thì nên capture:
+arp_request_count
+arp_reply_count
+unique_arp_ips
+unique_arp_macs
+và đặc biệt:
+IP → MAC mapping changes
+Ví dụ bình thường:
+192.168.1.1 → AA:AA:AA:AA
+sau đó:
+192.168.1.1 → BB:BB:BB:BB
+Đây mới là signal cực mạnh cho ARP spoofing.
+Thậm chí có thể tạo feature:
+arp_mapping_change_count
+Đây là một feature semantic rất mạnh.
+12. SQL Injection / XSS
+Đây là nơi bạn cần phân biệt:
+network-flow detection
+với
+payload/application inspection
+Nếu muốn thực sự phát hiện:
+SQL_injection
+XSS
+thì cần nhìn vào application payload hoặc WAF-like features.
+Ví dụ abstract feature:
+http_payload_length
+special_character_ratio
+request_entropy
+parameter_count
+và tốt hơn nữa là application/security parser tạo:
+sql_pattern_score
+xss_pattern_score
+Nhưng nếu mục tiêu của bạn là Edge AI nhẹ trên ESP32, tôi không khuyến nghị nhét SQL/XSS payload inspection vào ESP32.
+Đây là một boundary kiến trúc rất hợp lý:
+ESP32 / Edge
+      │
+      │ L2-L4 telemetry
+      ▼
+Lightweight anomaly detector
+      │
+      │ suspicious flow
+      ▼
+Gateway / Edge server
+      │
+      │ deeper inspection
+      ▼
+L7 IDS / WAF
+13. Ransomware / Backdoor
+Hai cái này cũng không nên cố ép vào packet statistics.
+Ransomware
+Signal tốt hơn thường nằm ở host:
+file_open_rate
+file_modify_rate
+file_rename_rate
+entropy_of_files
+process_creation
+CPU
+disk I/O
+Backdoor
+Signal:
+new listening port
+unexpected outbound connection
+periodic beaconing
+new process
+persistence mechanism
+Network side có thể bắt được C2 beaconing:
+packet
+   ↓ 60 sec
+packet
+   ↓ 60 sec
+packet
+   ↓ 60 sec
+packet
+Do đó có thể thêm:
+connection_frequency
+periodicity_score
+destination_repetition
+Đây là hướng thú vị cho Edge AI.
+14. Password brute force
+Hiện tại bạn thiếu một feature cực quan trọng:
+connection_attempt_rate
+Ví dụ:
+SSH:
+100 login attempts / minute
+hoặc:
+HTTP:
+500 authentication requests / minute
+Nếu có application telemetry:
+authentication_failure_rate
+sẽ mạnh hơn rất nhiều.
+15. Fingerprinting
+Fingerprinting thường dựa trên:
+TTL
+TCP window size
+TCP options
+MSS
+IP ID
+TCP timestamp
+OS-specific behavior
+Nếu packet capture của bạn lấy được IP/TCP header, đây là nhóm feature đáng cân nhắc:
+ttl
+tcp_window_size
+mss
+tcp_option_count
+Tuy nhiên fingerprinting thường cần packet/header-level inspection, không phải aggregate flow statistics đơn thuần.
+16. Một feature rất đáng thêm: protocol/service distribution
+Bạn hiện có:
+tcp_count
+udp_count
+icmp_count
+nhưng có thể thêm:
+dst_port_entropy
+Ý tưởng:
+Nếu traffic tới:
+80,80,80,80,80
+thì entropy thấp.
+Nếu scan:
+21,22,23,25,53,80,110,139,443,...
+thì entropy cao hơn.
+Tương tự có thể tính:
+H(P)=−∑ipilog⁡piH(P)=-\sum_i p_i\log p_i
+cho:
+destination port distribution
+Tôi đánh giá đây là một feature khá đẹp cho Port Scanning / Vulnerability Scanner.
+17. Bộ feature tôi sẽ chọn cho hệ thống của bạn
+Nếu mục tiêu là Edge AI lightweight, tôi không khuyên bạn biến feature vector thành 100 chiều.
+Tôi sẽ bắt đầu với khoảng 25–30 feature, chia như sau:
+Traffic volume
+packet_rate
+byte_rate
+avg_packet_size
+packet_size_std
+Protocol
+tcp_count
+udp_count
+icmp_count
+tcp_ratio
+udp_ratio
+icmp_ratio
+TCP behavior
+syn_ratio
+ack_ratio
+rst_ratio
+fin_ratio
+syn_count
+rst_count
+Endpoint diversity
+unique_src_ips
+unique_dst_ips
+unique_src_ports
+unique_dst_ports
+src_dst_pair_count
+Temporal
+mean_iat
+std_iat
+packet_rate_std
+burstiness
+Service/scan behavior
+dst_port_entropy
+connection_attempt_rate
+Nếu muốn L7
+http_request_count
+http_response_count
+http_error_ratio
+Nếu muốn MITM
+arp_request_count
+arp_reply_count
+arp_mapping_change_count
+Nhưng không cần đưa tất cả vào ESP32 ngay. Đây nên là candidate feature pool; sau đó feature selection/ablation mới quyết định cái nào thực sự cần.
+18. Có một vấn đề còn quan trọng hơn feature: ground_truth_scenario
+Bạn đang có:
+ground_truth_scenario
+is_attack
+predicted_threat
+anomaly_score
+confidence
+edge_prediction
+edge_flag
+Cẩn thận:
+ground_truth_scenario
+is_attack
+là label, không được đưa vào input feature của model.
+Tương tự:
+predicted_threat
+anomaly_score
+confidence
+edge_prediction
+edge_flag
+là output/model metadata, không phải raw input feature.
+Pipeline nên là:
+                 RAW PACKETS
+                       │
+                       ▼
+              Feature extraction
+                       │
+                       ▼
+             ┌──────────────────┐
+             │  INPUT FEATURES  │
+             │                  │
+             │ packet_rate      │
+             │ byte_rate        │
+             │ syn_ratio        │
+             │ ...              │
+             └────────┬─────────┘
+                      │
+                      ▼
+                    MODEL
+                      │
+            ┌─────────┴─────────┐
+            ▼                   ▼
+       predicted_threat    anomaly_score
+            │                   │
+            └─────────┬─────────┘
+                      ▼
+                   Dashboard
+ground_truth_scenario ───────► evaluation only
+is_attack ───────────────────► evaluation only
+Đây là cực kỳ quan trọng để tránh data leakage.
+19. Và một điểm tôi muốn sửa trong taxonomy của bạn
+Bạn đang gom:
+Uploading = Data Exfiltration
+Điều này không hoàn toàn tương đương.
+Uploading dung lượng lớn chỉ cho ta:
+high-volume outbound transfer
+nhưng chưa chứng minh đó là:
+unauthorized data exfiltration.
+Ví dụ:
+backup
+software update
+cloud synchronization
+video upload
+cũng có thể tạo telemetry tương tự.
+Tương tự:
+Vulnerability_scanner
+và
+Port_Scanning
+ở flow-level có thể cực kỳ khó phân biệt nếu bạn chỉ có:
+unique_dst_ports
+syn_ratio
+packet_rate
+Vulnerability scanner có thêm application/service probing, trong khi port scan chỉ cần discover open ports.
+Do đó nếu dataset của bạn label hai class này riêng biệt, cần kiểm tra xem generator có tạo behavioral distinction thực sự hay chỉ tạo hai label khác nhau cho hai traffic pattern gần giống nhau.

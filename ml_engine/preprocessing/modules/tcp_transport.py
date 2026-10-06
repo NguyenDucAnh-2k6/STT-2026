@@ -90,8 +90,16 @@ class TCPTransportPreprocessor(BaseSubPreprocessor):
             # Cờ TCP thực tế đo từ Sniffer
             syn_r = float(telemetry.get("syn_ratio", 0.0))
             ack_r = float(telemetry.get("ack_ratio", 0.0))
+            rst_r = float(telemetry.get("rst_ratio", 0.0))
+            fin_r = float(telemetry.get("fin_ratio", 0.0))
 
-            if syn_r > 0.5:
+            if rst_r > 0.3:
+                res["tcp.connection.rst"] = 1.0
+                res["tcp.flags"] = 4.0  # RST bit (0x04)
+            elif fin_r > 0.3:
+                res["tcp.connection.fin"] = 1.0
+                res["tcp.flags"] = 1.0  # FIN bit (0x01)
+            elif syn_r > 0.5:
                 res["tcp.connection.syn"] = 1.0
                 res["tcp.flags"] = 2.0  # SYN bit (0x02)
             elif ack_r > 0.5:
