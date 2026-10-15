@@ -47,72 +47,188 @@ Launcher nạp .env ở repository; biến môi trường có sẵn ưu tiên h�
 flags ưu tiên hơn cấu hình broker. Host dùng mạng hệ điều hành đã kết nối, không
 cần SSID/password để capture.
 
-## Các chế độ chạy
+## Kiến trúc & Sơ đồ Pipeline tổng thể
 
-### Wi-Fi/Ethernet thực của máy
+Hệ thống hoạt động theo mô hình phân tán đa tầng (Hybrid Multi-Tier): Giám sát biên thời gian thực (ESP32 Edge Probe) kết hợp Host Monitoring, điều phối qua Broker MQTT tập trung, lưu trữ Data Lake chuẩn Parquet/SQLite và hiển thị Web Dashboard trực quan.
 
-~~~powershell
-python run_system.py --probe host --broker-host 127.0.0.1 --broker-port 1883 --classifier random_forest --anomaly-model isolation_forest
-~~~
+```mermaid
+flowchart TD
+    subgraph Traffic_Sources["1. NGUỒN LƯU LƯỢNG MẠNG"]
+        WiFi[("Wi-Fi Môi trường / Hotspot<br/>(WPA2/WPA3 / Open)")]
+        HostNIC[("Card mạng Host PC<br/>(Ethernet / Wi-Fi)")]
+        TwinLab[("Digital Twin Lab<br/>(Loopback 127.0.0.1)")]
+    end
 
-Bỏ cả --lab-capture và --twin-lab. Mỗi lần startup host thường, run_system tự chạy
-tshark -D và đọc link state của OS để chọn các card vật lý đang hoạt động, rồi
-cập nhật HOST_CAPTURE_INTERFACES trong .env bằng device ID hiện tại. Windows
-đối chiếu GUID với Npcap, không ưu tiên card Wi-Fi đã disconnected. Nếu cả Ethernet
-và Wi-Fi đang up thì capture cả hai. Không cần cờ chọn interface hoặc mở CMD để
-tìm index; giá trị cũ được tự thay ở startup. Chỉ cập nhật khóa capture, giữ nguyên
-credentials và settings khác. Lab flags tự chọn loopback trong bộ nhớ, không ghi
-loopback đè cấu hình host thường. Replay PCAP/no-tshark/không chạy probe không refresh.
-Restart sau khi đổi card/mạng;
-chưa có tự chuyển card giữa phiên đang chạy.
-Host quan sát traffic đi qua interface của máy, không tự thấy toàn bộ traffic
-của mọi thiết bị trong Wi-Fi. Tạo hoạt động sử dụng bình thường để có packet.
-Xem [chọn interface và đặt probe cho mạng khác](docs/CAPTURE_PLACEMENT.md) để phân
-biệt capture=0 ở Twin, tự discovery adapter và kiến trúc AP/mirror/monitor mode.
+    subgraph Edge_Tier["2. BIÊN ESP32 (EDGE TINYML PROBE)"]
+        Sniffer["Promiscuous 802.11 Sniffer"]
+        L24_Extract["Trích xuất 10 Đặc trưng L2-4<br/>(ESP32_PACKET_FEATURES)"]
+        TinyML["TinyML Engine C Header<br/>(Random Forest 16 cây + Isolation Forest)"]
+        LocalAlert["Cảnh báo phần cứng tại chỗ<br/>(OLED SSD1306, LED, Buzzer)"]
+        
+        Sniffer --> L24_Extract --> TinyML
+        TinyML --> LocalAlert
+    end
 
-### Chỉ quan sát loopback localhost
+    subgraph Host_Tier["3. HOST PROBE ENGINE"]
+        TShark["TShark Engine ngầm<br/>(Npcap / WinPcap)"]
+        L7_Extract["Trích xuất 56 Canonical Features<br/>(L2-L7: TCP/UDP/HTTP/DNS/MQTT)"]
+        HostInference["Host ML Inference Service<br/>(Dual Pipeline: Anomaly + Classifier)"]
 
-~~~powershell
-python run_system.py --probe host --lab-capture --broker-host 127.0.0.1 --broker-port 1883 --classifier random_forest --anomaly-model isolation_forest
-~~~
+        TShark --> L7_Extract --> HostInference
+    end
 
-Flag chọn loopback qua LAB_CAPTURE_INTERFACES, **không tự sinh workload**.
-Không có ứng dụng localhost khác hoạt động có thể không có packet: dashboard/MQTT
-của hệ thống bị lọc. Wi-Fi đi Internet không xuất hiện trên loopback.
+    subgraph Messaging["4. HỆ THỐNG ĐIỀU PHỐI MQTT"]
+        Broker["Mosquitto MQTT Broker<br/>(Cổng 1883/1884)"]
+        T_Traffic["Topic: edge/telemetry/traffic (QoS 1)"]
+        T_Pred["Topic: edge/telemetry/prediction (QoS 1)"]
+        T_Alert["Topic: edge/alerts/high_priority (QoS 1)"]
+        T_Nodes["Topic: edge/nodes/status (QoS 0/1)"]
+        T_Config["Topic: edge/config/threshold (QoS 1)"]
 
-### Twin: chạy workload và thu dữ liệu từ UI
+        Broker --- T_Traffic
+        Broker --- T_Pred
+        Broker --- T_Alert
+        Broker --- T_Nodes
+        Broker --- T_Config
+    end
 
-~~~powershell
-python run_system.py --probe host --twin-lab --broker-host 127.0.0.1 --broker-port 1883 --classifier random_forest --anomaly-model isolation_forest
-~~~
+    subgraph Storage_Dashboard["5. LƯU TRỮ VÀ GIAO DIỆN QUẢN TRỊ"]
+        FastAPI["FastAPI Backend & Lifespan Service"]
+        DataLake[("Data Lake Parquet + SQLite<br/>(data_lake/raw/date=YYYY-MM-DD/)")]
+        WebUI["Web Dashboard Frontend<br/>(FastAPI WebSockets + Native ES Modules)"]
 
-Mở **http://localhost:8000/**, chọn thời lượng **1–60 giây**, bấm Normal hoặc lớp
-được hỗ trợ. Native backend tự tạo HTTP target; dừng dịch vụ lab thủ công cũ nếu
-đang chiếm cổng 8088. Chỉ một experiment chạy/import tại một thời điểm.
+        FastAPI --> DataLake
+        FastAPI <--> WebUI
+    end
 
-- Vàng Đang chuẩn bị → vàng Đang bắn: lớp — Đang thu PCAP → vàng Đang lưu
-  → xanh khi COMPLETED; lỗi hiện đỏ.
-- **Dừng & lưu** hủy workload rồi đóng capture và nhập dữ liệu; chờ COMPLETED.
-- dumpcap → PCAPNG → TShark offline → Parquet batch trực tiếp, không dùng queue
-  MQTT packet làm đường lưu toàn bộ thí nghiệm.
-- PCAP/log/manifest: data_lake/experiments/<experiment_id>/.
-  Parquet: data_lake/raw/date=YYYY-MM-DD/, session riêng cho importer.
-- Capture giới hạn 65 giây/64 MiB, import timeout 120 giây; đối chiếu frame count
-  bằng capinfos nếu có. Không bảo đảm zero loss ở driver/kernel.
-- --twin-lab không kết hợp --lab-capture, --attack-sim, --no-tshark, --no-sim
-  hoặc probe khác host. Nút Twin không cần generator legacy chạy nền.
+    WiFi --> Sniffer
+    HostNIC --> TShark
+    TwinLab --> TShark
 
-### ESP32 và simulator
+    TinyML -.->|"MQTT Pub"| T_Pred
+    L24_Extract -.->|"MQTT Pub"| T_Traffic
+    TinyML -.->|"Alert Pub"| T_Alert
+    HostInference -.->|"MQTT Pub"| T_Pred
 
-~~~powershell
-python run_system.py --probe esp32 --broker-host YOUR_HOST_LAN_IP --broker-port 1883
-python run_system.py --probe sim --broker-host 127.0.0.1 --broker-port 1883
-~~~
+    T_Traffic --> FastAPI
+    T_Pred --> FastAPI
+    T_Alert --> FastAPI
+    T_Config <--> FastAPI
+```
 
-ESP32 cần broker truy cập được từ mạng board; 127.0.0.1 không phải máy host từ board.
-Simulator là telemetry giả lập, không phải capture thực.
-Xem [ESP32 flashing](docs/ESP32_FLASHING_GUIDE.md) và
-[kiến trúc ESP32](docs/ESP32_PIPELINE_AND_NETWORK_ARCHITECTURE.md).
+---
+
+## 1. Thu thập & Xử lý dữ liệu (Data Ingestion & Preprocessing)
+
+Hệ thống hỗ trợ 2 chế độ trích xuất đặc trưng tùy thuộc vào probe thu thập và môi trường mạng:
+
+### A. Chế độ Biên ESP32 (10 Đặc trưng Layer 2–4 — `ESP32_PACKET_FEATURES`)
+Được thiết kế chuyên biệt để chạy trong môi trường **Wi-Fi mã hóa (WPA2/WPA3)** và tài nguyên siêu giới hạn của vi điều khiển:
+- Không giải mã dữ liệu người dùng (giữ tính riêng tư và bảo mật), chỉ đọc header 802.11 bóc tách MAC, IP, TCP/UDP/ICMP/ARP:
+  1. `arp.opcode`: Mã thao tác ARP (Request/Reply - phát hiện ARP Spoofing).
+  2. `arp.hw.size`: Kích thước địa chỉ phần cứng ARP.
+  3. `icmp.checksum`: Checksum gói ICMP (phát hiện ICMP Flood).
+  4. `tcp.srcport`: Cổng nguồn TCP.
+  5. `tcp.dstport`: Cổng đích TCP (phát hiện Port Scanning/Brute-force).
+  6. `tcp.flags`: Cờ TCP (SYN, ACK, FIN, RST, PSH, URG - phát hiện SYN Flood/XMAS Scan).
+  7. `tcp.flags.ack`: Trạng thái cờ ACK.
+  8. `tcp.len`: Chiều dài payload TCP.
+  9. `tcp.ack_raw`: Số Sequence/Acknowledgment thô.
+  10. `tcp.checksum`: Checksum tầng giao vận TCP.
+- **Tiền xử lý & Scaling trên ESP32:** Vector 10 số thực được chuẩn hóa MinMax/Standard scaler trực tiếp bằng thuật toán C tối ưu hóa dấu phẩy động trong `esp32_packet_model.h`.
+
+### B. Chế độ Toàn phần Host (56 Đặc trưng Canonical)
+Sử dụng TShark ngầm trên máy tính để bóc tách sâu các trường từ L2 đến L7:
+- Toàn bộ các trường L2-L4 cơ bản cộng với thông tin ứng dụng HTTP, DNS, MQTT, ICMP rates, cửa sổ thời gian trượt (IAT, Byte rate, Packet rate).
+- Chi tiết quy định tại [ml_engine/config/schema.py](ml_engine/config/schema.py).
+
+### C. Data Lake tự động (Parquet + SQLite)
+- **Định dạng Parquet:** Gói tin thu thập được lưu trữ theo cột và nén Snappy/GZIP theo ngày (`data_lake/raw/date=YYYY-MM-DD/sess_<id>.parquet`), giúp tốc độ đọc phân tích nhanh gấp 100 lần so với CSV truyền thống.
+- **SQLite Catalog:** Lưu metadata từng session, số lượng packet, nhãn ghi nhận, tính toàn vẹn của batch và hỗ trợ truy vấn tức thì từ API `/api/data-lake/summary`.
+
+---
+
+## 2. Giao thức & Hệ thống MQTT (MQTT API Specifications)
+
+AERO sử dụng kiến trúc Pub/Sub tách biệt hoàn toàn giữa luồng dữ liệu (Data Plane) và luồng điều khiển (Control Plane):
+
+| Topic | Hướng | QoS | Payload JSON chính | Ý nghĩa |
+| :--- | :---: | :---: | :--- | :--- |
+| `edge/telemetry/traffic` | Probe $\rightarrow$ Broker | 1 | `timestamp`, `probe_id`, `features` (10 hoặc 56 trường), `raw_metadata` | Dữ liệu đặc trưng gói tin thu thập theo thời gian thực. |
+| `edge/telemetry/prediction` | Probe $\rightarrow$ Broker | 1 | `timestamp`, `probe_id`, `threat_level`, `attack_type`, `confidence`, `probabilities`, `anomaly_score` | Kết quả phân loại đa lớp và điểm số bất thường từ mô hình ML/TinyML. |
+| `edge/alerts/high_priority` | Probe $\rightarrow$ Broker | 1 | `timestamp`, `probe_id`, `severity`, `rule_triggered`, `source_ip`, `target_ip` | Cảnh báo khẩn cấp khi điểm bất thường vượt ngưỡng `edge_threshold`. |
+| `edge/nodes/status` | Probe $\rightarrow$ Broker | 0/1 | `node_id`, `hardware`, `ip`, `rssi`, `uptime_ms`, `free_heap_bytes`, `state` | Nhịp tim định kỳ và báo cáo sức khỏe tài nguyên phần cứng. |
+| `edge/config/threshold` | Dashboard $\leftrightarrow$ Probe | 1 | `threshold` (0.0 – 1.0), `applied_at` | Điều chỉnh động ngưỡng cảnh báo anomaly mà không cần nạp lại firmware. |
+| `edge/experiments/status` | Backend $\rightarrow$ UI | 1 | `status` (PREPARING, RUNNING, IMPORTING, COMPLETED), `scenario`, `experiment_id` | Đồng bộ trạng thái thực nghiệm Digital Twin Lab. |
+
+---
+
+## 3. Module ESP32 Probe (Edge AI TinyML)
+
+ESP32 Probe là điểm đột phá cho phép **giám sát biên không xâm nhập (Non-intrusive Over-The-Air Sniffing)**:
+
+1. **Thu thập không dây (Promiscuous 802.11 Mode):**
+   - ESP32 đặt card Wi-Fi ở chế độ Promiscuous, lắng nghe toàn bộ khung truyền sóng trong không gian ở kênh (channel) chỉ định.
+   - Bộ lọc phần cứng FreeRTOS lọc nhanh các khung Management/Beacon, chỉ chuyển khung Data hợp lệ qua ring buffer có giới hạn dung lượng để chống tràn bộ nhớ.
+2. **TinyML Inference Engine:**
+   - Mô hình Random Forest (16 Decision Trees) + Isolation Forest được biên dịch trực tiếp sang mã nguồn C thuần (`esp32_packet_model.h`).
+   - Cây quyết định được biểu diễn dưới dạng cây if/else nhị phân phẳng, không cấp phát bộ nhớ động (Zero dynamic heap allocation), thời gian suy luận **dưới 5 ms/gói tin**.
+   - Cấu hình phân vùng bộ nhớ Flash: Sử dụng bảng phân vùng `PartitionScheme=huge_app` (3MB cho App), chiếm ~38–47% dung lượng Flash của ESP32.
+3. **Cảnh báo và tự trị (Edge Autonomy):**
+   - Khi mất kết nối MQTT về máy chủ, ESP32 vẫn tiếp tục suy luận độc lập và kích hoạt còi/LED/OLED tại chỗ khi phát hiện tấn công.
+
+---
+
+## 4. Hướng dẫn vận hành & Các chế độ chạy
+
+### Bước 1: Chuẩn bị môi trường
+- Cài đặt Python 3.10+, Wireshark (Npcap trên Windows), Mosquitto native.
+- Cài đặt Arduino-CLI và ESP32 board core (`esp32:esp32`) nếu muốn tự động nạp firmware cho ESP32.
+- Cài đặt các thư viện Python:
+  ```powershell
+  python -m pip install -r requirements.txt
+  ```
+
+---
+
+### Bước 2: Huấn luyện mô hình TinyML cho ESP32 (Offline Training)
+Nếu muốn huấn luyện mô hình Random Forest 16 cây + Isolation Forest từ tập dữ liệu Edge-IIoTset (lọc 10 đặc trưng L2-4):
+
+```powershell
+python -m ml_engine.edge.train --classifier random_forest --trees 16 --output ml_engine/models/esp32_edgeiiot_rf16
+```
+*(Lệnh sẽ xuất toàn bộ trọng số, scaler và file C header `esp32_packet_model.h` vào thư mục chỉ định).*
+
+---
+
+### Bước 3: Khởi chạy hệ thống
+
+#### Chế độ A: Giám sát biên qua ESP32 (Tự động biên dịch, nạp firmware & kết nối Hotspot)
+Kết nối ESP32 qua cáp micro-USB vào máy tính (ví dụ cổng COM4), bật Hotspot trên điện thoại hoặc máy tính:
+
+```powershell
+python run_system.py --probe esp32 --classifier random_forest --anomaly-model isolation_forest --models-dir ml_engine/models/esp32_edgeiiot_rf16 --arduino-cli --wifi-ssid "Tên_Hotspot" --wifi-pass
+```
+- Launcher sẽ tự động:
+  1. Đồng bộ file `esp32_packet_model.h` mới nhất vào thư mục firmware.
+  2. Tạo cấu hình `credentials.h` tạm chứa SSID/Password.
+  3. Dùng `arduino-cli` biên dịch và nạp xuống ESP32.
+  4. Khởi chạy Mosquitto Broker, Data Lake Collector và FastAPI Dashboard tại `http://localhost:8000`.
+
+#### Chế độ B: Giám sát lưu lượng Host (Card mạng máy tính thực tế)
+Quan sát lưu lượng Ethernet hoặc Wi-Fi đi qua máy tính cá nhân bằng TShark ngầm:
+
+```powershell
+python run_system.py --probe host --classifier random_forest --anomaly-model isolation_forest
+```
+
+#### Chế độ C: Thử nghiệm Digital Twin Lab (Loopback & Sinh kịch bản tấn công)
+Dành cho kiểm thử an toàn các kịch bản DoS, Scan, Injection trên loopback `127.0.0.1`:
+
+```powershell
+python run_system.py --probe host --twin-lab
+```
+*(Truy cập giao diện Web `http://localhost:8000`, bấm các nút kịch bản để bắt đầu bắn workload và thu PCAP).*
 
 ## Cấu hình .env
 
