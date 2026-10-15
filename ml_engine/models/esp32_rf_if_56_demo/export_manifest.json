@@ -1,0 +1,16 @@
+{
+  "classifier": "RandomForestClassifier",
+  "anomaly_detector": "IsolationForest",
+  "features": 56,
+  "classes": 15,
+  "exported_trees": 200,
+  "exported_nodes": 84558,
+  "estimated_numeric_constant_bytes": 5592422,
+  "header_source_bytes": 4082029,
+  "input_domain": "encoded_numeric_features",
+  "categorical_vocabulary_in_header": false,
+  "hardware_flash_ram_measured": false,
+  "trees_truncated": false,
+  "raw_vocabulary_utf8_bytes_excluding_indices": 28450972,
+  "nominal_4mb_flash_fit": false
+}

@@ -1,0 +1,14 @@
+{
+  "classifier": "DecisionTreeClassifier",
+  "anomaly_detector": "IsolationForest",
+  "features": 10,
+  "classes": 10,
+  "exported_trees": 101,
+  "exported_nodes": 18373,
+  "estimated_numeric_constant_bytes": 397423,
+  "header_source_bytes": 647102,
+  "input_domain": "encoded_numeric_features",
+  "categorical_vocabulary_in_header": false,
+  "hardware_flash_ram_measured": false,
+  "trees_truncated": false
+}

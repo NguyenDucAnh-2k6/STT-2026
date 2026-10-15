@@ -7,6 +7,7 @@ và kiểm tra cổng mạng khả dụng.
 """
 
 import os
+import json
 import sys
 import re
 import socket
@@ -21,12 +22,12 @@ def detect_host_lan_ip(preferred_iface: Optional[str] = None) -> str:
         try:
             target_iface = preferred_iface
             if not target_iface:
-                out_if = subprocess.check_output("netsh wlan show interfaces", shell=True, text=True, errors="ignore")
+                out_if = subprocess.check_output(["netsh", "wlan", "show", "interfaces"], text=True, errors="ignore")
                 m = re.search(r"^\s*Name\s*:\s*(.+)$", out_if, re.M)
                 if m:
                     target_iface = m.group(1).strip()
             if target_iface:
-                out_addr = subprocess.check_output(f'netsh interface ipv4 show addresses "{target_iface}"', shell=True, text=True, errors="ignore")
+                out_addr = subprocess.check_output(["netsh", "interface", "ipv4", "show", "addresses", target_iface], text=True, errors="ignore")
                 m_ip = re.search(r"IP Address:\s*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)", out_addr)
                 if m_ip:
                     return m_ip.group(1).strip()
@@ -78,7 +79,7 @@ def auto_detect_wifi_credentials() -> Tuple[Optional[str], Optional[str], str]:
     # 1. Windows: sử dụng lệnh netsh wlan
     if sys.platform == "win32":
         try:
-            out_if = subprocess.check_output("netsh wlan show interfaces", shell=True, text=True, errors="ignore")
+            out_if = subprocess.check_output(["netsh", "wlan", "show", "interfaces"], text=True, errors="ignore")
             m_iface = re.search(r"^\s*Name\s*:\s*(.+)$", out_if, re.M)
             iface_name = m_iface.group(1).strip() if m_iface else None
             host_ip = detect_host_lan_ip(iface_name)
@@ -92,7 +93,7 @@ def auto_detect_wifi_credentials() -> Tuple[Optional[str], Optional[str], str]:
                         break
 
             if ssid:
-                out_prof = subprocess.check_output(f'netsh wlan show profile name="{ssid}" key=clear', shell=True, text=True, errors="ignore")
+                out_prof = subprocess.check_output(["netsh", "wlan", "show", "profile", f"name={ssid}", "key=clear"], text=True, errors="ignore")
                 for line in out_prof.splitlines():
                     line = line.strip()
                     if "Key Content" in line or "Nội dung khóa" in line:
@@ -159,7 +160,7 @@ def auto_detect_wifi_credentials() -> Tuple[Optional[str], Optional[str], str]:
     return ssid, password, host_ip
 
 
-def update_env_file(root_dir: str, wifi_ssid: str, wifi_pass: str, mqtt_host: str):
+def update_env_file(root_dir: str, wifi_ssid: str, wifi_pass: str, mqtt_host: str, mqtt_port: Optional[int] = None):
     """Tự động đồng bộ các giá trị mạng phát hiện được vào file .env."""
     env_path = os.path.join(root_dir, ".env")
     lines = []
@@ -179,6 +180,9 @@ def update_env_file(root_dir: str, wifi_ssid: str, wifi_pass: str, mqtt_host: st
         elif line.strip().startswith("MQTT_BROKER_HOST=") or line.strip().startswith("MQTT_HOST="):
             new_lines.append(f'MQTT_BROKER_HOST="{mqtt_host}"\n')
             keys_set.add("MQTT_BROKER_HOST")
+        elif mqtt_port is not None and (line.strip().startswith("MQTT_BROKER_PORT=") or line.strip().startswith("MQTT_PORT=")):
+            new_lines.append(f'MQTT_BROKER_PORT={mqtt_port}\n')
+            keys_set.add("MQTT_BROKER_PORT")
         else:
             new_lines.append(line)
 
@@ -188,6 +192,8 @@ def update_env_file(root_dir: str, wifi_ssid: str, wifi_pass: str, mqtt_host: st
         new_lines.append(f'WIFI_PASSWORD="{wifi_pass}"\n')
     if "MQTT_BROKER_HOST" not in keys_set:
         new_lines.append(f'MQTT_BROKER_HOST="{mqtt_host}"\n')
+    if mqtt_port is not None and "MQTT_BROKER_PORT" not in keys_set:
+        new_lines.append(f'MQTT_BROKER_PORT={mqtt_port}\n')
 
     try:
         with open(env_path, "w", encoding="utf-8") as f:
@@ -196,48 +202,83 @@ def update_env_file(root_dir: str, wifi_ssid: str, wifi_pass: str, mqtt_host: st
         pass
 
 
-def sync_env_to_firmware(root_dir: str):
-    """Đồng bộ tự động WiFi SSID/Password và MQTT IP từ thông tin mạng thực tế vào credentials.h và .env."""
+def sync_env_to_firmware(root_dir: str) -> None:
+    """Generate ignored build credentials; explicit configuration takes priority."""
     credentials_path = os.path.join(root_dir, "firmware", "esp32_probe", "credentials.h")
-    if not os.path.exists(credentials_path):
-        return
+    wifi_ssid = os.getenv("WIFI_SSID", "")
+    wifi_pass = os.getenv("WIFI_PASSWORD", "")
+    mqtt_host = os.getenv("MQTT_BROKER_HOST") or os.getenv("MQTT_HOST", "")
+    port = int(os.getenv("MQTT_BROKER_PORT", "1883"))
+    if not 1 <= port <= 65535:
+        raise ValueError("MQTT_BROKER_PORT must be between 1 and 65535")
+    if not wifi_ssid or not mqtt_host:
+        raise ValueError("ESP32 requires WIFI_SSID and a reachable MQTT_BROKER_HOST in .env")
+    values = {"WIFI_SSID": wifi_ssid, "WIFI_PASSWORD": wifi_pass,
+              "MQTT_BROKER_HOST": mqtt_host,
+              "MQTT_CLIENT_ID": os.getenv("MQTT_CLIENT_ID", "ESP32-EdgeProbe-01")}
+    content = "// Generated from local .env. Recompile and flash after changes.\n#pragma once\n"
+    content += "".join(f"#define {key} {json.dumps(value, ensure_ascii=True)}\n" for key, value in values.items())
+    content += f"#define MQTT_BROKER_PORT {port}\n"
+    content += "#define MQTT_AUTO_DISCOVERY " + ("1" if os.getenv("MQTT_AUTO_DISCOVERY", "false").lower() == "true" else "0") + "\n"
+    with open(credentials_path, "w", encoding="utf-8") as stream:
+        stream.write(content)
+    print("  -> Generated local ESP32 credentials from configuration (secrets omitted).")
 
-    # 1. Tự động phát hiện thông tin mạng thực tế hiện tại (Zero-Config)
-    detected_ssid, detected_pwd, detected_ip = auto_detect_wifi_credentials()
 
-    # Luôn ưu tiên thông tin mạng thực tế mà card mạng đang kết nối hiện tại
-    wifi_ssid = detected_ssid or os.getenv("WIFI_SSID")
-    wifi_pass = detected_pwd or os.getenv("WIFI_PASSWORD")
+def resolve_esp32_zero_config(root_dir: str, requested_port: int = 1883,
+                             manual_ssid: Optional[str] = None,
+                             manual_pwd: Optional[str] = None) -> Tuple[str, str, str, int]:
+    """
+    Xác định toàn bộ thông số cấu hình mạng ngầm cho ESP32:
+    1. Ưu tiên lấy SSID & Password nếu người dùng truyền thủ công.
+    2. Nếu không truyền: Tự động lấy SSID & Password của Wi-Fi máy tính đang kết nối.
+    3. Tự động lấy IPv4 LAN thực tế của card Wi-Fi máy tính.
+    4. Tự động chọn cổng MQTT thông minh (Smart Port Selection).
+    5. Tự động đồng bộ vào firmware credentials.h và file .env.
+    """
+    from broker.manager import check_port_open, check_mqtt_ready
 
-    # Đối với IP máy chủ MQTT phục vụ ESP32, ưu tiên địa chỉ IP LAN thực tế hiện tại
-    if detected_ip and detected_ip not in ("127.0.0.1", "localhost", "0.0.0.0"):
-        mqtt_host = detected_ip
+    # 1. Xác định thông tin Wi-Fi
+    if manual_ssid:
+        wifi_ssid = manual_ssid
+        wifi_pass = manual_pwd if manual_pwd is not None else ""
+        detected_ip = detect_host_lan_ip()
     else:
-        mqtt_host = os.getenv("MQTT_HOST") or os.getenv("MQTT_BROKER_HOST") or "127.0.0.1"
+        detected_ssid, detected_pwd, detected_ip = auto_detect_wifi_credentials()
+        wifi_ssid = detected_ssid or os.getenv("WIFI_SSID", "")
+        wifi_pass = detected_pwd or os.getenv("WIFI_PASSWORD", "")
+    mqtt_host = detected_ip or detect_host_lan_ip()
 
-    # Tự động cập nhật lại vào .env để các file khác luôn đồng bộ theo mạng mới nhất
-    if wifi_ssid and wifi_pass and mqtt_host:
-        update_env_file(root_dir, wifi_ssid, wifi_pass, mqtt_host)
+    if not mqtt_host or mqtt_host in ("127.0.0.1", "localhost", "0.0.0.0"):
+        mqtt_host = detect_host_lan_ip()
 
-    if not (wifi_ssid and wifi_pass and mqtt_host):
-        return
+    # 2. Lựa chọn cổng MQTT thông minh (Smart Port Selection)
+    final_port = requested_port
+    if requested_port == 1883 and mqtt_host not in ("127.0.0.1", "localhost", "0.0.0.0"):
+        if check_port_open(1883, "127.0.0.1"):
+            if not check_mqtt_ready(1883, mqtt_host):
+                final_port = 1884
+                print("=" * 70)
+                print("  [Auto-Config] Cong 1883 dang bi chiem boi dich vu Localhost-Only (127.0.0.1).")
+                print(f"  -> Tu dong chuyen sang cong {final_port} de mo toan mang LAN ({mqtt_host}) cho ESP32.")
+                print("=" * 70)
 
-    try:
-        with open(credentials_path, "r", encoding="utf-8") as f:
-            content = f.read()
+    # 3. Cập nhật biến môi trường runtime
+    os.environ["WIFI_SSID"] = wifi_ssid
+    os.environ["WIFI_PASSWORD"] = wifi_pass
+    os.environ["MQTT_BROKER_HOST"] = mqtt_host
+    os.environ["MQTT_BROKER_PORT"] = str(final_port)
 
-        content = re.sub(r'#define WIFI_SSID ".*?"', f'#define WIFI_SSID "{wifi_ssid}"', content)
-        content = re.sub(r'#define WIFI_PASSWORD ".*?"', f'#define WIFI_PASSWORD "{wifi_pass}"', content)
-        content = re.sub(r'#define MQTT_BROKER_HOST ".*?"', f'#define MQTT_BROKER_HOST "{mqtt_host}"', content)
+    # 4. Ghi ngầm vào file .env và firmware/esp32_probe/credentials.h
+    update_env_file(root_dir, wifi_ssid, wifi_pass, mqtt_host, final_port)
+    sync_env_to_firmware(root_dir)
 
-        with open(credentials_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        pwd_mask = f"{wifi_pass[:3]}***" if len(wifi_pass) > 3 else "***"
-        print(f"  -> Da dong bo cau hinh WiFi/MQTT tu dong vao {os.path.relpath(credentials_path, root_dir)}:")
-        print(f"     * WIFI_SSID        : \"{wifi_ssid}\" (Tu dong)")
-        print(f"     * WIFI_PASSWORD    : \"{pwd_mask}\" (Tu dong)")
-    except Exception as e:
-        print(f"  [Canh bao] Khong the dong bo credentials.h: {e}")
+    print(f"  [Auto-Config] Thong so Wi-Fi/MQTT tu dong nhan dien:")
+    print(f"     * Wi-Fi SSID : '{wifi_ssid}'")
+    print(f"     * Host LAN IP: {mqtt_host}")
+    print(f"     * Broker Port: {final_port}")
+
+    return wifi_ssid, wifi_pass, mqtt_host, final_port
 
 
 def check_port_in_use(port: int) -> bool:

@@ -13,7 +13,7 @@ Quản lý các đặc trưng của giao thức IoT và hệ thống điều khi
 from typing import Dict, Any, List
 import pandas as pd
 import numpy as np
-from .base import BaseSubPreprocessor, normalize_categorical_value
+from .base import BaseSubPreprocessor, normalize_categorical_value, numeric_series
 
 IOT_FEATURES: List[str] = [
     "dns.qry.name",
@@ -43,6 +43,7 @@ IOT_FEATURES: List[str] = [
 
 IOT_CAT_COLS: List[str] = [
     "dns.qry.name",
+    "mqtt.msg_decoded_as",
     "mqtt.msg",
     "mqtt.protoname",
     "mqtt.topic"
@@ -78,41 +79,16 @@ class IoTProtocolsPreprocessor(BaseSubPreprocessor):
                     default_idx = mapping.get("0", 0.0)
                     out[col] = df[col].map(lambda v: mapping.get(normalize_categorical_value(v), default_idx)).astype(np.float32)
                 else:
-                    out[col] = pd.to_numeric(df[col], errors="coerce").fillna(self.learned_baselines_.get(col, 0.0))
+                    out[col] = numeric_series(df[col]).fillna(self.learned_baselines_.get(col, 0.0))
             else:
                 out[col] = self.learned_baselines_.get(col, 0.0)
         return out
 
-    def extract_from_telemetry(self, telemetry: Dict[str, Any]) -> Dict[str, float]:
-        res = {}
-        for feat in self.feature_names:
-            if feat in telemetry:
-                val = telemetry[feat]
-                if feat in self.cat_cols and feat in self._cat_maps:
-                    mapping = self._cat_maps[feat]
-                    default_idx = mapping.get("0", 0.0)
-                    res[feat] = mapping.get(normalize_categorical_value(val), default_idx)
-                else:
-                    try:
-                        res[feat] = float(val)
-                    except (ValueError, TypeError):
-                        res[feat] = self.learned_baselines_.get(feat, 0.0)
-            else:
-                res[feat] = self.learned_baselines_.get(feat, 0.0)
-
-        # Trích xuất đo đạc DNS thực tế nếu có
-        if "dns_query" in telemetry:
-            q_name = str(telemetry["dns_query"])
-            res["dns.qry.name.len"] = float(len(q_name))
-            if "dns.qry.name" in self._cat_maps:
-                mapping = self._cat_maps["dns.qry.name"]
-                res["dns.qry.name"] = mapping.get(normalize_categorical_value(q_name), mapping.get("0", 0.0))
-
-        # Trích xuất đo đạc MQTT thực tế nếu có
-        if "mqtt_topic" in telemetry:
-            t_name = str(telemetry["mqtt_topic"])
-            res["mqtt.topic_len"] = float(len(t_name))
-            if "mqtt.topic" in self._cat_maps:
-                res["mqtt.topic"] = self._cat_maps["mqtt.topic"].get(t_name, -1.0)
-
+    def extract_from_telemetry(self, telemetry: Dict[str, Any]) -> Dict[str, Any]:
+        # Return raw values. Encoding is performed exactly once by transform().
+        res = {feat: telemetry[feat] for feat in self.feature_names if feat in telemetry}
+        if "dns_query" in telemetry and "dns.qry.name" not in res:
+            res["dns.qry.name"] = str(telemetry["dns_query"])
+        if "mqtt_topic" in telemetry and "mqtt.topic" not in res:
+            res["mqtt.topic"] = str(telemetry["mqtt_topic"])
         return res

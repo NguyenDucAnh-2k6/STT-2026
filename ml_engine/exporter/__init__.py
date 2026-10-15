@@ -26,6 +26,7 @@ from .tree_exporter import (
     _generate_forest_classifier_c,
     _generate_isolation_forest_c
 )
+from .esp32_model_exporter import export_model_header, export_classifier_to_esp32, export_anomaly_to_esp32
 from .linear_exporter import (
     _generate_logistic_regression_c
 )
@@ -54,6 +55,9 @@ from .tflite_exporter import (
 )
 
 __all__ = [
+    "export_model_header",
+    "export_classifier_to_esp32",
+    "export_anomaly_to_esp32",
     # ML Handler (TinyML C)
     "export_model_to_c_header",
     "export_decision_tree_to_header",

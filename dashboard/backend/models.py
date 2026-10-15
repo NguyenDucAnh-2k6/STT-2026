@@ -5,7 +5,7 @@ Dashboard Backend Data Models (Pydantic)
 """
 
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class InjectAttackRequest(BaseModel):
@@ -23,3 +23,8 @@ class AutoCycleRequest(BaseModel):
 
 class ThresholdRequest(BaseModel):
     threshold: float
+
+
+class ExperimentStartRequest(BaseModel):
+    scenario: str
+    duration_sec: int = Field(default=15, ge=1, le=60)

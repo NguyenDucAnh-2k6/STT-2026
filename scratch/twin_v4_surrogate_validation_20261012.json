@@ -1,0 +1,60 @@
+{
+  "experiments": [
+    {
+      "scenario": "Fingerprinting",
+      "phase": "COMPLETED",
+      "saved_rows": 98,
+      "labeled_rows": 98,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    },
+    {
+      "scenario": "MITM",
+      "phase": "COMPLETED",
+      "saved_rows": 80,
+      "labeled_rows": 80,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    },
+    {
+      "scenario": "Backdoor",
+      "phase": "COMPLETED",
+      "saved_rows": 70,
+      "labeled_rows": 70,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    },
+    {
+      "scenario": "Ransomware",
+      "phase": "COMPLETED",
+      "saved_rows": 90,
+      "labeled_rows": 90,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    }
+  ],
+  "training_quality": {
+    "accepted": 338,
+    "rejected": 0,
+    "reasons": {
+      "duplicate_identity": 0,
+      "scenario_not_training_eligible": 0,
+      "legacy_twin_attack_requires_recollection": 0,
+      "controlled_effect_evidence_missing": 0,
+      "malformed_numeric_features": 0,
+      "unlabeled_or_incompatible": 0
+    }
+  },
+  "accepted_labels": {
+    "Fingerprinting": 98,
+    "Ransomware": 90,
+    "MITM": 80,
+    "Backdoor": 70
+  },
+  "evidence": {
+    "tcp-icmp-response-probes-v1": 98,
+    "aes-gcm-fixture-roundtrip-v1": 90,
+    "dns-diversion-observed-v1": 80,
+    "reverse-fixture-channel-v1": 70
+  }
+}

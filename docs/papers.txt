@@ -1,0 +1,106 @@
+### WAMM: Trang web bị tấn công dưới hình thức đa dạng, prior work chỉ giải quyết phân loại 2 lớp. Các hệ thống bị tấn công thay đổi thường xuyên để cân bang giữa bảo mật và khả năng sử dung
++ Nghiên cứu trước đây: dữ lieu đánh nhãn mất cân bang, thiếu độ đa dạng của các phương thức tấn công
++ Những model DL có thời gian suy luận chậm -> Cần khắc phục để tránh phá trải nghiệm người dung
+-> Paper sử dung bieu dien thua TF-IDF, xuat model duoi dang pickle (giam thoi gian load model và chi phí khoi tao)
+Model tuan tu hoa duoc tich hop qua FastAPI de tich hop vao moi truong san xuat -> Thoi gian suy luan ~ms cho phat hien multiclass
+- Dữ lieu:
++ SRBH-2020
++ Tiền xử lý:  
+  + Xóa bỏ các entries vô hại thừa -> tránh bias (python datasketch)
+  + Qwen3-8B nhận diện và sửa lỗi đánh nhãn cho 48,000 payloads
+  + Taxonomy: Cập nhật khớp với top 10 hạng mục OWASP (top 10 web app risks), loại bỏ các lớp ko xác định / không test được
+  + Augment: Giả lập tấn công bằng công cụ Burp Suite, bổ sung lưu lượng hợp lệ từ Facebook / Amazon (Burp Suite Pro và Logger++)
+  + DS-Augmented v2: ở bước trước qua LLM review, lọc payload nhiễu / thăm dò -> Giữ lại những cái có khả năng cao là attack
++ Feature engineering:  
+  + Chuyển HTTP về dạng string
+  + Statistics: payload length, URL depth, entropy, tỉ lệ kí tự đặc biệt (thủ công)
+  + Dùng regex để phân loại cho từng kiểu tấn công: XSS, SQLi, LFI, RFI, and CMDi
+  + Text features: trọng số TF-IDF, n-grams
+    + N-grams: phát hiện những chuỗi tấn công cục bộ (../ - tấn công path traversal), SELECT, ?id=1... -> đặc trưng          token hóa cho XGB
+    + TF-IDF chuyển payload thành biểu diễn đầu vào thưa. TF-IDF vector + đặc trưng thủ công -> XGB
+    + Mã hóa byte/ký tự: Sử dụng chuỗi ở mức ký tự, mã hóa theo ASCII và đệm đến 100 từ -> BiLSTM, CNN + BiLSTM
+    + Dùng bộ tokenize raw text trên HF max length = 128 -> DistilBERT
++ Chia:
+  + 80-20 train/test
+  + Đánh lại trọng số tỉ lệ nghịch với tần suất của các nhóm loại tấn công hiếm
+### Encrypted paper
+Limit prior work: 
++ Ko kiem tra duoc noi dung payload da ma hoa manh de bao ve rieng tu
++ LSTM thong thuong / SVM / Decision tree gap kho khan trong viec xu ly payload co quan he phi tuyen phuc tap => Overfitting / ko nam bat duoc dac trung thoi gian va khong gian
++ Mat can bang du lieu: Cac tap du lieu luu luong mang ma hoa co su mat can bang lon (1 so loai ung dung chiem ti le lon) => Kho co precision recall cao cho cac mau thieu so
++ Cac model DL co do chinh xac cao nhung co do tre lon => Kho dap ung nhu cau thoi gian thuc (QoS, tuong lua)
++ Chua khai thac dac trung khong gian va thoi gian (metadata tieu de goi tin) hoac chi khai thac byte tho, chua ket hop thong tin ve kich thuoc goi tin / huong truyen voi dac trung tuan tu theo thoi gian cua luu luong mang
+=> Cach paper nay giai quyet:
+Extract features: packet length, timestamp, TLS metadata, transport protocol, nhung gia tri hex/decimal da qua ma hoa.
+Huong 1: Dua cac payload da ma hoa qua 4-layer NN, concat cac bieu dien thu duoc o layer cuoi voi cac dac trung metadata (timestamp, port, flag) -> RF | SVM | KNN | Logistic va cho majority voting (tot nhat)
+Huong 2: BiLSTM trich xuat dac trung -> ML classifier ensemble: capture cac dac trung phu thuoc khong gian va thoi gian
+Huong 3: (Chỉ tiến hành trên các gói TCP) Session grouping + Hybrid CNN + LSTM deep ensembles: Nhom luu luong TCP thanh cac phien dua tren dia chi Nguon (src IP), dich (dest IP), thoi diem bat dau (session timestamp).
+Moi nhom -> Tinh toan min, max, mean, std.
+Du lieu moi nhom di vao 3 kien truc song song: BiLSTM, 1D CNN + LSTM, 2D CNN + LSTM (khai thac dac trung khong gian la kich thuoc goi tin va huong truyen)
+Quy trình:
+- Thu thập: Wireshark bắt gói tin mã hóa. Trong bài: 33286 gói tin (29.957 train + 3.329 test)
+- Gán nhãn thành 4 class chính: trong bài là Browsing (Lướt web): 8.635 gói TCP, 3.040 gói UDP.  File Transfer (Truyền file): 13.599 gói TCP, 34 gói UDP.  Voice over IP (VOIP): 1.173 gói TCP, 0 gói UDP.  YouTube (Trực tuyến video): 1.573 gói TCP, 5.232 gói UDP.
+- Tiền xử lý:
+  + Tách ra 2 phần: **Thông tin gói tin** gồm: Giao thức (TCP/UDP), Số hiệu cổng (Port), Chiều dài gói tin (Packet Length), Dấu thời gian (Timestamp), Địa chỉ IP nguồn/đích, và thông tin phiên bản TLS. Chuỗi ký tự IP nguồn/đích cần được mã hóa thành số nguyên, flags cũng được phân loại thành dạng số; **Dữ lieu Payload mã hóa**: Trích xuất payload mã hóa dưới dạng hexadecimal và chuyển sang decimal để đưa vào mạng DL. Hợp nhất 2 phần và gán them nhãn lớp (FT, Browsing...)
+### SDN: mạng định nghĩa bang phần mềm
+Hạn chế prior work:
+- Các công cụ DPI bên thứ 3 truyền thống: dựa trên khớp mẫu / cổng -> Không hiệu quả cho dữ lieu lớn
+- Quá tải SDN: khi đưa toàn bộ gói tin vào kiểm tra sâu làm tang mức CPU của hệ thống
+- DL cho dữ lieu mã hóa: các nghiên cứu trước dung CNN/RNN có thể phát hiện tấn công đầu cuối tốt nhưng ko xử lý được payload đã mã hóa.
+=> Framework mới: OFDPI
+- Phát hiện sớm ở cấp độ luồng, kiểm tra địa chỉ của mỗi luồng mới qua giao thức OpenFlow và đối chiếu với danh sách IP đen từ Cisco phát hiện sớm luồng độc hại
+- Vấn đề quá tải SDN: sử dung lấy mẫu có thích ung, sử dung cửa sổ lấy mẫu gói tin
+- Mô hình học máy nhẹ: OFDPI có module trích xuất TF-IDF và các đặc trưng ngôn ngữ tạo ra ma trận thưa để cho vào Logistic Reg
+- Trích đặc trưng metadata: Bộ mã hóa TLS, thời gian song TTL, thời lượng, cổng => Đi qua Decision tree để tách botnet độc hại khỏi lưu lượng thường
+- Kiến trúc:
+  + Phần mềm mô phỏng mạng Mininet giả lập các switch OpenFlow (OvS) và máy chủ (hosts); bộ điều khiển SDN (Ryu SDN Controller); paper triển khai trên máy ao
+  + Dữ lieu: Không mã hóa: GitHub Payloads (40000 bthg - 5000 độc hại); HTTP CSIC 2010 (36000 bthg - 24000 độc hại), mã hóa (CTU-BOTNET - 10000 bthg + 10000 độc hại)
+=> Các tập tin chứa dữ lieu mạng thô và payload văn bản gán nhãn benign vs. malicious
+  + Tiền xử lý: 
+    + Không mã hóa: Tách chuỗi thành các đoạn tri-gram, rồi lấy TF-IDF, Đếm số lượng chữ số, số lượng chữ số liên tiếp, số lượng phụ âm liên tiếp, số lượng chữ cái lặp lại, và số lượng nguyên âm trong payload -> Chuẩn hóa Min-max về [0,1] và ghép thành ma trận thưa.
+    + Mã hóa: Dùng script trích ra các metadata TLS, TTL, Duration, số cổng (ports)
+  + Models:
+    + Không mã hóa: Logistic Reg (binary) dung L2 reg
+    + Mã hóa: dung Decision tree
+  + Suy diễn: Input là luồng mạng sinh ra từ Mininet
+    + Giai đoạn 1: Lọc sớm những payload có IP trong danh sách đen của Cisco
+    + Giai đoạn 2: Lấy mẫu gói tin thích ung dung linear prediction, cửa sổ W_min = 5 W_max = 15
+    + Giai đoạn 3: Bộ switch OvS ao gửi các gói tin được lấy mẫu đến DPI engine
+    + Giai đoạn 4: Phân loại & ra quyết định của model ML dự đoán gói tin, gửi về module OFDPI_reply_handler bên trong Ryu controller
+    => Output: nếu classify ra độc hai -> Controller truyền thông điệp FLOW_MOD xuống switch OvS để chặn gói tin
+### ML_Trans_LLM
+Limit prior work:
+    + Cơ chế kiểm tra dựa trên cổng và kiểm tra payload ko còn hữu dung (do che giấu cổng, mã hóa payload)
+    + Khó khan trong việc quản lý việc sử dung internet do sự gia tang mã hóa và số thiết bị kết nối ngày càng tang.
+    + Cần có nỗ lực tiêu chuẩn hóa dữ lieu và đặc trưng dung cho huấn luyện các model phân loại
+Solution:
+    + Tạo dữ lieu mới từ Arbor Edge Defender (AED) dưới định dạng .pcap, dung python xuất đặc trưng ra csv, chuyển từ cấp độ gói tin sang luồng => 30.959 quan sát và 19 đặc trưng, 5 class: web, duyệt web (browsing), IPSec, sao lưu (backup) và email
+    + Xây dung hệ thống kết hợp cả trích xuất và phân loại. Xây dung & tinh chỉnh các model Naive Bayes, Decision Tree, Gradient Boosting, XGB, DNN. So sánh độ hiệu quả của Transformer & LLM, so sánh few shot > zero shot
+    + Làm sạch data: Dùng RF đánh giá feature importance (xóa min/max_time, fragments, forward_packets, receiving_packets, flow_proto (ko vượt qua p-test)) => Chuẩn hóa min-max
+    + Chạy train & tuning:
+      + Chia 80-20 train-test. 5-fold cross val + grid search cho ML/DL và Transformers.
+      + LLM (Gemini, GPT-4o): Cấu hình 2 hình thức là 0-shot và few-shot
+    + infer: Transformers tốt nhất, xong đến XGB
+### Liu et al survey: 
+- Một hạn chế lớn: Các nghiên cứu thường có kết quả chính xác trên các môi trường thử nghiệm khép kín, độ chính xác có thể thay đáng kể đối với dấu vết từ Internet thực tế.
+- Một số kĩ thuật tiền xử lý:
+  + Kỹ thuật lấy các gói tin đầu tiên: 5 gói đầu / 64 byte đầu => Nhược điểm là độ chính xác tụt giảm nếu bị mất các gói tin đầu tiên.
+  + Sử dụng cửa sổ trượt chia luồng thành nhiều luồng con. Ghi nhận các đặc trưng thời gian giữa các lần đến, độ biến thiên chiều dài gói tin, chiều dài gói tin mỗi hướng
+  + Feature select: Lựa chọn đặc trưng dựa trên tương quan / tính nhất quán
+  + Học bán giám sát: erman et al đề xuất sử dung cả dữ lieu đã được phân loại và chưa phân loại => Model ko cần dựa vào các quy tắc định trước và thay đổi thích ung với hành vi của ung dung hiện tại (phân cụm k-means + anh xạ dữ lieu có nhãn trong các cụm)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

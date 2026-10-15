@@ -3,6 +3,9 @@
 Host PC Network Traffic Sniffer Probe
 =====================================
 Chỉ dẫn module:
+- Mặc định TShark xuất từng packet theo 56 feature raw qua edge/telemetry/traffic.
+- Window dashboard đi riêng qua edge/telemetry/window; HOST_PCAP_FILE bật replay hai lượt.
+- Các engine bên dưới chỉ dùng khi --no-tshark, cung cấp window và không tương thích packet model.
 - Module này biến chính máy tính hiện tại thành một trạm cảm biến an ninh mạng (Network Security Probe)
   thay thế cho vi điều khiển ESP32 vật lý khi người dùng chưa có phần cứng.
 - Cơ chế hoạt động (Dual-Engine Sniffer):
@@ -13,7 +16,7 @@ Chỉ dẫn module:
      - Tận dụng thư viện psutil để đo đạc chính xác delta byte_rate, packet_rate theo thời gian thực.
      - Quét bảng kết nối socket hệ điều hành để tính tỷ lệ TCP/UDP, handshake state (SYN_SENT, ESTABLISHED) và các port đích.
 - Cửa sổ lấy mẫu (Sliding Window): Mặc định 1.0 giây tính toán 1 lần và publish lên MQTT topic:
-    'edge/telemetry/traffic' với device_id='Host-PC-Live-Probe'.
+    'edge/telemetry/window' trong packet mode; fallback legacy dùng 'edge/telemetry/traffic'.
 
 Cú pháp sử dụng:
     python firmware/host_probe/host_sniffer.py
@@ -23,6 +26,10 @@ Cú pháp sử dụng:
 
 import os
 import sys
+
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
 import time
 import json
 import socket
@@ -133,7 +140,7 @@ def get_default_host_ip() -> str:
 class WindowStats:
     """Bộ tích lũy thống kê trong 1 khoảng thời gian (Sliding Window) với đầy đủ L3/L4 Extended Features."""
     def __init__(self):
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.reset()
 
     def reset(self):
@@ -162,6 +169,38 @@ class WindowStats:
             self.last_protocol = "TCP"
             self.last_size = 64
             self.last_info = "Normal Host Flow"
+            # L7 Textual Inspection Context (DPI)
+            self.last_http_method = ""
+            self.last_http_uri = ""
+            self.last_http_data = ""
+            self.last_dns_name = ""
+            self.last_mqtt_topic = ""
+            self.last_l7_threat_type = None
+            self.last_l7_text_snippet = None
+            self.l7_inspected_count = 0
+            self.l7_threat_count = 0
+
+    def add_l7_content(
+        self,
+        method: str = "",
+        uri: str = "",
+        body: str = "",
+        dns_name: str = "",
+        mqtt_topic: str = "",
+        threat_type: Optional[str] = None,
+        snippet: Optional[str] = None
+    ):
+        with self.lock:
+            self.l7_inspected_count += 1
+            if method: self.last_http_method = method
+            if uri: self.last_http_uri = uri
+            if body: self.last_http_data = body
+            if dns_name: self.last_dns_name = dns_name
+            if mqtt_topic: self.last_mqtt_topic = mqtt_topic
+            if threat_type:
+                self.last_l7_threat_type = threat_type
+                self.last_l7_text_snippet = snippet
+                self.l7_threat_count += 1
 
     def add_packet(
         self,
@@ -229,6 +268,13 @@ class WindowStats:
                 self.last_protocol = "ICMP"
             else:
                 self.last_protocol = f"IP:{proto}"
+
+    def snapshot_and_reset(self, duration: float) -> Dict[str, Any]:
+        """Atomically close a measured window so packet updates cannot be lost between calls."""
+        with self.lock:
+            snapshot = self.compute_features(duration)
+            self.reset()
+            return snapshot
 
     def compute_features(self, duration: float, attack_context: Optional[dict] = None) -> Dict[str, Any]:
         with self.lock:
@@ -331,16 +377,16 @@ class WindowStats:
             "tcp_count": tcp_c,
             "udp_count": udp_c,
             "icmp_count": icmp_c,
-            # Tương thích trường Edge-IIoTset
-            "tcp.flags": 4.0 if rst_ratio > 0.3 else (1.0 if fin_ratio > 0.3 else (2.0 if syn_ratio > 0.5 else (16.0 if ack_ratio > 0.5 else 0.0))),
-            "tcp.flags.ack": 1.0 if ack_ratio > 0.5 else 0.0,
-            "tcp.connection.syn": 1.0 if syn_ratio > 0.5 else 0.0,
-            "tcp.connection.rst": 1.0 if rst_ratio > 0.3 else 0.0,
-            "tcp.connection.fin": 1.0 if fin_ratio > 0.3 else 0.0,
-            "tcp.len": float(pkt_len) if pkt_len > 0 else float(avg_size),
-            "tcp.srcport": float(src_port) if src_port else 0.0,
-            "tcp.dstport": float(dst_port) if dst_port else 0.0,
-            "udp.port": float(dst_port) if ("UDP" in protocol and dst_port) else 0.0,
+            # L7 Deep Packet Inspection & Textual Clues
+            "l7_threat_detected": bool(self.last_l7_threat_type),
+            "l7_threat_type": self.last_l7_threat_type or "None",
+            "l7_text_snippet": self.last_l7_text_snippet or "",
+            "l7_inspected_count": self.l7_inspected_count,
+            "http.request.method": self.last_http_method or "",
+            "http.request.uri.query": self.last_http_uri,
+            "http.file_data": self.last_http_data,
+            "dns.qry.name": self.last_dns_name,
+            "mqtt.topic": self.last_mqtt_topic,
             "edge_flag": False,
             "edge_pred": "Normal",
             "attack_scenario": sc_name,
@@ -481,193 +527,71 @@ class PsutilMonitorEngine:
         byte_rate = max(bytes_delta / dt, 0.0)
         avg_size = byte_rate / max(pkt_rate, 1.0) if pkt_rate > 0 else 0.0
 
-        # Quét bảng socket để trích xuất tỷ lệ TCP SYN, ACK và port đích
-        syn_count = 0
-        ack_count = 0
-        tcp_count = 0
-        udp_count = 0
-        dst_ports: Set[int] = set()
-
-        active_src_ip = "127.0.0.1"
-        active_dst_ip = "127.0.0.1"
-        active_src_port = 0
-        active_dst_port = 0
-        active_protocol = "TCP"
-        try:
-            conns = psutil.net_connections(kind='inet')
-            for c in conns:
-                if c.raddr:
-                    dst_ports.add(c.raddr.port)
-                    if active_dst_port == 0:
-                        active_src_ip = c.laddr.ip if c.laddr else "127.0.0.1"
-                        active_dst_ip = c.raddr.ip
-                        active_src_port = c.laddr.port if c.laddr else 0
-                        active_dst_port = c.raddr.port
-                        active_protocol = "TCP" if c.type == socket.SOCK_STREAM else "UDP"
-                if c.type == socket.SOCK_STREAM:
-                    tcp_count += 1
-                    if c.status in ("SYN_SENT", "SYN_RECV"):
-                        syn_count += 1
-                    elif c.status in ("ESTABLISHED", "CLOSE_WAIT"):
-                        ack_count += 1
-                elif c.type == socket.SOCK_DGRAM:
-                    udp_count += 1
-        except Exception:
-            pass
-
-        # Tính tỷ lệ & extended features
-        total_conns = max(tcp_count + udp_count, 1)
-        total_tcp = max(tcp_count, 1) if tcp_count > 0 else 1
-        tcp_ratio = round(float(tcp_count / total_conns), 4) if total_conns > 0 else 0.85
-        syn_ratio = float(syn_count / total_tcp) if tcp_count > 0 else 0.02
-        ack_ratio = float(ack_count / total_tcp) if tcp_count > 0 else 0.75
-        rst_ratio = 0.0
-        fin_ratio = 0.0
-        syn_completion_ratio = round(float(ack_count / max(syn_count, 1)), 4) if syn_count > 0 else 1.0
-
-        udp_ratio = float(udp_count / total_conns) if total_conns > 0 else 0.15
-
-        info_str = f"Flow {active_protocol} {active_src_port}->{active_dst_port} ({round(pkt_rate, 1)} pkts/s)"
-        unique_ports = max(len(dst_ports), 1)
-
-        src_ports_set = set(c.laddr.port for c in conns if c.laddr) if 'conns' in locals() else {active_src_port}
-        src_ips_set = set(c.laddr.ip for c in conns if c.laddr) if 'conns' in locals() else {active_src_ip}
-        dst_ips_set = set(c.raddr.ip for c in conns if c.raddr) if 'conns' in locals() else {active_dst_ip}
-        unique_src_ports = max(len(src_ports_set), 1)
-        unique_src_ips = max(len(src_ips_set), 1)
-        unique_dst_ips = max(len(dst_ips_set), 1)
-        src_dst_pair_count = max(unique_dst_ips, 1)
-
-        # Entropy cổng
-        if len(dst_ports) > 1:
-            p = 1.0 / len(dst_ports)
-            dst_port_entropy = round(len(dst_ports) * (-p * math.log2(p)), 4)
-        else:
-            dst_port_entropy = 0.0
-
-        # Temporal estimate
-        mean_iat = round(1000.0 / max(pkt_rate, 1.0), 2)
-        std_iat = round(mean_iat * 0.35, 2)
-        pkt_size_std = round(avg_size * 0.25, 2)
-
-        # Neu he thong dang ban luong tan cong mang that, phan bo dac trung khop voi kich ban
-        if attack_context and attack_context.get("status") == "ATTACKING" and pkt_rate > 30.0:
-            sc = attack_context.get("scenario", "").upper()
-            target_ip = attack_context.get("target_ip", active_dst_ip)
-            active_dst_ip = target_ip
-            if "UDP" in sc:
-                udp_ratio = round(max(0.85, 1.0 - (15.0 / max(pkt_rate, 1.0))), 4)
-                tcp_ratio = round(1.0 - udp_ratio, 4)
-                syn_ratio = 0.02
-                ack_ratio = 0.08
-                active_protocol = "UDP"
-                active_dst_port = 9999
-                dst_port_entropy = 0.2
-                info_str = f"[ATTACK] UDP Volumetric Flood Flow ({round(pkt_rate, 1)} pkts/s -> {target_ip})"
-            elif "PORT" in sc:
-                syn_ratio = round(max(0.82, 1.0 - (20.0 / max(pkt_rate, 1.0))), 4)
-                ack_ratio = 0.08
-                udp_ratio = 0.04
-                unique_ports = max(unique_ports, int(min(pkt_rate * 0.8, 350)))
-                dst_port_entropy = round(math.log2(max(unique_ports, 2)), 4)
-                syn_completion_ratio = 0.05
-                active_protocol = "TCP"
-                info_str = f"[ATTACK] TCP SYN Port Scanning ({unique_ports} ports -> {target_ip})"
-            elif "TCP" in sc or "SYN" in sc:
-                syn_ratio = round(max(0.92, 1.0 - (10.0 / max(pkt_rate, 1.0))), 4)
-                ack_ratio = 0.03
-                udp_ratio = 0.02
-                syn_completion_ratio = 0.02
-                active_protocol = "TCP"
-                active_dst_port = 80
-                dst_port_entropy = 0.1
-                info_str = f"[ATTACK] TCP SYN Flood Stream ({round(pkt_rate, 1)} pkts/s -> {target_ip})"
-            elif "VULN" in sc:
-                syn_ratio = 0.48
-                ack_ratio = 0.48
-                unique_ports = max(unique_ports, 24)
-                dst_port_entropy = round(math.log2(24), 4)
-                active_protocol = "HTTP"
-                active_dst_port = 8080
-                info_str = f"[ATTACK] Web Vulnerability Scanner Probe ({round(pkt_rate, 1)} pkts/s -> {target_ip})"
-            elif "UPLOAD" in sc or "EXFIL" in sc:
-                ack_ratio = 0.96
-                syn_ratio = 0.02
-                avg_size = max(avg_size, 1420.0)
-                pkt_size_std = 45.0
-                active_protocol = "TCP"
-                active_dst_port = 443
-                dst_port_entropy = 0.05
-                info_str = f"[ATTACK] TLS Data Exfiltration Stream ({round(byte_rate/1024, 1)} KB/s -> {target_ip})"
-
-        return {
-            "device_id": "Host-PC-Live-Probe",
-            "timestamp": int(time.time() * 1000),
-            "src_ip": active_src_ip,
-            "dst_ip": active_dst_ip,
-            "src_port": active_src_port,
-            "dst_port": active_dst_port,
-            "protocol": active_protocol,
-            "packet_length": int(avg_size) if avg_size > 0 else 64,
-            "info": info_str,
-            "packet_rate": round(pkt_rate, 2),
-            "byte_rate": round(byte_rate, 2),
-            "avg_packet_size": round(avg_size, 2),
-            "packet_size_std": round(pkt_size_std, 2),
-            "tcp_ratio": round(tcp_ratio, 4),
-            "udp_ratio": round(udp_ratio, 4),
-            "icmp_ratio": 0.0,
-            "syn_ratio": round(syn_ratio, 4),
-            "ack_ratio": round(ack_ratio, 4),
-            "rst_ratio": round(rst_ratio, 4),
-            "fin_ratio": round(fin_ratio, 4),
-            "syn_completion_ratio": round(syn_completion_ratio, 4),
-            "unique_src_ports": unique_src_ports,
-            "unique_dst_ports": unique_ports,
-            "unique_src_ips": unique_src_ips,
-            "unique_dst_ips": unique_dst_ips,
-            "src_dst_pair_count": src_dst_pair_count,
-            "mean_iat": mean_iat,
-            "std_iat": std_iat,
-            "dst_port_entropy": dst_port_entropy,
-            "tcp_count": tcp_count,
-            "udp_count": udp_count,
-            "icmp_count": 0,
-            "edge_flag": False,
-            "edge_pred": "Normal",
-            "attack_scenario": attack_context.get("scenario", "Normal") if attack_context else "Normal",
-            "attack_status": attack_context.get("status", "IDLE") if attack_context else "IDLE"
-        }
+        # OS counters measure aggregate I/O only, not per-packet protocols or IAT.
+        return {"device_id": "Host-PC-Live-Probe", "timestamp": int(time.time() * 1000),
+                "packet_rate": round(pkt_rate, 2), "byte_rate": round(byte_rate, 2),
+                "avg_packet_size": round(avg_size, 2),
+                "measurement_scope": "os_aggregate_io", "protocol_features_available": False}
 
 
 def run_host_sniffer(
     broker_host: str = "127.0.0.1",
     broker_port: int = 1883,
     window_sec: float = 1.0,
-    test_windows: Optional[int] = None
+    test_windows: Optional[int] = None,
+    use_tshark: bool = True,
+    stop_event: Any = None,
+    dashboard_port: Optional[int] = None
 ):
-    """Chạy vòng lặp chính của Host Sniffer."""
+    """Chạy vòng lặp chính của Host Sniffer với hệ thống 3 tầng Engine tự động."""
     host_ip = get_default_host_ip()
     stats = WindowStats()
+
+    if use_tshark:
+        from firmware.host_probe.packet_runtime import run_packet_host
+        return run_packet_host(stats, broker_host, broker_port, window_sec, test_windows, stop_event, dashboard_port)
 
     print("=" * 70)
     print("   HOST PC NETWORK TRAFFIC SNIFFER PROBE (LIVE CAPTURE)")
     print(f"   [Card IP: {host_ip}] | [Cua so mau: {window_sec}s] | [Target Broker: {broker_host}:{broker_port}]")
     print("=" * 70)
 
-    # Thu nghiem Engine 1: Raw Socket (Admin)
-    raw_engine = RawSocketEngine(host_ip, stats)
-    is_raw_mode = raw_engine.start()
+    # 1. Thử nghiệm Engine 0: TShark Headless DPI Engine (Ưu tiên số 1 - Phân tích L7 Textual)
+    tshark_engine = None
+    is_tshark_mode = False
+    if use_tshark:
+        try:
+            from firmware.host_probe.tshark_engine import TSharkDpiEngine, find_tshark_path
+            t_path = find_tshark_path()
+            if t_path:
+                tshark_engine = TSharkDpiEngine(stats, tshark_path=t_path)
+                is_tshark_mode = tshark_engine.start()
+        except Exception as e:
+            if os.getenv("HOST_CAPTURE_INTERFACES", "").strip():
+                raise RuntimeError("Configured capture interfaces could not be started; refusing another capture scope") from e
+            print(f"[HostSniffer] Khong the khoi tao TShark Engine: {e}")
 
+    if os.getenv("HOST_CAPTURE_INTERFACES", "").strip() and not is_tshark_mode:
+        raise RuntimeError("HOST_CAPTURE_INTERFACES requires successful TShark capture; refusing raw/psutil fallback")
+
+    raw_engine = None
+    is_raw_mode = False
     psutil_engine = None
-    if is_raw_mode:
-        print("[HostSniffer] [OK] Khoi dong Engine 1: Raw Socket Capture (Quyen Admin xac thuc).")
-        print("  -> Dang phan tich tung goi tin TCP/UDP/ICMP truc tiep tu card mang.")
+
+    if is_tshark_mode and tshark_engine:
+        print("[HostSniffer] [OK] Khoi dong Engine 0: TShark Headless DPI Engine (Wireshark CLI).")
+        print(f"  -> Dang bat goi va giai ma Textual Content (L7 DPI: SQLi, XSS, HTTP/DNS/MQTT) tren {tshark_engine.selected_interfaces}.")
     else:
-        print("[HostSniffer] [Thong tin] Terminal chua chay voi quyen Administrator.")
-        print("  -> Tu dong chuyen sang Engine 2: Real-time System Network Statistics (psutil).")
-        print("  -> (Meo: Chay terminal voi 'Run as Administrator' neu muon phan tich raw packet sau hon).")
-        psutil_engine = PsutilMonitorEngine()
+        # 2. Thử nghiệm Engine 1: Raw Socket (Admin)
+        raw_engine = RawSocketEngine(host_ip, stats)
+        is_raw_mode = raw_engine.start()
+        if is_raw_mode:
+            print("[HostSniffer] [OK] Khoi dong Engine 1: Raw Socket Capture (Quyen Admin xac thuc).")
+            print("  -> Dang phan tich tung goi tin TCP/UDP/ICMP truc tiep tu card mang.")
+        else:
+            print("[HostSniffer] [Thong tin] Terminal khong co Admin va chua dung TShark.")
+            print("  -> Tu dong chuyen sang Engine 2: Real-time System Network Statistics (psutil).")
+            psutil_engine = PsutilMonitorEngine()
 
     attack_context = {"status": "IDLE", "scenario": "Normal"}
 
@@ -701,12 +625,17 @@ def run_host_sniffer(
             time.sleep(window_sec)
             actual_dt = time.perf_counter() - t_start
 
-            if is_raw_mode:
+            if is_tshark_mode or is_raw_mode:
                 telemetry = stats.compute_features(actual_dt, attack_context=attack_context)
                 stats.reset()
             else:
                 telemetry = psutil_engine.sample_features(attack_context=attack_context)
 
+            telemetry.update({"schema_version": 2, "probe_type": "host", "record_kind": "window",
+                              "feature_semantics": "window-v1", "timestamp_kind": "epoch_ms",
+                              "capture_backend": "tshark" if is_tshark_mode else ("raw_socket" if is_raw_mode else "psutil"),
+                              "window_ms": round(actual_dt * 1000), "label_verified": False,
+                              "label_source": "unverified"})
             telemetry["scanned_networks"] = list(_cached_scanned_networks)
             telemetry["wifi_networks_count"] = len(_cached_scanned_networks)
 
@@ -715,13 +644,12 @@ def run_host_sniffer(
             if mqtt_client:
                 mqtt_client.publish("edge/telemetry/traffic", payload_str)
 
-            print(f"[LIVE TRAFFIC] Pkts/s: {telemetry['packet_rate']:>7.1f} | "
-                  f"Bytes/s: {telemetry['byte_rate']:>9.1f} | "
-                  f"AvgSize: {telemetry['avg_packet_size']:>6.1f}B | "
-                  f"SYN: {telemetry['syn_ratio']:>4.2f} | "
-                  f"ACK: {telemetry['ack_ratio']:>4.2f} | "
-                  f"UDP: {telemetry['udp_ratio']:>4.2f} | "
-                  f"Ports: {telemetry['unique_dst_ports']}")
+            print(f"[LIVE TRAFFIC] Pkts/s: {telemetry['packet_rate']:.1f} | "
+                  f"Bytes/s: {telemetry['byte_rate']:.1f} | "
+                  f"Backend: {telemetry['capture_backend']}")
+
+            if telemetry.get("l7_threat_detected"):
+                print(f"  >>> [🚨 L7 DPI CLUE] {telemetry.get('l7_threat_type')}: {telemetry.get('l7_text_snippet', '')[:80]}")
 
             windows_count += 1
             if test_windows and windows_count >= test_windows:
@@ -731,6 +659,8 @@ def run_host_sniffer(
     except KeyboardInterrupt:
         print("\n[HostSniffer] Dang dung tien trinh bat mang...")
     finally:
+        if tshark_engine:
+            tshark_engine.stop()
         if raw_engine:
             raw_engine.stop()
         if mqtt_client:
@@ -743,16 +673,21 @@ start_host_sniffer = run_host_sniffer
 
 
 def main():
-    broker = os.getenv("MQTT_HOST", "127.0.0.1")
-    port = int(os.getenv("MQTT_PORT", 1883))
-    window = float(os.getenv("SNIFFER_WINDOW", 1.0))
-    test_window = int(os.getenv("TEST_WINDOW")) if os.getenv("TEST_WINDOW") else None
+    import argparse
+    parser = argparse.ArgumentParser(description="Host PC Live Network Traffic Sniffer")
+    parser.add_argument("--broker", default=os.getenv("MQTT_HOST", "127.0.0.1"), help="MQTT Broker host")
+    parser.add_argument("--port", type=int, default=int(os.getenv("MQTT_PORT", 1883)), help="MQTT Broker port")
+    parser.add_argument("--window", type=float, default=float(os.getenv("SNIFFER_WINDOW", 1.0)), help="Sampling window (s)")
+    parser.add_argument("--test-window", "--test-windows", dest="test_window", type=int, default=None, help="Stop after N windows for testing")
+    parser.add_argument("--no-tshark", action="store_true", help="Use legacy aggregate capture; incompatible with packet model")
+    args, _ = parser.parse_known_args()
 
     start_host_sniffer(
-        broker_host=broker,
-        broker_port=port,
-        window_sec=window,
-        test_windows=test_window
+        broker_host=args.broker,
+        broker_port=args.port,
+        window_sec=args.window,
+        test_windows=args.test_window,
+        use_tshark=not args.no_tshark
     )
 
 

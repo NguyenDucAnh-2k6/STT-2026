@@ -1,14 +1,27 @@
 #include "edge_inference.h"
 
-static float dynamicAnomalyThreshold = TINYML_ANOMALY_THRESHOLD;
+static float dynamicAnomalyThreshold = ESP32_PACKET_THRESHOLD;
+static EdgeInferenceResult latestResult = {};
+static bool hasResult = false;
+
+static EdgeInferenceResult unavailable(const char* reason) {
+  EdgeInferenceResult result = {};
+  result.features_count = ESP32_PACKET_FEATURE_COUNT;
+  result.threat_name = "Unknown";
+  result.edge_model_name = ESP32_PACKET_MODEL_NAME;
+  result.status_reason = reason;
+  return result;
+}
 
 void initEdgeInference() {
-  dynamicAnomalyThreshold = TINYML_ANOMALY_THRESHOLD;
-  Serial.printf("[EdgeInference] Khoi tao TinyML: %s + %s (%d features)\n",
-                TINYML_CLASSIFIER_NAME, TINYML_ANOMALY_DETECTOR_NAME, TINYML_IN_FEATURES);
+  dynamicAnomalyThreshold = ESP32_PACKET_THRESHOLD;
+  latestResult = unavailable("awaiting_packet");
+  Serial.printf("[EdgeInference] Local profile: %s | %d features | Model: %s\n",
+                ESP32_PACKET_PROFILE, ESP32_PACKET_FEATURE_COUNT, ESP32_PACKET_MODEL_ID);
 }
 
 void setDynamicAnomalyThreshold(float threshold) {
+  if (!isfinite(threshold) || threshold < 0.0f || threshold > 1.0f) return;
   dynamicAnomalyThreshold = threshold;
   Serial.printf("[EdgeInference] Cap nhat Anomaly Threshold: %.2f\n", threshold);
 }
@@ -17,46 +30,38 @@ float getDynamicAnomalyThreshold() {
   return dynamicAnomalyThreshold;
 }
 
-EdgeInferenceResult runEdgeInference(
-    const TrafficWindowStats& snap,
-    float packet_rate,
-    float byte_rate,
-    float avg_packet_size
-) {
-  EdgeInferenceResult res;
-  res.features_count = TINYML_IN_FEATURES;
-
-  float raw_features[TINYML_IN_FEATURES];
-  memset(raw_features, 0, sizeof(raw_features));
-
-  // Ánh xạ các đặc trưng từ Promiscuous Sniffer vào vector chuẩn Edge-IIoTset
-  raw_features[25] = avg_packet_size;                            // tcp.len
-  raw_features[20] = (snap.syn_packets > 0) ? 1.0f : 0.0f;       // tcp.connection.syn
-  raw_features[24] = (snap.ack_packets > 0) ? 1.0f : 0.0f;       // tcp.flags.ack
-  raw_features[23] = (snap.syn_packets > 0) ? 2.0f : ((snap.ack_packets > 0) ? 16.0f : 0.0f); // tcp.flags
-  raw_features[30] = (snap.udp_packets > 0) ? 53.0f : 0.0f;      // udp.port
-  raw_features[31] = (snap.udp_packets > 0) ? packet_rate : 0.0f; // udp.stream
-  raw_features[2]  = (snap.icmp_packets > 0) ? 1.0f : 0.0f;      // icmp.checksum
-  raw_features[3]  = (snap.icmp_packets > 0) ? packet_rate : 0.0f;// icmp.seq_le
-
-  bool raw_anomaly_flag = false;
-  float score = tinyml_predict_anomaly(raw_features, &raw_anomaly_flag);
-  float conf = 1.0f;
-  int pred_idx = tinyml_predict_classifier(raw_features, &conf);
-  const char* threat = tinyml_get_threat_name(pred_idx);
-
-  // TÔN TRỌNG TRIỆT ĐỂ NGƯỠNG ANOMALY SCORE DO NGƯỜI DÙNG KÉO TRÊN UI / THIẾT LẬP
-  bool is_exceeded = (score >= dynamicAnomalyThreshold);
-  if (is_exceeded) {
-    res.is_anomaly = true;
-    res.threat_name = (strcmp(threat, "Normal") == 0 || strcmp(threat, "normal") == 0) ? "Anomaly" : threat;
-  } else {
-    res.is_anomaly = false;
-    res.threat_name = "Normal";
+EdgeInferenceResult runPacketEdgeInference(const RadioFrame& frame) {
+  uint32_t startedUs = micros();
+  PacketFeatures features = extractPacketFeatures(frame.payload, frame.captured_length, frame.original_length);
+  EdgeInferenceResult result = unavailable(packetFeatureStatusName(features.status));
+  result.sequence = frame.sequence;
+  result.inferred_at_ms = millis();
+  if (features.status == PacketFeatureStatus::Ok) {
+    memcpy(result.raw_features, features.values, sizeof(result.raw_features));
+    float modelFeatures[ESP32_PACKET_FEATURE_COUNT];
+    for (int i = 0; i < ESP32_PACKET_FEATURE_COUNT; i++) modelFeatures[i] = (float)features.values[i];
+    float scoreSample = 0;
+    if (esp32_predict_packet(modelFeatures, result.class_probabilities, &result.anomaly_score, &scoreSample)) {
+      int classIndex = 0;
+      for (int i = 1; i < ESP32_PACKET_CLASS_COUNT; i++) {
+        if (result.class_probabilities[i] > result.class_probabilities[classIndex]) classIndex = i;
+      }
+      result.confidence = result.class_probabilities[classIndex];
+      result.is_anomaly = result.anomaly_score >= dynamicAnomalyThreshold;
+      result.threat_name = result.is_anomaly ?
+          (strcmp(ESP32_PACKET_LABELS[classIndex], "Normal") == 0 ? "ZeroDay_Anomaly" : ESP32_PACKET_LABELS[classIndex]) : "Normal";
+      result.inference_valid = true;
+      result.status_reason = "ok";
+    } else result.status_reason = "invalid_model_output";
   }
+  result.latency_us = (uint32_t)(micros() - startedUs);
+  latestResult = result;
+  hasResult = true;
+  return result;
+}
 
-  res.anomaly_score = score;
-  res.confidence = conf;
-  res.edge_model_name = TINYML_CLASSIFIER_NAME;
-  return res;
+EdgeInferenceResult getLatestEdgeInference() {
+  if (!hasResult) return unavailable("awaiting_packet");
+  if ((uint32_t)(millis() - latestResult.inferred_at_ms) > 5000) return unavailable("stale_packet");
+  return latestResult;
 }

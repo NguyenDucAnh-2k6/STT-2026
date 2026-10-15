@@ -1,0 +1,11 @@
+{
+  "vectors": 141,
+  "features": 10,
+  "rtol": 2e-06,
+  "atol": 2e-06,
+  "maximum_scaling_error": 4.767094727853305e-07,
+  "maximum_anomaly_score_error": 2.940310117605094e-08,
+  "header_sha256": "1e3580fa1288b4fff9f2f85febfd386336c744c0fdf3ca149a541f53cfa4ed9d",
+  "native_executable": ".esp32_validation_env\\native\\esp32_packet_parity.exe",
+  "hardware_validated": false
+}

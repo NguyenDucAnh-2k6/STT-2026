@@ -1,0 +1,83 @@
+Kiến trúc đề xuất: 
+traffic
+   ↓
+Edge sensing
+   ↓
+Detection
+   ↓
+XAI / diagnosis
+   ↓
+Digital Twin
+   ↓
+RL policy
+   ↓
+Simulation
+   ↓
+Safety validation
+   ↓
+Network control
+   ↓
+real network
+   ↓
+feedback
+=> Nhưng sẽ cần điểm để policy áp lên được mạng thật khi đã safety validation
+Hiện tại bạn có:
+ESP32
+  │
+  │ USB
+  ▼
+Laptop
+  │
+  ├── traffic capture
+  ├── feature extraction
+  └── Edge ML
+Bạn có thể phát triển thành:
+                ┌──────────────────────────┐
+                 │       REAL NETWORK       │
+                 │                          │
+Internet ────────┤ Linux Gateway/Router     │
+                 │          │               │
+                 │      ESP32 sensor        │
+                 │          │               │
+                 │     internal hosts       │
+                 └──────────┬───────────────┘
+                            │
+                       telemetry
+                            │
+                            ▼
+                 ┌───────────────────┐
+                 │ Edge ML            │
+                 │ detection          │
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ RL Agent          │
+                 │ policy π(a|s)     │
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Safety Controller  │
+                 └─────────┬─────────┘
+                           │
+                     API / command
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Linux Router / FW │
+                 └───────────────────┘
+Và Digital Twin nằm 
+song song
+ với real network:
+                        ┌───────────────┐
+                         │ Digital Twin  │
+                         └───────┬───────┘
+                                 │
+                            test action
+                                 │
+                                 ▼
+RL Agent ──────────────────► Safety
+                                 │
+                                 ▼
+                         Real Network

@@ -21,6 +21,20 @@ export class ChartsComponent {
 
     this.initCharts();
     this.initEventListeners();
+    this.polling = false;
+    this.refreshTrafficWindow();
+    setInterval(() => this.refreshTrafficWindow(), 2000);
+  }
+
+  async refreshTrafficWindow() {
+    if (this.polling || !ApiService.getStatus) return;
+    this.polling = true;
+    try {
+      const status = await ApiService.getStatus();
+      if (status?.capture_health) state.addTrafficWindow(status.capture_health);
+    } finally {
+      this.polling = false;
+    }
   }
 
   initCharts() {
@@ -109,7 +123,7 @@ export class ChartsComponent {
           labels: ["TCP", "UDP", "ICMP"],
           datasets: [
             {
-              data: [65, 30, 5],
+              data: [0, 0, 0],
               backgroundColor: ["#8fd3b9", "#b9a7db", "#e5989b"],
               borderColor: "#0f172a",
               borderWidth: 2,
@@ -183,7 +197,10 @@ export class ChartsComponent {
   }
 
   initEventListeners() {
-    eventBus.on("telemetryReceived", (data) => this.updateCharts(data));
+    // Packet predictions never supply rates for the host's measured window.
+    eventBus.on("telemetryReceived", (data) => this.updateCharts(data,
+      !state.latestTrafficWindow && data.record_kind !== "packet"));
+    eventBus.on("trafficWindowReceived", (data) => this.updateCharts(data, true));
     eventBus.on("initialStateLoaded", () => this.syncThreshold());
 
     if (this.slider && this.sliderValue) {
@@ -207,7 +224,7 @@ export class ChartsComponent {
     }
   }
 
-  updateCharts(data) {
+  updateCharts(data, updateTraffic = data.record_kind !== "packet") {
     const timeLabel = new Date(data.timestamp || Date.now()).toLocaleTimeString("vi-VN", {
       hour12: false,
       hour: "2-digit",
@@ -216,7 +233,7 @@ export class ChartsComponent {
     });
 
     // Cập nhật Throughput Chart
-    if (this.trafficRateChart) {
+    if (updateTraffic && this.trafficRateChart && Number.isFinite(data.packet_rate) && Number.isFinite(data.byte_rate)) {
       const d = this.trafficRateChart.data;
       d.labels.push(timeLabel);
       d.datasets[0].data.push(data.packet_rate || 0);
@@ -230,27 +247,44 @@ export class ChartsComponent {
       this.trafficRateChart.update();
     }
 
-    // Cập nhật Protocol Chart
+    // Cập nhật Protocol Chart (Hỗ trợ cả window ratio và luồng gói tin mã hóa riêng lẻ)
     if (this.protocolDoughnutChart) {
-      const syn = data.syn_ratio || 0.5;
-      const udp = data.udp_ratio || 0.3;
-      const icmp = data.icmp_ratio || 0.05;
-      const tcp = Math.max(0, 1.0 - udp - icmp);
+      if (Number.isFinite(data.tcp_ratio)) {
+        const udp = data.udp_ratio ?? 0;
+        const icmp = data.icmp_ratio ?? 0;
+        const tcp = data.tcp_ratio;
 
-      this.protocolDoughnutChart.data.datasets[0].data = [
-        Math.round(tcp * 100),
-        Math.round(udp * 100),
-        Math.round(icmp * 100)
-      ];
-      this.protocolDoughnutChart.update();
+        this.protocolDoughnutChart.data.datasets[0].data = [
+          Math.round(tcp * 100),
+          Math.round(udp * 100),
+          Math.round(icmp * 100)
+        ];
+        this.protocolDoughnutChart.update();
+      } else if (data.protocol) {
+        if (!this.packetProtoCounts) this.packetProtoCounts = { TCP: 0, UDP: 0, ICMP: 0 };
+        const p = String(data.protocol).toUpperCase();
+        if (p.includes("TCP")) this.packetProtoCounts.TCP++;
+        else if (p.includes("UDP")) this.packetProtoCounts.UDP++;
+        else if (p.includes("ICMP")) this.packetProtoCounts.ICMP++;
+        const total = this.packetProtoCounts.TCP + this.packetProtoCounts.UDP + this.packetProtoCounts.ICMP;
+        if (total > 0) {
+          this.protocolDoughnutChart.data.datasets[0].data = [
+            Math.round((this.packetProtoCounts.TCP / total) * 100),
+            Math.round((this.packetProtoCounts.UDP / total) * 100),
+            Math.round((this.packetProtoCounts.ICMP / total) * 100)
+          ];
+          this.protocolDoughnutChart.update();
+        }
+      }
     }
 
     // Cập nhật Anomaly Evolution Chart
-    if (this.anomalyHistoryChart) {
+    if (this.anomalyHistoryChart && Object.hasOwn(data, "anomaly_score")) {
       const d = this.anomalyHistoryChart.data;
       d.labels.push(timeLabel);
-      d.datasets[0].data.push(Number((data.anomaly_score || 0).toFixed(3)));
-      d.datasets[1].data.push(state.anomalyThreshold);
+      d.datasets[0].data.push(Number.isFinite(data.anomaly_score) ? Number(data.anomaly_score.toFixed(3)) : null);
+      d.datasets[1].data.push(data.inference_source === "esp32" && Number.isFinite(data.edge_threshold)
+        ? data.edge_threshold : state.anomalyThreshold);
 
       if (d.labels.length > 25) {
         d.labels.shift();

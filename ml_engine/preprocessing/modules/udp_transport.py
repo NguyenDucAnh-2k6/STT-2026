@@ -10,7 +10,7 @@ Quản lý các đặc trưng của giao thức UDP:
 from typing import Dict, Any, List
 import pandas as pd
 import numpy as np
-from .base import BaseSubPreprocessor
+from .base import BaseSubPreprocessor, numeric_series
 
 UDP_FEATURES: List[str] = [
     "udp.port",
@@ -29,35 +29,11 @@ class UDPTransportPreprocessor(BaseSubPreprocessor):
         out = pd.DataFrame(index=df.index)
         for col in self.feature_names:
             if col in df.columns:
-                out[col] = pd.to_numeric(df[col], errors="coerce").fillna(self.learned_baselines_.get(col, 0.0))
+                out[col] = numeric_series(df[col]).fillna(self.learned_baselines_.get(col, 0.0))
             else:
                 out[col] = self.learned_baselines_.get(col, 0.0)
         return out
 
-    def extract_from_telemetry(self, telemetry: Dict[str, Any]) -> Dict[str, float]:
-        res = {}
-        for feat in self.feature_names:
-            if feat in telemetry:
-                try:
-                    res[feat] = float(telemetry[feat])
-                except (ValueError, TypeError):
-                    res[feat] = self.learned_baselines_.get(feat, 0.0)
-            else:
-                res[feat] = self.learned_baselines_.get(feat, 0.0)
-
-        proto = str(telemetry.get("protocol", "")).upper()
-        udp_r = float(telemetry.get("udp_ratio", 0.0))
-
-        if udp_r > 0.4 or "UDP" in proto:
-            # Port đích thực tế của UDP
-            dst_p = float(telemetry.get("dst_port", 0.0))
-            if dst_p > 0:
-                res["udp.port"] = dst_p
-
-            # Tốc độ hoặc time delta thực tế
-            pkt_rate = float(telemetry.get("packet_rate", 0.0))
-            if pkt_rate > 0:
-                res["udp.stream"] = pkt_rate
-                res["udp.time_delta"] = 1.0 / pkt_rate
-
-        return res
+    def extract_from_telemetry(self, telemetry: Dict[str, Any]) -> Dict[str, Any]:
+        """Keep measured canonical values; never fabricate packet fields from windows."""
+        return {feat: telemetry[feat] for feat in self.feature_names if feat in telemetry}

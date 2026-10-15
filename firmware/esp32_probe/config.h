@@ -16,8 +16,15 @@
 #define MQTT_BROKER_HOST "192.168.1.100"
 #endif
 
+#ifndef MQTT_BROKER_PORT
 #define MQTT_BROKER_PORT 1883
+#endif
+#ifndef MQTT_CLIENT_ID
 #define MQTT_CLIENT_ID "ESP32-EdgeProbe-01"
+#endif
+#ifndef MQTT_AUTO_DISCOVERY
+#define MQTT_AUTO_DISCOVERY 0
+#endif
 
 // --- MQTT Topics ---
 #define TOPIC_TRAFFIC_TELEMETRY "edge/telemetry/traffic"
@@ -27,6 +34,12 @@
 // --- Telemetry & Sampling Settings ---
 // Cửa sổ lấy mẫu thống kê gói tin (milliseconds)
 #define SAMPLING_WINDOW_MS 2000
+
+// Bounded radio samples for host-side dissection (115200 baud USB budget).
+#define RADIO_FRAME_CAPACITY 4
+#define RADIO_FRAME_MAX_BYTES 2048
+#define RADIO_FRAME_INTERVAL_MS 750
+#define TOPIC_RADIO_FRAMES "edge/telemetry/radio"
 
 // --- Chế độ dò sóng mạng (Sniffer Mode) ---
 // SNIFFER_MODE_ALL_NETWORKS:

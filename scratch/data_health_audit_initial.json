@@ -1,0 +1,605 @@
+{
+  "benchmark": {
+    "ml_engine\\datasets\\Edge-IIoTset dataset\\Selected dataset for ML and DL\\DNN-EdgeIIoT-dataset.csv": {
+      "sample_rows": 5000,
+      "column_count": 63,
+      "features_present": 56,
+      "dtypes": {
+        "arp.opcode": "float64",
+        "arp.hw.size": "float64",
+        "icmp.checksum": "float64",
+        "icmp.seq_le": "float64",
+        "icmp.transmit_timestamp": "float64",
+        "icmp.unused": "float64",
+        "http.file_data": "float64",
+        "http.content_length": "float64",
+        "http.request.uri.query": "float64",
+        "http.request.method": "float64",
+        "http.referer": "float64",
+        "http.request.full_uri": "float64",
+        "http.request.version": "float64",
+        "http.response": "float64",
+        "http.tls_port": "float64",
+        "tcp.ack": "float64",
+        "tcp.ack_raw": "float64",
+        "tcp.checksum": "float64",
+        "tcp.connection.fin": "float64",
+        "tcp.connection.rst": "float64",
+        "tcp.connection.syn": "float64",
+        "tcp.connection.synack": "float64",
+        "tcp.dstport": "float64",
+        "tcp.flags": "float64",
+        "tcp.flags.ack": "float64",
+        "tcp.len": "float64",
+        "tcp.options": "object",
+        "tcp.payload": "object",
+        "tcp.seq": "float64",
+        "tcp.srcport": "float64",
+        "udp.port": "float64",
+        "udp.stream": "float64",
+        "udp.time_delta": "float64",
+        "dns.qry.name": "float64",
+        "dns.qry.name.len": "int64",
+        "dns.qry.qu": "float64",
+        "dns.qry.type": "float64",
+        "dns.retransmission": "float64",
+        "dns.retransmit_request": "float64",
+        "dns.retransmit_request_in": "float64",
+        "mqtt.conack.flags": "object",
+        "mqtt.conflag.cleansess": "float64",
+        "mqtt.conflags": "float64",
+        "mqtt.hdrflags": "float64",
+        "mqtt.len": "float64",
+        "mqtt.msg_decoded_as": "float64",
+        "mqtt.msg": "object",
+        "mqtt.msgtype": "float64",
+        "mqtt.proto_len": "float64",
+        "mqtt.protoname": "object",
+        "mqtt.topic": "object",
+        "mqtt.topic_len": "float64",
+        "mqtt.ver": "float64",
+        "mbtcp.len": "float64",
+        "mbtcp.trans_id": "float64",
+        "mbtcp.unit_id": "float64"
+      },
+      "non_numeric_samples": {
+        "tcp.options": [
+          "020405b40101040201030307",
+          "0",
+          "020405b40103030801010402"
+        ],
+        "tcp.payload": [
+          "0",
+          "100c00044d5154540402003c0000",
+          "20020000",
+          "3027001854656d70657261747572655f616e645f48756d696469747932342e36382037362e34320d0a"
+        ],
+        "mqtt.conack.flags": [
+          "0",
+          "0x00000000"
+        ],
+        "mqtt.msg": [
+          "0",
+          "32342e36382037362e34320d0a",
+          "32342e37392037362e36320d0a",
+          "32342e37302037362e34370d0a"
+        ],
+        "mqtt.protoname": [
+          "0",
+          "MQTT"
+        ],
+        "mqtt.topic": [
+          "0",
+          "Temperature_and_Humidity"
+        ]
+      }
+    },
+    "ml_engine\\datasets\\Edge-IIoTset dataset\\Selected dataset for ML and DL\\ML-EdgeIIoT-dataset.csv": {
+      "sample_rows": 5000,
+      "column_count": 63,
+      "features_present": 56,
+      "dtypes": {
+        "arp.opcode": "float64",
+        "arp.hw.size": "float64",
+        "icmp.checksum": "float64",
+        "icmp.seq_le": "float64",
+        "icmp.transmit_timestamp": "float64",
+        "icmp.unused": "float64",
+        "http.file_data": "float64",
+        "http.content_length": "float64",
+        "http.request.uri.query": "float64",
+        "http.request.method": "float64",
+        "http.referer": "float64",
+        "http.request.full_uri": "float64",
+        "http.request.version": "float64",
+        "http.response": "float64",
+        "http.tls_port": "float64",
+        "tcp.ack": "float64",
+        "tcp.ack_raw": "float64",
+        "tcp.checksum": "float64",
+        "tcp.connection.fin": "float64",
+        "tcp.connection.rst": "float64",
+        "tcp.connection.syn": "float64",
+        "tcp.connection.synack": "float64",
+        "tcp.dstport": "float64",
+        "tcp.flags": "float64",
+        "tcp.flags.ack": "float64",
+        "tcp.len": "float64",
+        "tcp.options": "object",
+        "tcp.payload": "object",
+        "tcp.seq": "float64",
+        "tcp.srcport": "object",
+        "udp.port": "float64",
+        "udp.stream": "float64",
+        "udp.time_delta": "float64",
+        "dns.qry.name": "float64",
+        "dns.qry.name.len": "float64",
+        "dns.qry.qu": "float64",
+        "dns.qry.type": "float64",
+        "dns.retransmission": "float64",
+        "dns.retransmit_request": "float64",
+        "dns.retransmit_request_in": "float64",
+        "mqtt.conack.flags": "float64",
+        "mqtt.conflag.cleansess": "float64",
+        "mqtt.conflags": "float64",
+        "mqtt.hdrflags": "float64",
+        "mqtt.len": "float64",
+        "mqtt.msg_decoded_as": "float64",
+        "mqtt.msg": "float64",
+        "mqtt.msgtype": "float64",
+        "mqtt.proto_len": "float64",
+        "mqtt.protoname": "float64",
+        "mqtt.topic": "float64",
+        "mqtt.topic_len": "float64",
+        "mqtt.ver": "float64",
+        "mbtcp.len": "float64",
+        "mbtcp.trans_id": "float64",
+        "mbtcp.unit_id": "float64"
+      },
+      "non_numeric_samples": {
+        "tcp.options": [
+          "0.0",
+          "67.0",
+          "5355.0",
+          "5353.0"
+        ],
+        "tcp.payload": [
+          "0.0",
+          "2.0",
+          "3.0",
+          "4.0"
+        ],
+        "tcp.srcport": [
+          "0",
+          "DESKTOP-UHF0SF2",
+          "DESKTOP-UHF0SF2.local",
+          "_googlecast._tcp.local"
+        ]
+      }
+    }
+  },
+  "parquet": {
+    "files": [
+      {
+        "file": "data_lake\\raw\\date=2026-10-05\\session_sess_20261005_171144_19476.parquet",
+        "rows": 148,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 148
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-05\\session_sess_20261005_171733_24028.parquet",
+        "rows": 370,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 370
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-05\\session_sess_20261005_174755_10788.parquet",
+        "rows": 2645,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 2645
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-06\\session_sess_20261006_161605_2424.parquet",
+        "rows": 4217,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 4217
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-06\\session_sess_20261006_194502_14172.parquet",
+        "rows": 3758,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 3758
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-06\\session_sess_20261006_215724_36112.parquet",
+        "rows": 5693,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 5693
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-06\\session_sess_20261006_235737_18444.parquet",
+        "rows": 1376,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 1376
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-07\\session_sess_20261007_002756_19968.parquet",
+        "rows": 90,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 90
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-07\\session_sess_20261007_073540_27292.parquet",
+        "rows": 6127,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 6127
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-07\\session_sess_20261007_094021_35176.parquet",
+        "rows": 1320,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 1320
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-07\\session_sess_20261007_101148_17312.parquet",
+        "rows": 909,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 909
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-07\\session_sess_20261007_113205_22988.parquet",
+        "rows": 3213,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 3213
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-07\\session_sess_20261007_124948_8912.parquet",
+        "rows": 1856,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 1856
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-07\\session_sess_20261007_154618_10668.parquet",
+        "rows": 4049,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 4049
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-07\\session_sess_20261007_195606_2136.parquet",
+        "rows": 3172,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 3172
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-07\\session_sess_20261007_211705_31608.parquet",
+        "rows": 597,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 597
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-07\\session_sess_20261007_213502_7108.parquet",
+        "rows": 10246,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 10246
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-08\\session_sess_20261008_083854_1732.parquet",
+        "rows": 2272,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 2272
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-08\\session_sess_20261008_191721_19308.parquet",
+        "rows": 5509,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 5509
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-08\\session_sess_20261008_220759_19832.parquet",
+        "rows": 105,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 105
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-08\\session_sess_20261008_221603_19392.parquet",
+        "rows": 6620,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 6620
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-09\\session_sess_20261009_091217_17432.parquet",
+        "rows": 411,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 411
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-09\\session_sess_20261009_102427_20724.parquet",
+        "rows": 63,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 63
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-09\\session_sess_20261009_110503_10356.parquet",
+        "rows": 41,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 41
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-09\\session_sess_20261009_133523_31248.parquet",
+        "rows": 55,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 55
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-09\\session_sess_20261009_133900_15996.parquet",
+        "rows": 880,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 880
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-09\\session_sess_20261009_142806_30760.parquet",
+        "rows": 1798,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 1798
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-09\\session_sess_20261009_172846_18020.parquet",
+        "rows": 342,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 342
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-09\\session_sess_20261009_203236_27016.parquet",
+        "rows": 7926,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 7926
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-10\\session_sess_20261010_215027_29624.parquet",
+        "rows": 387,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 387
+        },
+        "feature_columns": []
+      },
+      {
+        "file": "data_lake\\raw\\date=2026-10-10\\session_sess_20261010_220636_29852.parquet",
+        "rows": 3288,
+        "columns": 36,
+        "probe_types": {
+          "esp32": 3288
+        },
+        "feature_columns": []
+      }
+    ],
+    "total_rows": 79483,
+    "columns": [
+      "session_id",
+      "timestamp",
+      "datetime_iso",
+      "probe_type",
+      "sniffer_mode",
+      "channel",
+      "packet_rate",
+      "byte_rate",
+      "avg_packet_size",
+      "packet_size_std",
+      "tcp_ratio",
+      "udp_ratio",
+      "icmp_ratio",
+      "syn_ratio",
+      "ack_ratio",
+      "rst_ratio",
+      "fin_ratio",
+      "syn_completion_ratio",
+      "unique_src_ports",
+      "unique_dst_ports",
+      "unique_src_ips",
+      "unique_dst_ips",
+      "src_dst_pair_count",
+      "mean_iat",
+      "std_iat",
+      "dst_port_entropy",
+      "tcp_count",
+      "udp_count",
+      "icmp_count",
+      "ground_truth_scenario",
+      "is_attack",
+      "predicted_threat",
+      "anomaly_score",
+      "confidence",
+      "edge_prediction",
+      "edge_flag"
+    ],
+    "labels": {
+      "Normal": 54322,
+      "Vulnerability_scanner": 5169,
+      "DDoS_UDP": 5105,
+      "Uploading": 5083,
+      "DDoS_TCP": 4887,
+      "Port_Scanning": 4777,
+      "SQL_injection": 140
+    },
+    "probe_counts": {
+      "esp32": 79483
+    },
+    "feature_overlap": [],
+    "duplicate_session_timestamp": 1321,
+    "null_fractions": {
+      "session_id": 0.0,
+      "timestamp": 0.0,
+      "datetime_iso": 0.0,
+      "probe_type": 0.0,
+      "sniffer_mode": 0.0,
+      "channel": 0.0,
+      "packet_rate": 0.0,
+      "byte_rate": 0.0,
+      "avg_packet_size": 0.0,
+      "packet_size_std": 0.0,
+      "tcp_ratio": 0.0,
+      "udp_ratio": 0.0,
+      "icmp_ratio": 0.0,
+      "syn_ratio": 0.0,
+      "ack_ratio": 0.0,
+      "rst_ratio": 0.0,
+      "fin_ratio": 0.0,
+      "syn_completion_ratio": 0.0,
+      "unique_src_ports": 0.0,
+      "unique_dst_ports": 0.0,
+      "unique_src_ips": 0.0,
+      "unique_dst_ips": 0.0,
+      "src_dst_pair_count": 0.0,
+      "mean_iat": 0.0,
+      "std_iat": 0.0,
+      "dst_port_entropy": 0.0,
+      "tcp_count": 0.0,
+      "udp_count": 0.0,
+      "icmp_count": 0.0,
+      "ground_truth_scenario": 0.0,
+      "is_attack": 0.0,
+      "predicted_threat": 0.0,
+      "anomaly_score": 0.0,
+      "confidence": 0.0,
+      "edge_prediction": 0.0,
+      "edge_flag": 0.0
+    },
+    "numeric_summary": {
+      "packet_rate": {
+        "min": 0.0,
+        "max": 52052.01,
+        "mean": 554.7192904143025,
+        "invalid": 0
+      },
+      "byte_rate": {
+        "min": 0.0,
+        "max": 25846843.56,
+        "mean": 336617.8058431363,
+        "invalid": 0
+      },
+      "avg_packet_size": {
+        "min": 0.0,
+        "max": 14190.45,
+        "mean": 416.0042797830983,
+        "invalid": 0
+      },
+      "syn_ratio": {
+        "min": 0.0,
+        "max": 1.0,
+        "mean": 0.15227916787237522,
+        "invalid": 0
+      },
+      "ack_ratio": {
+        "min": 0.0,
+        "max": 1.0,
+        "mean": 0.44264490394172334,
+        "invalid": 0
+      },
+      "udp_ratio": {
+        "min": 0.0,
+        "max": 0.9978,
+        "mean": 0.21390537976674256,
+        "invalid": 0
+      },
+      "icmp_ratio": {
+        "min": 0.0,
+        "max": 0.022,
+        "mean": 1.0065045355610635e-06,
+        "invalid": 0
+      },
+      "unique_dst_ports": {
+        "min": 0.0,
+        "max": 350.0,
+        "mean": 82.8709157933143,
+        "invalid": 0
+      }
+    }
+  }
+}

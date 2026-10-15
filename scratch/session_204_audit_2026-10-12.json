@@ -1,0 +1,247 @@
+{
+  "ending_file": "data_lake\\raw\\date=2026-10-12\\session_sess_f45ad6899ecb4195a88352f39c6ff5c0_batch_000204.parquet",
+  "files": 205,
+  "live": {
+    "rows": 84566,
+    "time_min_ms": 1791769429603,
+    "time_max_ms": 1791769807484,
+    "observed_sequence_span": 536590,
+    "unique_sequence_rows": 84566,
+    "frame_length_quantiles": {
+      "0.0": 44.0,
+      "0.5": 45.0,
+      "0.95": 45.0,
+      "1.0": 65539.0
+    },
+    "tcp_payload_nonzero": 41744,
+    "labels": {
+      "Unknown": 84566
+    },
+    "verified": 0,
+    "protocols": {
+      "TCP": 82715,
+      "TLSv1.2": 1337,
+      "ICMP": 271,
+      "UDP": 241,
+      "MDNS": 1,
+      "HTTP": 1
+    },
+    "duplicate_packet_ids": 0,
+    "malformed": 0,
+    "null_features": 0,
+    "constant_features": 26,
+    "training": {
+      "accepted": 0,
+      "rejected": 84566,
+      "reasons": {
+        "duplicate_identity": 0,
+        "malformed_numeric_features": 0,
+        "unverified_or_incompatible": 84566
+      }
+    }
+  },
+  "experiments": [
+    {
+      "experiment_id": "245391e6cb4142ad9de3704f505d5cb1",
+      "scenario": "DDoS_UDP",
+      "phase": "COMPLETED",
+      "pcap_packets": 3456,
+      "parsed_packets": 3456,
+      "rejected_packets": 0,
+      "saved_rows": 3456,
+      "labeled_rows": 0,
+      "unknown_rows": 3456,
+      "audit": {
+        "rows": 3456,
+        "time_min_ms": 1791769765158,
+        "time_max_ms": 1791769779949,
+        "observed_sequence_span": 3456,
+        "unique_sequence_rows": 3456,
+        "frame_length_quantiles": {
+          "0.0": 580.0,
+          "0.5": 594.0,
+          "0.95": 608.0,
+          "1.0": 608.0
+        },
+        "tcp_payload_nonzero": 0,
+        "labels": {
+          "Unknown": 3456
+        },
+        "verified": 0,
+        "protocols": {
+          "UDP": 1728,
+          "ICMP": 1728
+        },
+        "duplicate_packet_ids": 0,
+        "malformed": 0,
+        "null_features": 0,
+        "constant_features": 52,
+        "training": {
+          "accepted": 0,
+          "rejected": 3456,
+          "reasons": {
+            "duplicate_identity": 0,
+            "malformed_numeric_features": 0,
+            "unverified_or_incompatible": 3456
+          }
+        }
+      },
+      "unknown_reasons": {
+        "wildcard_manifest_source": 1728,
+        "ICMP_not_an_attributable_transport_flow": 1728
+      },
+      "unknown_time_offset_ms": null
+    },
+    {
+      "experiment_id": "2d9d821239244d9c89269218feb122a8",
+      "scenario": "DDoS_TCP",
+      "phase": "COMPLETED",
+      "pcap_packets": 2879,
+      "parsed_packets": 2879,
+      "rejected_packets": 0,
+      "saved_rows": 2879,
+      "labeled_rows": 2149,
+      "unknown_rows": 730,
+      "audit": {
+        "rows": 2879,
+        "time_min_ms": 1791769681865,
+        "time_max_ms": 1791769696916,
+        "observed_sequence_span": 2879,
+        "unique_sequence_rows": 2879,
+        "frame_length_quantiles": {
+          "0.0": 44.0,
+          "0.5": 44.0,
+          "0.95": 56.0,
+          "1.0": 56.0
+        },
+        "tcp_payload_nonzero": 0,
+        "labels": {
+          "DDoS_TCP": 2149,
+          "Unknown": 730
+        },
+        "verified": 0,
+        "protocols": {
+          "TCP": 2879
+        },
+        "duplicate_packet_ids": 0,
+        "malformed": 0,
+        "null_features": 0,
+        "constant_features": 43,
+        "training": {
+          "accepted": 0,
+          "rejected": 2879,
+          "reasons": {
+            "duplicate_identity": 0,
+            "malformed_numeric_features": 0,
+            "unverified_or_incompatible": 2879
+          }
+        }
+      },
+      "unknown_reasons": {
+        "wildcard_manifest_source": 730
+      },
+      "unknown_time_offset_ms": null
+    },
+    {
+      "experiment_id": "b2d8575b97f04fdf811e976ac55c76fa",
+      "scenario": "Uploading",
+      "phase": "COMPLETED",
+      "pcap_packets": 1792,
+      "parsed_packets": 1792,
+      "rejected_packets": 0,
+      "saved_rows": 1792,
+      "labeled_rows": 0,
+      "unknown_rows": 1792,
+      "audit": {
+        "rows": 1792,
+        "time_min_ms": 1791769629939,
+        "time_max_ms": 1791769644447,
+        "observed_sequence_span": 1792,
+        "unique_sequence_rows": 1792,
+        "frame_length_quantiles": {
+          "0.0": 580.0,
+          "0.5": 1003.5,
+          "0.95": 1427.0,
+          "1.0": 1427.0
+        },
+        "tcp_payload_nonzero": 0,
+        "labels": {
+          "Unknown": 1792
+        },
+        "verified": 0,
+        "protocols": {
+          "UDP": 896,
+          "ICMP": 896
+        },
+        "duplicate_packet_ids": 0,
+        "malformed": 0,
+        "null_features": 0,
+        "constant_features": 52,
+        "training": {
+          "accepted": 0,
+          "rejected": 1792,
+          "reasons": {
+            "duplicate_identity": 0,
+            "malformed_numeric_features": 0,
+            "unverified_or_incompatible": 1792
+          }
+        }
+      },
+      "unknown_reasons": {
+        "wildcard_manifest_source": 896,
+        "ICMP_not_an_attributable_transport_flow": 896
+      },
+      "unknown_time_offset_ms": null
+    },
+    {
+      "experiment_id": "f5561831367845fb8f6e56bcecaa4edd",
+      "scenario": "DDoS_TCP",
+      "phase": "COMPLETED",
+      "pcap_packets": 3023,
+      "parsed_packets": 3023,
+      "rejected_packets": 0,
+      "saved_rows": 3023,
+      "labeled_rows": 2261,
+      "unknown_rows": 762,
+      "audit": {
+        "rows": 3023,
+        "time_min_ms": 1791769502538,
+        "time_max_ms": 1791769517651,
+        "observed_sequence_span": 3023,
+        "unique_sequence_rows": 3023,
+        "frame_length_quantiles": {
+          "0.0": 44.0,
+          "0.5": 44.0,
+          "0.95": 56.0,
+          "1.0": 56.0
+        },
+        "tcp_payload_nonzero": 0,
+        "labels": {
+          "DDoS_TCP": 2261,
+          "Unknown": 762
+        },
+        "verified": 0,
+        "protocols": {
+          "TCP": 3023
+        },
+        "duplicate_packet_ids": 0,
+        "malformed": 0,
+        "null_features": 0,
+        "constant_features": 43,
+        "training": {
+          "accepted": 0,
+          "rejected": 3023,
+          "reasons": {
+            "duplicate_identity": 0,
+            "malformed_numeric_features": 0,
+            "unverified_or_incompatible": 3023
+          }
+        }
+      },
+      "unknown_reasons": {
+        "wildcard_manifest_source": 762
+      },
+      "unknown_time_offset_ms": null
+    }
+  ]
+}

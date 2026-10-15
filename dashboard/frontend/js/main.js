@@ -14,6 +14,7 @@ import { RiskAssessmentComponent } from "./components/risk_assessment.js";
 import { PacketInspectorComponent } from "./components/packet_inspector.js";
 import { WifiInspectorComponent } from "./components/wifi_inspector.js";
 import { LakehouseModalComponent } from "./components/lakehouse_modal.js";
+import { DigitalTwinLabComponent } from "./components/digital_twin_lab.js";
 
 class Application {
   constructor() {
@@ -27,6 +28,7 @@ class Application {
     this.components.header = new HeaderComponent();
     this.components.kpiGrid = new KpiGridComponent();
     this.components.controlBar = new ControlBarComponent();
+    this.components.digitalTwinLab = new DigitalTwinLabComponent();
     this.components.charts = new ChartsComponent();
     this.components.riskAssessment = new RiskAssessmentComponent();
     this.components.wifiInspector = new WifiInspectorComponent();

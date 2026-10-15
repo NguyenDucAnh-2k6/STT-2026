@@ -1,0 +1,46 @@
+{
+  "experiments": [
+    {
+      "scenario": "DDoS_TCP",
+      "phase": "COMPLETED",
+      "backend": "docker-raw",
+      "saved_rows": 288,
+      "labeled_rows": 288,
+      "unknown_rows": 0
+    },
+    {
+      "scenario": "DDoS_ICMP",
+      "phase": "COMPLETED",
+      "backend": "docker-raw",
+      "saved_rows": 192,
+      "labeled_rows": 192,
+      "unknown_rows": 0
+    }
+  ],
+  "eligibility": {
+    "accepted": 480,
+    "rejected": 0,
+    "reasons": {
+      "duplicate_identity": 0,
+      "scenario_not_training_eligible": 0,
+      "legacy_twin_attack_requires_recollection": 0,
+      "malformed_numeric_features": 0,
+      "unlabeled_or_incompatible": 0
+    }
+  },
+  "measurements": {
+    "tcp_flags": {
+      "2.0": 96,
+      "18.0": 96,
+      "4.0": 96
+    },
+    "icmp_types": {
+      "8.0": 96,
+      "0.0": 96
+    }
+  },
+  "labels": {
+    "DDoS_TCP": 288,
+    "DDoS_ICMP": 192
+  }
+}

@@ -234,7 +234,12 @@ class NetworkDigitalTwin:
                 if node.rate_limit_bps is not None:
                     effective_bytes = min(effective_bytes, node.rate_limit_bps / 8.0)
 
-                ch.airtime_utilization += (effective_bytes / CHANNEL_CAPACITY_BYTES_SEC)
+                # Tải chiếm dụng kênh 802.11 gồm 2 thành phần vật lý:
+                # 1. Băng thông dữ liệu (Data Payload Transmission Time)
+                # 2. Chiếm dụng khe thời gian tranh chấp truy cập kênh (CSMA/CA Slot Overhead: DIFS + SIFS + Backoff + ACK)
+                data_airtime = (effective_bytes / CHANNEL_CAPACITY_BYTES_SEC)
+                slot_overhead_airtime = (node.tx_packet_rate * 0.00014)  # ~140us overhead cho mỗi khung truyền
+                ch.airtime_utilization += (data_airtime + slot_overhead_airtime)
 
         # 3. Cập nhật hiện tượng vật lý: Nghẽn kênh, va chạm, suy giảm QoS
         for ch_id, ch in self.channels.items():
@@ -389,6 +394,9 @@ class NetworkDigitalTwin:
 
         self.dry_run_history.append(report)
         return report
+
+    # Bí danh tiện ích cho các module mở rộng
+    evaluate_mitigation_policy_dry_run = evaluate_policy_dry_run
 
     def sync_from_real_telemetry(self, telemetry_data: Dict[str, Any]):
         """

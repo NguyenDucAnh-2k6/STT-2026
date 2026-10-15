@@ -6,7 +6,10 @@
 #include <PubSubClient.h>
 #include "sniffer.h"
 #include "edge_inference.h"
+
 #include "config.h"
+
+void sendRadioFrame();
 
 // Khởi tạo WiFi, UDP Discovery và MQTT Client
 void initMqttAndWiFi(bool allNetworksMode);
@@ -28,7 +31,8 @@ void sendTelemetryData(
     float udp_ratio,
     float icmp_ratio,
     uint8_t channel,
-    const EdgeInferenceResult& inf
+    const EdgeInferenceResult& inf,
+    uint32_t window_ms
 );
 
 // Trạng thái kết nối

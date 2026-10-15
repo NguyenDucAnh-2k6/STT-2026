@@ -1,0 +1,850 @@
+{
+  "paper": "https://doi.org/10.1109/ACCESS.2022.3165809",
+  "experiments": [
+    {
+      "experiment_id": "37e8a47e1da44a7fa7332a1db6fda9d9",
+      "scenario": "Vulnerability_scanner",
+      "phase": "COMPLETED",
+      "error": null,
+      "saved_rows": 812,
+      "labeled_rows": 812,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:02:34.032000+07:00",
+      "flow_count": 116,
+      "unique_target_ports_from_flows": 1,
+      "rows": 812,
+      "tcp_rows": 812,
+      "udp_rows": 0,
+      "tcp_destination_ports": {
+        "8088.0": 464,
+        "65071.0": 3,
+        "65072.0": 3,
+        "65073.0": 3,
+        "65074.0": 3,
+        "65075.0": 3,
+        "65076.0": 3,
+        "65077.0": 3,
+        "65078.0": 3,
+        "65079.0": 3,
+        "65080.0": 3,
+        "65081.0": 3
+      },
+      "unique_tcp_destination_ports": 117,
+      "syn_only": 116,
+      "syn_ack": 116,
+      "unique_syn_destination_ports": 1,
+      "syn_destination_top_ports": {
+        "8088.0": 116
+      },
+      "ack_bit": 696,
+      "rst_bit": 0,
+      "http_methods": {
+        "0": 812
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": null,
+      "eligibility": {
+        "accepted": 812,
+        "rejected": 0,
+        "reasons": {
+          "duplicate_identity": 0,
+          "scenario_not_training_eligible": 0,
+          "legacy_twin_attack_requires_recollection": 0,
+          "malformed_numeric_features": 0,
+          "unlabeled_or_incompatible": 0
+        }
+      },
+      "labels": {
+        "Vulnerability_scanner": 812
+      },
+      "flow_attribution_mismatches": 0
+    },
+    {
+      "experiment_id": "f70a8c99c62a43d398ea532ab68fd86e",
+      "scenario": "DDoS_TCP",
+      "phase": "COMPLETED",
+      "error": null,
+      "saved_rows": 3536,
+      "labeled_rows": 3536,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:03:03.820000+07:00",
+      "flow_count": 768,
+      "unique_target_ports_from_flows": 1,
+      "rows": 3536,
+      "tcp_rows": 3536,
+      "udp_rows": 0,
+      "tcp_destination_ports": {
+        "8088.0": 1968,
+        "49952.0": 3,
+        "49213.0": 3,
+        "49214.0": 3,
+        "49216.0": 3,
+        "49215.0": 3,
+        "49217.0": 3,
+        "49219.0": 3,
+        "49218.0": 3,
+        "49220.0": 3,
+        "49225.0": 3,
+        "49226.0": 3
+      },
+      "unique_tcp_destination_ports": 769,
+      "syn_only": 768,
+      "syn_ack": 400,
+      "unique_syn_destination_ports": 1,
+      "syn_destination_top_ports": {
+        "8088.0": 768
+      },
+      "ack_bit": 2768,
+      "rst_bit": 368,
+      "http_methods": {
+        "0": 3536
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": null,
+      "eligibility": {
+        "accepted": 3536,
+        "rejected": 0,
+        "reasons": {
+          "duplicate_identity": 0,
+          "scenario_not_training_eligible": 0,
+          "legacy_twin_attack_requires_recollection": 0,
+          "malformed_numeric_features": 0,
+          "unlabeled_or_incompatible": 0
+        }
+      },
+      "labels": {
+        "DDoS_TCP": 3536
+      },
+      "flow_attribution_mismatches": 0
+    },
+    {
+      "experiment_id": "f5827dfc6de34ed4a99bc83648d6bcfb",
+      "scenario": "DDoS_UDP",
+      "phase": "COMPLETED",
+      "error": null,
+      "saved_rows": 1792,
+      "labeled_rows": 1792,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:03:34.401000+07:00",
+      "flow_count": 28,
+      "unique_target_ports_from_flows": 1,
+      "rows": 1792,
+      "tcp_rows": 0,
+      "udp_rows": 1792,
+      "tcp_destination_ports": {},
+      "unique_tcp_destination_ports": 0,
+      "syn_only": 0,
+      "syn_ack": 0,
+      "unique_syn_destination_ports": 0,
+      "syn_destination_top_ports": {},
+      "ack_bit": 0,
+      "rst_bit": 0,
+      "http_methods": {
+        "0": 1792
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": 0.00017975,
+      "eligibility": {
+        "accepted": 1792,
+        "rejected": 0,
+        "reasons": {
+          "duplicate_identity": 0,
+          "scenario_not_training_eligible": 0,
+          "legacy_twin_attack_requires_recollection": 0,
+          "malformed_numeric_features": 0,
+          "unlabeled_or_incompatible": 0
+        }
+      },
+      "labels": {
+        "DDoS_UDP": 1792
+      },
+      "flow_attribution_mismatches": 0
+    },
+    {
+      "experiment_id": "e5911a7dab8c42dabc90f18ffe32d3f5",
+      "scenario": "Uploading",
+      "phase": "COMPLETED",
+      "error": null,
+      "saved_rows": 928,
+      "labeled_rows": 928,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:03:58.266000+07:00",
+      "flow_count": 29,
+      "unique_target_ports_from_flows": 1,
+      "rows": 928,
+      "tcp_rows": 0,
+      "udp_rows": 928,
+      "tcp_destination_ports": {},
+      "unique_tcp_destination_ports": 0,
+      "syn_only": 0,
+      "syn_ack": 0,
+      "unique_syn_destination_ports": 0,
+      "syn_destination_top_ports": {},
+      "ack_bit": 0,
+      "rst_bit": 0,
+      "http_methods": {
+        "0": 928
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": 0.00018745,
+      "eligibility": {
+        "accepted": 928,
+        "rejected": 0,
+        "reasons": {
+          "duplicate_identity": 0,
+          "scenario_not_training_eligible": 0,
+          "legacy_twin_attack_requires_recollection": 0,
+          "malformed_numeric_features": 0,
+          "unlabeled_or_incompatible": 0
+        }
+      },
+      "labels": {
+        "Uploading": 928
+      },
+      "flow_attribution_mismatches": 0
+    },
+    {
+      "experiment_id": "2123997a0c844943814da673888a1a4e",
+      "scenario": "Port_Scanning",
+      "phase": "COMPLETED",
+      "error": null,
+      "saved_rows": 210,
+      "labeled_rows": 210,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:04:24.533000+07:00",
+      "flow_count": 30,
+      "unique_target_ports_from_flows": 1,
+      "rows": 210,
+      "tcp_rows": 210,
+      "udp_rows": 0,
+      "tcp_destination_ports": {
+        "8088.0": 120,
+        "64634.0": 3,
+        "64635.0": 3,
+        "64636.0": 3,
+        "64637.0": 3,
+        "64638.0": 3,
+        "64639.0": 3,
+        "64640.0": 3,
+        "64641.0": 3,
+        "64642.0": 3,
+        "64643.0": 3,
+        "64644.0": 3
+      },
+      "unique_tcp_destination_ports": 31,
+      "syn_only": 30,
+      "syn_ack": 30,
+      "unique_syn_destination_ports": 1,
+      "syn_destination_top_ports": {
+        "8088.0": 30
+      },
+      "ack_bit": 180,
+      "rst_bit": 0,
+      "http_methods": {
+        "0": 210
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": null,
+      "eligibility": {
+        "accepted": 210,
+        "rejected": 0,
+        "reasons": {
+          "duplicate_identity": 0,
+          "scenario_not_training_eligible": 0,
+          "legacy_twin_attack_requires_recollection": 0,
+          "malformed_numeric_features": 0,
+          "unlabeled_or_incompatible": 0
+        }
+      },
+      "labels": {
+        "Port_Scanning": 210
+      },
+      "flow_attribution_mismatches": 0
+    },
+    {
+      "experiment_id": "a99aedcc5faf44468160aa57ef9f1376",
+      "scenario": "XSS",
+      "phase": "ERROR",
+      "error": "Target is outside LAB_ALLOWED_TARGETS",
+      "saved_rows": 0,
+      "labeled_rows": 0,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:05:03.236000+07:00",
+      "flow_count": 0,
+      "unique_target_ports_from_flows": 0
+    },
+    {
+      "experiment_id": "1098489645e84e5cba43b6c494f166d3",
+      "scenario": "SQL_injection",
+      "phase": "ERROR",
+      "error": "Target is outside LAB_ALLOWED_TARGETS",
+      "saved_rows": 0,
+      "labeled_rows": 0,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:05:30.036000+07:00",
+      "flow_count": 0,
+      "unique_target_ports_from_flows": 0
+    },
+    {
+      "experiment_id": "472efd126cf749b7b2df044fd660d6c6",
+      "scenario": "Uploading",
+      "phase": "COMPLETED",
+      "error": null,
+      "saved_rows": 928,
+      "labeled_rows": 928,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:05:33.252000+07:00",
+      "flow_count": 29,
+      "unique_target_ports_from_flows": 1,
+      "rows": 928,
+      "tcp_rows": 0,
+      "udp_rows": 928,
+      "tcp_destination_ports": {},
+      "unique_tcp_destination_ports": 0,
+      "syn_only": 0,
+      "syn_ack": 0,
+      "unique_syn_destination_ports": 0,
+      "syn_destination_top_ports": {},
+      "ack_bit": 0,
+      "rst_bit": 0,
+      "http_methods": {
+        "0": 928
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": 0.0001547,
+      "eligibility": {
+        "accepted": 928,
+        "rejected": 0,
+        "reasons": {
+          "duplicate_identity": 0,
+          "scenario_not_training_eligible": 0,
+          "legacy_twin_attack_requires_recollection": 0,
+          "malformed_numeric_features": 0,
+          "unlabeled_or_incompatible": 0
+        }
+      },
+      "labels": {
+        "Uploading": 928
+      },
+      "flow_attribution_mismatches": 0
+    },
+    {
+      "experiment_id": "40eb2810f39746dbb03f542c6dd2bbcb",
+      "scenario": "DDoS_HTTP",
+      "phase": "ERROR",
+      "error": "Target is outside LAB_ALLOWED_TARGETS",
+      "saved_rows": 0,
+      "labeled_rows": 0,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:05:58.598000+07:00",
+      "flow_count": 0,
+      "unique_target_ports_from_flows": 0
+    },
+    {
+      "experiment_id": "bd2b063248d44ac9abe29161d9657288",
+      "scenario": "DDoS_TCP",
+      "phase": "COMPLETED",
+      "error": null,
+      "saved_rows": 3486,
+      "labeled_rows": 3486,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:06:03.440000+07:00",
+      "flow_count": 768,
+      "unique_target_ports_from_flows": 1,
+      "rows": 3486,
+      "tcp_rows": 3486,
+      "udp_rows": 0,
+      "tcp_destination_ports": {
+        "8088.0": 1938,
+        "54333.0": 3,
+        "54336.0": 3,
+        "54312.0": 3,
+        "54316.0": 3,
+        "54319.0": 3,
+        "54317.0": 3,
+        "53974.0": 3,
+        "62913.0": 3,
+        "62914.0": 3,
+        "62915.0": 3,
+        "62916.0": 3
+      },
+      "unique_tcp_destination_ports": 769,
+      "syn_only": 768,
+      "syn_ack": 390,
+      "unique_syn_destination_ports": 1,
+      "syn_destination_top_ports": {
+        "8088.0": 768
+      },
+      "ack_bit": 2718,
+      "rst_bit": 378,
+      "http_methods": {
+        "0": 3486
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": null,
+      "eligibility": {
+        "accepted": 3486,
+        "rejected": 0,
+        "reasons": {
+          "duplicate_identity": 0,
+          "scenario_not_training_eligible": 0,
+          "legacy_twin_attack_requires_recollection": 0,
+          "malformed_numeric_features": 0,
+          "unlabeled_or_incompatible": 0
+        }
+      },
+      "labels": {
+        "DDoS_TCP": 3486
+      },
+      "flow_attribution_mismatches": 0
+    },
+    {
+      "experiment_id": "fbb7ba9176a945f690819202f97f36d8",
+      "scenario": "DDoS_UDP",
+      "phase": "COMPLETED",
+      "error": null,
+      "saved_rows": 1856,
+      "labeled_rows": 1856,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:06:40.135000+07:00",
+      "flow_count": 27,
+      "unique_target_ports_from_flows": 1,
+      "rows": 1856,
+      "tcp_rows": 0,
+      "udp_rows": 1856,
+      "tcp_destination_ports": {},
+      "unique_tcp_destination_ports": 0,
+      "syn_only": 0,
+      "syn_ack": 0,
+      "unique_syn_destination_ports": 0,
+      "syn_destination_top_ports": {},
+      "ack_bit": 0,
+      "rst_bit": 0,
+      "http_methods": {
+        "0": 1856
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": 5.58e-05,
+      "eligibility": {
+        "accepted": 1856,
+        "rejected": 0,
+        "reasons": {
+          "duplicate_identity": 0,
+          "scenario_not_training_eligible": 0,
+          "legacy_twin_attack_requires_recollection": 0,
+          "malformed_numeric_features": 0,
+          "unlabeled_or_incompatible": 0
+        }
+      },
+      "labels": {
+        "DDoS_UDP": 1856
+      },
+      "flow_attribution_mismatches": 0
+    },
+    {
+      "experiment_id": "e20e80e380b54a3b820098ed2a3cc9b8",
+      "scenario": "Port_Scanning",
+      "phase": "COMPLETED",
+      "error": null,
+      "saved_rows": 203,
+      "labeled_rows": 203,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:07:03.395000+07:00",
+      "flow_count": 29,
+      "unique_target_ports_from_flows": 1,
+      "rows": 203,
+      "tcp_rows": 203,
+      "udp_rows": 0,
+      "tcp_destination_ports": {
+        "8088.0": 116,
+        "54475.0": 3,
+        "54476.0": 3,
+        "54477.0": 3,
+        "54478.0": 3,
+        "54479.0": 3,
+        "54480.0": 3,
+        "54482.0": 3,
+        "54483.0": 3,
+        "54484.0": 3,
+        "54485.0": 3,
+        "54486.0": 3
+      },
+      "unique_tcp_destination_ports": 30,
+      "syn_only": 29,
+      "syn_ack": 29,
+      "unique_syn_destination_ports": 1,
+      "syn_destination_top_ports": {
+        "8088.0": 29
+      },
+      "ack_bit": 174,
+      "rst_bit": 0,
+      "http_methods": {
+        "0": 203
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": null,
+      "eligibility": {
+        "accepted": 203,
+        "rejected": 0,
+        "reasons": {
+          "duplicate_identity": 0,
+          "scenario_not_training_eligible": 0,
+          "legacy_twin_attack_requires_recollection": 0,
+          "malformed_numeric_features": 0,
+          "unlabeled_or_incompatible": 0
+        }
+      },
+      "labels": {
+        "Port_Scanning": 203
+      },
+      "flow_attribution_mismatches": 0
+    },
+    {
+      "experiment_id": "e65b61c2d6c244ab8007f4fee6d4d22b",
+      "scenario": "DDoS_HTTP",
+      "phase": "ERROR",
+      "error": "Target is outside LAB_ALLOWED_TARGETS",
+      "saved_rows": 0,
+      "labeled_rows": 0,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:07:27.023000+07:00",
+      "flow_count": 0,
+      "unique_target_ports_from_flows": 0
+    },
+    {
+      "experiment_id": "6b77379dd5024940b1817490e57968e8",
+      "scenario": "Vulnerability_scanner",
+      "phase": "COMPLETED",
+      "error": null,
+      "saved_rows": 812,
+      "labeled_rows": 812,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:07:38.263000+07:00",
+      "flow_count": 116,
+      "unique_target_ports_from_flows": 1,
+      "rows": 812,
+      "tcp_rows": 812,
+      "udp_rows": 0,
+      "tcp_destination_ports": {
+        "8088.0": 464,
+        "62412.0": 3,
+        "62413.0": 3,
+        "62414.0": 3,
+        "62415.0": 3,
+        "62416.0": 3,
+        "62417.0": 3,
+        "62418.0": 3,
+        "62419.0": 3,
+        "62420.0": 3,
+        "62421.0": 3,
+        "62422.0": 3
+      },
+      "unique_tcp_destination_ports": 117,
+      "syn_only": 116,
+      "syn_ack": 116,
+      "unique_syn_destination_ports": 1,
+      "syn_destination_top_ports": {
+        "8088.0": 116
+      },
+      "ack_bit": 696,
+      "rst_bit": 0,
+      "http_methods": {
+        "0": 812
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": null,
+      "eligibility": {
+        "accepted": 812,
+        "rejected": 0,
+        "reasons": {
+          "duplicate_identity": 0,
+          "scenario_not_training_eligible": 0,
+          "legacy_twin_attack_requires_recollection": 0,
+          "malformed_numeric_features": 0,
+          "unlabeled_or_incompatible": 0
+        }
+      },
+      "labels": {
+        "Vulnerability_scanner": 812
+      },
+      "flow_attribution_mismatches": 0
+    },
+    {
+      "experiment_id": "02f7978bae8d4147b01de1c695076a99",
+      "scenario": "Uploading",
+      "phase": "COMPLETED",
+      "error": null,
+      "saved_rows": 928,
+      "labeled_rows": 928,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:08:06.344000+07:00",
+      "flow_count": 29,
+      "unique_target_ports_from_flows": 1,
+      "rows": 928,
+      "tcp_rows": 0,
+      "udp_rows": 928,
+      "tcp_destination_ports": {},
+      "unique_tcp_destination_ports": 0,
+      "syn_only": 0,
+      "syn_ack": 0,
+      "unique_syn_destination_ports": 0,
+      "syn_destination_top_ports": {},
+      "ack_bit": 0,
+      "rst_bit": 0,
+      "http_methods": {
+        "0": 928
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": 0.000189,
+      "eligibility": {
+        "accepted": 928,
+        "rejected": 0,
+        "reasons": {
+          "duplicate_identity": 0,
+          "scenario_not_training_eligible": 0,
+          "legacy_twin_attack_requires_recollection": 0,
+          "malformed_numeric_features": 0,
+          "unlabeled_or_incompatible": 0
+        }
+      },
+      "labels": {
+        "Uploading": 928
+      },
+      "flow_attribution_mismatches": 0
+    },
+    {
+      "experiment_id": "82295534d2c841e98abb787b6f26c47d",
+      "scenario": "DDoS_TCP",
+      "phase": "COMPLETED",
+      "error": null,
+      "saved_rows": 3377,
+      "labeled_rows": 3377,
+      "unknown_rows": 0,
+      "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)",
+      "started_local": "2026-10-12T21:08:31.454000+07:00",
+      "flow_count": 736,
+      "unique_target_ports_from_flows": 1,
+      "rows": 3377,
+      "tcp_rows": 3377,
+      "udp_rows": 0,
+      "tcp_destination_ports": {
+        "8088.0": 1879,
+        "51947.0": 3,
+        "51946.0": 3,
+        "51945.0": 3,
+        "51944.0": 3,
+        "51943.0": 3,
+        "51942.0": 3,
+        "51941.0": 3,
+        "56628.0": 3,
+        "56627.0": 3,
+        "56624.0": 3,
+        "56991.0": 3
+      },
+      "unique_tcp_destination_ports": 737,
+      "syn_only": 736,
+      "syn_ack": 381,
+      "unique_syn_destination_ports": 1,
+      "syn_destination_top_ports": {
+        "8088.0": 736
+      },
+      "ack_bit": 2641,
+      "rst_bit": 355,
+      "http_methods": {
+        "0": 3377
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": null,
+      "eligibility": {
+        "accepted": 3377,
+        "rejected": 0,
+        "reasons": {
+          "duplicate_identity": 0,
+          "scenario_not_training_eligible": 0,
+          "legacy_twin_attack_requires_recollection": 0,
+          "malformed_numeric_features": 0,
+          "unlabeled_or_incompatible": 0
+        }
+      },
+      "labels": {
+        "DDoS_TCP": 3377
+      },
+      "flow_attribution_mismatches": 0
+    }
+  ],
+  "benchmark": {
+    "Port_Scanning": {
+      "rows": 10071,
+      "tcp_rows": 8918,
+      "udp_rows": 0,
+      "tcp_destination_ports": {
+        "80.0": 4394,
+        "1387.0": 1,
+        "1388.0": 1,
+        "1393.0": 1,
+        "1394.0": 1,
+        "1395.0": 1,
+        "1396.0": 1,
+        "1397.0": 1,
+        "1399.0": 1,
+        "1400.0": 1,
+        "1402.0": 1,
+        "1405.0": 1
+      },
+      "unique_tcp_destination_ports": 4525,
+      "syn_only": 4394,
+      "syn_ack": 0,
+      "unique_syn_destination_ports": 1,
+      "syn_destination_top_ports": {
+        "80.0": 4394
+      },
+      "ack_bit": 4524,
+      "rst_bit": 4524,
+      "http_methods": {
+        "0.0": 10071
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": null
+    },
+    "Uploading": {
+      "rows": 10269,
+      "tcp_rows": 10259,
+      "udp_rows": 0,
+      "tcp_destination_ports": {
+        "80.0": 3670,
+        "3333.0": 1818,
+        "56028.0": 27,
+        "54826.0": 26,
+        "56324.0": 25,
+        "47076.0": 25,
+        "46116.0": 24,
+        "52222.0": 24,
+        "55690.0": 24,
+        "55062.0": 23,
+        "54530.0": 23,
+        "53384.0": 23
+      },
+      "unique_tcp_destination_ports": 3144,
+      "syn_only": 2016,
+      "syn_ack": 553,
+      "unique_syn_destination_ports": 2,
+      "syn_destination_top_ports": {
+        "3333.0": 1487,
+        "80.0": 529
+      },
+      "ack_bit": 8040,
+      "rst_bit": 1761,
+      "http_methods": {
+        "0": 9749,
+        "GET": 520
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": null
+    },
+    "DDoS_TCP": {
+      "rows": 10247,
+      "tcp_rows": 10247,
+      "udp_rows": 0,
+      "tcp_destination_ports": {
+        "80.0": 6009,
+        "11451.0": 3,
+        "38738.0": 3,
+        "24414.0": 2,
+        "32980.0": 2,
+        "14831.0": 2,
+        "24890.0": 2,
+        "55178.0": 2,
+        "55329.0": 2,
+        "21699.0": 2,
+        "49261.0": 2,
+        "56948.0": 2
+      },
+      "unique_tcp_destination_ports": 4091,
+      "syn_only": 6009,
+      "syn_ack": 0,
+      "unique_syn_destination_ports": 1,
+      "syn_destination_top_ports": {
+        "80.0": 6009
+      },
+      "ack_bit": 4238,
+      "rst_bit": 4238,
+      "http_methods": {
+        "0.0": 10247
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": null
+    },
+    "Vulnerability_scanner": {
+      "rows": 10076,
+      "tcp_rows": 10061,
+      "udp_rows": 0,
+      "tcp_destination_ports": {
+        "80.0": 5014,
+        "49946.0": 16,
+        "50344.0": 15,
+        "49966.0": 15,
+        "50386.0": 15,
+        "49998.0": 14,
+        "50782.0": 14,
+        "49386.0": 14,
+        "48610.0": 14,
+        "48370.0": 14,
+        "49542.0": 14,
+        "48406.0": 14
+      },
+      "unique_tcp_destination_ports": 980,
+      "syn_only": 82,
+      "syn_ack": 91,
+      "unique_syn_destination_ports": 2,
+      "syn_destination_top_ports": {
+        "80.0": 80,
+        "443.0": 2
+      },
+      "ack_bit": 9939,
+      "rst_bit": 40,
+      "http_methods": {
+        "0": 5764,
+        "GET": 4286,
+        "POST": 25,
+        "OPTIONS": 1
+      },
+      "http_payload_rows": 7891,
+      "udp_delta_median": null
+    },
+    "DDoS_UDP": {
+      "rows": 14498,
+      "tcp_rows": 13096,
+      "udp_rows": 0,
+      "tcp_destination_ports": {
+        "0.0": 13096
+      },
+      "unique_tcp_destination_ports": 1,
+      "syn_only": 0,
+      "syn_ack": 0,
+      "unique_syn_destination_ports": 0,
+      "syn_destination_top_ports": {},
+      "ack_bit": 0,
+      "rst_bit": 0,
+      "http_methods": {
+        "0.0": 14498
+      },
+      "http_payload_rows": 0,
+      "udp_delta_median": null
+    }
+  }
+}

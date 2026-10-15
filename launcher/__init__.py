@@ -12,6 +12,7 @@ from .network import (
     auto_detect_wifi_credentials,
     update_env_file,
     sync_env_to_firmware,
+    resolve_esp32_zero_config,
     check_port_in_use,
 )
 from .workers import (
@@ -30,6 +31,7 @@ __all__ = [
     "auto_detect_wifi_credentials",
     "update_env_file",
     "sync_env_to_firmware",
+    "resolve_esp32_zero_config",
     "check_port_in_use",
     "udp_broker_beacon_worker",
     "network_roaming_watcher_worker",

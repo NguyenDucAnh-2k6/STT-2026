@@ -60,14 +60,22 @@ export class WebSocketService {
       state.setInitialState(payload);
     } else if (type === "TELEMETRY_UPDATE") {
       state.addTelemetry(payload.data, payload.total_packets, payload.total_threats);
+    } else if (type === "TRAFFIC_WINDOW_UPDATE") {
+      state.addTrafficWindow(payload.data, payload.total_packets);
     } else if (type === "ALERT_TRIGGERED") {
       state.addAlert(payload.alert, payload.total_threats);
     } else if (type === "NODE_UPDATE") {
       state.updateNode(payload.node);
     } else if (type === "ATTACK_STATUS_UPDATE") {
       state.updateAttackStatus(payload.attack_status);
+    } else if (type === "EXPERIMENT_STATUS_UPDATE") {
+      state.updateExperimentStatus(payload.experiment_status);
     } else if (type === "WIFI_NETWORKS_UPDATE") {
       state.updateWifiNetworks(payload.networks);
+    } else if (type === "DIGITAL_TWIN_UPDATE") {
+      state.updateDigitalTwin(payload.digital_twin);
+    } else if (type === "DEFENSE_ACTION_EVENT") {
+      state.addDefenseAction(payload.action_event);
     }
   }
 }

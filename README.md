@@ -1,705 +1,399 @@
-# AERO - Hệ Thống Edge AI Phát Hiện Bất Thường Lưu Lượng Mạng
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![ESP32 Compatible](https://img.shields.io/badge/Hardware-ESP32%20%7C%20ESP32--S3-brightgreen.svg)](https://www.espressif.com/)
-[![MQTT Mosquitto](https://img.shields.io/badge/MQTT-Mosquitto%203.1.1-orange.svg)](https://mosquitto.org/)
-
-Hệ thống giám sát và phát hiện bất thường an ninh mạng thời gian thực dựa trên kiến trúc **Edge AI**. Dự án kết hợp thiết bị biên vi điều khiển (ESP32) hoạt động ở chế độ Promiscuous Mode, giao thức truyền tải siêu nhẹ MQTT (Mosquitto), mô hình học máy phát hiện dị biệt (Isolation Forest) kết hợp TinyML nhúng trực tiếp on-device, cùng giao diện giám sát SOC (Security Operations Center) hiện đại thời gian thực.
-
-Hệ thống sử dụng bộ dữ liệu an ninh mạng công nghiệp chuẩn **Edge-IIoTset** với cấu trúc trọn vẹn **63 đặc trưng** (61 đặc trưng mạng đầu vào từ tầng Network, Transport đến IoT Application và 15 lớp nhãn tấn công). Kiến trúc dự án được phân tách triệt để giữa **Quy trình Huấn luyện & HPO Offline** và **Phiên Vận hành Suy luận Thời gian thực (Runtime Inference)**.
-
----
-
-## 🌟 Tính Năng Nổi Bật
-
-- **Bắt gói tin biên (Edge Promiscuous Sniffing)**: ESP32 bắt trực tiếp các khung WiFi 802.11, trích xuất đặc trưng lưu lượng mạng thời gian thực mà không cần can thiệp hạ tầng mạng phức tạp.
-- **ESP32 Bắt Mọi Mạng Độc Lập (All-Networks Sniffing & Channel Hopping)**: Thoát ly ràng buộc chỉ bắt được mạng Access Point mà máy tính kết nối. Chế độ `SNIFFER_MODE_ALL_NETWORKS` mở khóa phần cứng radio ESP32, nhảy kênh liên tục (Ch 1..13 mỗi 300ms) để thu thập lưu lượng từ mọi Access Point và thiết bị xung quanh trong không gian.
-- **Bắn gói tin mạng thật (100% Real Socket Injection)**: Không dùng số liệu giả lập ảo. Module `attack_traffic_generator.py` mở socket thật bắn các luồng gói tin TCP SYN, UDP Flood, HTTP Probe, Exfiltration Data ra mạng thật. Cả Host Sniffer và ESP32 đều thực sự bắt được các gói tin này trong thực tế.
-- **Data Lakehouse Pipeline (Parquet Partitioned & SQLite Catalog)**: Tự động thu thập và lưu trữ toàn bộ luồng telemetry mạng từ các phiên vận hành hàng ngày vào kho lưu trữ định dạng chuẩn Parquet (nén Snappy, phân vùng theo ngày `data_lake/raw/date=YYYY-MM-DD/`). Quản lý metadata và session qua SQLite Catalog (`data_lake/catalog.db`).
-- **Học Tăng Cường Baseline Thực Tế (Hybrid Real-World Training)**: Khả năng tái huấn luyện mô hình kết hợp `--data-source hybrid`: Isolation Forest học trực tiếp trên baseline lưu lượng bình thường thực tế của môi trường xung quanh được tích lũy trong Data Lakehouse, triệt tiêu hoàn toàn tỷ lệ báo động giả (False Positives) do lệch phân phối.
-- **Điều khiển trực tiếp On-Demand từ SOC Web Dashboard**: Khi kích hoạt `--attack-sim`, thanh Control Bar trên Dashboard cung cấp cụm nút bấm tương ứng các kịch bản mã độc, cho phép người dùng click chuột phát động tấn công thật ra mạng ngay tức thì và quan sát phản ứng của AI.
-- **Dữ liệu chuẩn Edge-IIoTset (Full 63 Features)**: Mô hình hỗ trợ học trên toàn bộ 61 đặc trưng lưu lượng mạng và phân loại chính xác 15 nhãn tấn công (DDoS UDP/TCP/HTTP/ICMP, SQL Injection, Ransomware, Port Scanning, Backdoor, Vulnerability Scanner, MITM, XSS...).
-- **Tối ưu hóa siêu tham số tự động (Optuna HPO)**:
-  - Tích hợp Stratified $K$-Fold Cross-Validation (`--cv [N]`).
-  - Giao diện log chuẩn Optuna trực quan (`[I ...]`).
-  - Tự động sao lưu và duy trì toàn bộ lịch sử thử nghiệm vào SQLite database (`optuna_study.db`).
-- **Mô hình học máy kép (Dual AI Pipeline)**:
-  - **Isolation Forest (Unsupervised)**: Học trên lưu lượng bình thường để phát hiện các bất thường Zero-day chưa từng biết trước.
-  - **Attack Classifier (Supervised & TinyML)**: Phân loại cụ thể danh mục cuộc tấn công với độ chính xác vượt trội.
-- **TinyML On-Device Ready**: Công cụ chuyển đổi tự động xuất mã nguồn C Header (`tinyml_model.h`), cho phép nhúng trực tiếp cây quyết định vào ESP32 để suy luận 100% on-chip với thời gian thực thi $< 50\,\mu s$.
-- **Kiến trúc tách bạch (Zero-Training in Runtime)**: Phiên vận hành `run_system.py` thuần túy nạp các Artifacts đã được huấn luyện sẵn, khởi động tức thì, có cơ chế cảnh báo và hướng dẫn nếu thiếu Artifacts.
-- **SOC Web Dashboard Real-time**: Giao diện Cyberpunk Glassmorphism Dark Mode tuyệt đẹp, biểu đồ Chart.js cập nhật trực tiếp qua WebSocket.
-- **Đa dạng nguồn Telemetry (Multi-Probe)**: Mặc định bắt card mạng thật từ máy tính (`--probe host`) hoặc phần cứng ESP32 thật qua WiFi/MQTT (`--probe esp32`).
-
----
-
-## 🏗️ Kiến Trúc Hệ Thống
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       NGUỒN DỮ LIỆU TELEMETRY (PROBES)                      │
-│   [ESP32 WiFi Promiscuous]               │   [Host PC Live Sniffer]         │
-└──────────────────────────────────────┬──────────────────────────────────────┘
-                                       │ MQTT: edge/telemetry/traffic
-                                       ▼
-                      ┌─────────────────────────────────┐
-                      │ Mosquitto MQTT Broker (Port 1883)│ ◄───┐
-                      └────────────────┬────────────────┘     │
-                                       │                      │ edge/attack/control
-         ┌─────────────────────────────┴──────────┐           │ (Lệnh phát động)
-         ▼                                        ▼           │
-┌───────────────────────────────┐  ┌───────────────────────────────┐  │
-│   ML REAL-TIME INFERENCE      │  │   MODULAR FASTAPI BACKEND     │──┘
-│  (Loads Pre-trained Artifacts)│  │ ┌───────────────────────────┐ │
-│ ┌───────────────────────────┐ │  │ │ REST API & WebSocket Br.  │ │
-│ │ Preprocessor (Standardize)│ │  │ └─────────────┬─────────────┘ │
-│ └─────────────┬─────────────┘ │  └───────────────┼───────────────┘
-│ ┌─────────────▼─────────────┐ │                  │ WebSocket
-│ │ Tier 1: Isolation Forest  │ │                  ▼
-│ └─────────────┬─────────────┘ │  ┌───────────────────────────────┐
-│ ┌─────────────▼─────────────┐ │  │   SOC WEB DASHBOARD (UI)      │
-│ │ Tier 2: Attack Classifier │ │  │ ┌───────────────────────────┐ │
-│ └───────────────────────────┘ │  │ │ Control Bar: Nút Bấm      │ │
-└───────────────┬───────────────┘  │ │ Kích Hoạt Tấn Công Thật   │ │
-                │                  │ └───────────────────────────┘ │
-                │                  └───────────────────────────────┘
-                │
-                │ MQTT: edge/attack/control
-                ▼
-┌────────────────────────────────────────────────────────┐
-│  ATTACK TRAFFIC GENERATOR (Module Bắn Gói Tin Thật)    │
-│  - Bắn Socket TCP SYN, UDP Flood, Vuln Probe ra mạng   │
-│  - Host Sniffer / ESP32 thật bắt được ngay trên mạng   │
-└────────────────────────────────────────────────────────┘
-```
-
----
-
-### 🧩 Phân Tầng Kiến Trúc Decoupled (Decoupled Layering):
-1. **Telemetry Probes**: Tách biệt hoàn toàn phần cứng/giả lập khỏi hệ thống phân tích. Tất cả các probe (`esp32_simulator.py`, `host_sniffer.py`) là các module độc lập, được nạp trực tiếp qua `run_system.py`.
-2. **AI Inference & Offline Training**:
-   - `ml_engine/train.py` là **Entrypoint Offline duy nhất**: Tiền xử lý full 61 features, Optuna HPO, fit 100% dữ liệu và xuất TinyML C Header (`--export-tinyml-only`).
-   - `ml_engine/inference_service.py` là **Runtime Daemon**: Tự động nhận biến môi trường, suy luận 2 tầng trong $< 1.5\,\text{ms}$.
-3. **Modular Backend**:
-   - `dashboard/backend/`: Không còn file monolithic. Được module hóa thành `config.py`, `models.py`, `state.py`, `websocket_manager.py`, `mqtt_bridge.py` và `routers/` (`api.py`, `ws.py`).
-4. **Component-Based Frontend**:
-   - `dashboard/frontend/js/`: Sử dụng kiến trúc **Native ES Modules** (không cần bundle/build step). State được quản lý tập trung qua `state.js` (Event Bus), tách bạch các `services/` (WebSocket, Audio API, REST API) và 6 `components/` UI độc lập.
-
----
-
-## 🚀 Khởi Động Nhanh (Quick Start)
-
-### 1. Cài đặt môi trường Python
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Huấn luyện mô hình và xuất Artifacts (Thực hiện lần đầu)
-Trước khi khởi chạy hệ thống lần đầu, bạn cần huấn luyện mô hình để sinh các file trọng số (Artifacts):
-```bash
-# Huấn luyện Decision Tree chuẩn hoặc Hybrid kết hợp Data Lakehouse:
-python ml_engine/train.py --classifier decision_tree --data-source hybrid
-```
-*(Hoặc tối ưu siêu tham số chuyên sâu với Optuna: xem chi tiết tại [Phần 1](#-phần-1-tối-ưu-siêu-tham-số-hpo--huấn-luyện-offline)).*
-
-### 3. Khởi chạy toàn bộ hệ sinh thái chỉ bằng 1 lệnh duy nhất!
-
-Hệ thống hỗ trợ Entry Points trên mọi hệ điều hành (**Windows, Linux, macOS, WSL**) với cơ chế **Zero-Config Wi-Fi**: Tự động nhận diện tên mạng Wi-Fi, mật khẩu và IP LAN của máy chủ ngầm để cấu hình cho thiết bị mà không cần nhập tay!
-
-- **Trên Windows (Command Prompt / PowerShell)**:
-  ```cmd
-  run_system.bat
-  ```
-  *Hoặc 1-click tự động build & nạp code firmware cho ESP32 qua cổng USB:*
-  ```cmd
-  run_system.bat --probe esp32 --attack-sim --flash
-  ```
-
-- **Trên Linux / macOS / WSL**:
-  ```bash
-  chmod +x run_system.sh
-  ./run_system.sh
-  ```
-  *Hoặc nạp firmware ESP32 qua CLI trên Linux/macOS:*
-  ```bash
-  ./run_system.sh --probe esp32 --attack-sim --flash --port /dev/ttyUSB0
-  ```
-
-- **Hoặc khởi chạy trực tiếp qua Python**:
-  ```bash
-  python run_system.py
-  ```
-
-Trình duyệt sẽ tự động mở trang SOC Dashboard tại: **`http://localhost:8000`**
-
----
-
-## 🔬 PHẦN 1: Tối Ưu Siêu Tham Số (HPO) & Huấn Luyện Offline (`train.py`)
-
-Kể từ phiên bản này, **`ml_engine/train.py` là Entrypoint Duy Nhất** cho toàn bộ quy trình thí nghiệm, tối ưu hóa siêu tham số (HPO) và huấn luyện mô hình offline. 
-
-Module **`ml_engine/tuning/optuna_tuner.py`** thuần túy đóng vai trò là **thư viện thuật toán** (định nghĩa Search Space, cấu hình Pruners, hàm mục tiêu Stratified $K$-Fold CV và quản lý lưu trữ SQLite), được `train.py` import tự động khi kích hoạt cờ `--optuna`.
-
-### Kiến trúc Pipeline Huấn luyện End-to-End (`train.py`):
-1. **Nạp & Chuẩn hóa Toàn bộ Dữ liệu**: Nạp trọn vẹn 61 đặc trưng lưu lượng mạng Edge-IIoTset từ `ml_engine/preprocessing/`. Không chia tách riêng tập test split: toàn bộ dữ liệu được tận dụng tối đa cho Cross-Validation và huấn luyện mô hình biên.
-2. **Tối ưu hóa Siêu Tham số (Optuna HPO)** *(tùy chọn với `--optuna`)*:
-   - Thuật toán Bayesian Optimization (TPE Sampler) tìm kiếm bộ tham số tối đa hóa Macro F1-Score.
-   - Đánh giá khách quan qua Stratified $K$-Fold Cross-Validation (`--cv [N]`, mặc định: 5).
-   - Log chuẩn Optuna trực quan (`[I 2026-...] Trial {n} finished with value...`) hiển thị trực tiếp trên console.
-   - Tự động sao lưu persistent state vào SQLite database (`ml_engine/models/optuna_study.db`).
-   - Tùy biến thuật toán cắt tỉa sớm (`--pruner median|percentile|hyperband|none`).
-3. **Huấn luyện Final Model**: Fit lại mô hình Classifier trên **100% dữ liệu** với bộ tham số tốt nhất (Best Hyperparameters) vừa tìm được.
-4. **Huấn luyện Anomaly Detector**: Fit mô hình Unsupervised (Isolation Forest) trên toàn bộ mẫu lưu lượng an toàn (`Normal`).
-5. **Xuất Trọn Bộ Artifacts & TinyML Header**: Tự động lưu các file joblib, metadata JSON, và sinh mã nguồn C Header (`tinyml_model.h`) cho firmware ESP32.
-
----
-
-### Các Kịch Bản Sử Dụng `train.py`:
-
-#### 1. Huấn luyện nhanh với siêu tham số mặc định:
-```bash
-# Huấn luyện Decision Tree trên toàn bộ dữ liệu và xuất C Header TinyML cho ESP32:
-python ml_engine/train.py --classifier decision_tree
-
-# Huấn luyện Random Forest với kích thước mẫu 30,000 dòng:
-python ml_engine/train.py --classifier random_forest --samples 30000
-```
-
-#### 2. Huấn luyện End-to-End kết hợp Optuna HPO:
-```bash
-# Tối ưu Decision Tree với 20 trials và 5-Fold Stratified CV:
-python ml_engine/train.py --classifier decision_tree --optuna --n-trials 20 --cv 5
-
-# Tối ưu Random Forest trên toàn bộ dữ liệu Edge-IIoTset:
-python ml_engine/train.py --classifier random_forest --optuna --n-trials 15 --cv 5
-
-# Tối ưu kết hợp thuật toán cắt tỉa sớm Hyperband:
-python ml_engine/train.py --classifier decision_tree --optuna --n-trials 30 --pruner hyperband
-```
-
-#### 3. Thử nghiệm các kiến trúc học máy khác:
-```bash
-# Mạng nơ-ron đa tầng MLP:
-python ml_engine/train.py --classifier mlp --optuna --n-trials 10 --cv 3
-
-# Gradient Boosting:
-python ml_engine/train.py --classifier gradient_boosting --samples 30000 --optuna --n-trials 15
-
-# Mô hình kết hợp Ensemble Voting (RandomForest + ExtraTrees + GradientBoosting):
-python ml_engine/train.py --classifier ensemble_voting --optuna --n-trials 10
-
-# Thay đổi mô hình Anomaly Detector (One-Class SVM, LOF, Elliptic Envelope):
-python ml_engine/train.py --classifier decision_tree --anomaly-model one_class_svm
-```
-
-#### 4. Xem danh mục tất cả các thuật toán hỗ trợ:
-```bash
-python ml_engine/train.py --list-models
-```
-
-#### Các Artifacts sinh ra trong `ml_engine/models/`:
-- `attack_classifier.joblib`: Trọng số mô hình phân loại tấn công đã huấn luyện.
-- `isolation_forest.joblib`: Trọng số mô hình phát hiện bất thường Unsupervised.
-- `preprocessor.joblib` / `scaler.joblib`: Bộ tiền xử lý (OrdinalEncoder + StandardScaler cho 61 đặc trưng).
-- `model_metadata.json`: Metadata cấu hình (danh sách 61 đặc trưng, 15 nhãn, siêu tham số, độ chính xác F1).
-- `optuna_study.db`: Cơ sở dữ liệu SQLite lưu trữ toàn bộ lịch sử thử nghiệm HPO.
-- `tinyml_model.h`: Tệp mã nguồn C Header chứa cấu trúc cây quyết định nhúng cho firmware ESP32.
-
----
-
-### 🧠 Danh Mục & Cơ Chế Hoạt Động Các Mô Hình Học Máy (ML / DL Engine)
-
-Hệ thống AERO trang bị kiến trúc AI 2 tầng: **Tier 1 - Phát hiện bất thường không giám sát (Unsupervised Anomaly Detection)** và **Tier 2 - Phân loại chi tiết cuộc tấn công có giám sát (Supervised Attack Classification)**. Dưới đây là phân tích chi tiết cơ chế hoạt động và ngữ cảnh dữ liệu khuyến nghị cho từng thuật toán:
-
-#### 1. Bộ Phân Loại Cuộc Tấn Công (Supervised Classifiers - 15 Lớp Tấn Công)
-
-| Thuật Toán (`--classifier`) | Cơ Chế Huấn Luyện & Suy Luận | Đặc Tính & Khả Năng Nhúng Biên | Khuyến Nghị Sử Dụng Về Dữ Liệu |
-| :--- | :--- | :--- | :--- |
-| **`decision_tree`** *(Mặc định)* | **Train**: Xây dựng cây quyết định nhị phân phân tách theo chỉ số Gini/Entropy.<br>**Inference**: Duyệt cây điều kiện `if (feature > threshold)` tuần tự. | **100% TinyML Edge-Ready**.<br>Biên dịch tự động sang mã nguồn C Header (`tinyml_model.h`).<br>Độ trễ: $< 50\,\mu s$ trên ESP32, $< 0.1\,\text{ms}$ trên Host.<br>RAM: $< 25\,\text{KB}$. | **Dữ liệu biên và thiết bị phần cứng tài nguyên thấp (ESP32/MCU)**. Phù hợp với lưu lượng mạng có các ngưỡng chia cắt hành vi phân định rõ ràng (đột biến `packet_rate`, cờ `syn_ratio`, `unique_dst_ports`). |
-| **`xgboost`** | **Train**: Gradient Boosting tối ưu hóa theo Hessian & Gradient cấp 2, kiểm soát quá khớp qua L1/L2 regularization.<br>**Inference**: Tính tổng trọng số lá cây song song hóa cao độ. | **Host / Edge Server Ready**.<br>Hiệu năng vượt trội, độ chính xác $> 93\%$, Macro F1 $> 89\%$.<br>Tích hợp early stopping và xử lý dữ liệu thưa.<br>Độ trễ: $\sim 0.6\,\text{ms}$. RAM: $\sim 15\,\text{MB}$. | **Lưu lượng mạng thực tế đa dạng**, chống nhiễu mạnh, tối ưu cho bài toán phát hiện các cuộc tấn công tinh vi (Port Scan, Vulnerability Scan, SQL Injection). |
-| **`lightgbm`** | **Train**: Light Gradient Boosting Machine sử dụng Histogram-based binning và thuật toán phát triển lá theo chiều sâu (Leaf-wise).<br>**Inference**: Tra cứu bin nhanh trên CPU. | **Host / Cloud SOC**.<br>Tốc độ huấn luyện siêu tốc (nhanh nhất trong các dòng GBDT).<br>Tiết kiệm RAM vượt bậc.<br>Độ trễ: $\sim 0.4\,\text{ms}$. RAM: $\sim 10\,\text{MB}$. | **Bộ dữ liệu lưu lượng lớn (Big Data / Lakehouse)** với hàng trăm nghìn mẫu telemetry, cần tốc độ huấn luyện và suy luận nhanh. |
-| **`catboost`** | **Train**: Categorical Boosting sử dụng Symmetric (Oblivious) Trees, chống target leakage và overfitting trên tập dữ liệu nhỏ.<br>**Inference**: Cây đối xứng cho tốc độ đánh giá cực nhanh trên CPU. | **Host / Server High Stability**.<br>Độ ổn định cao nhất, không cần tinh chỉnh quá nhiều siêu tham số.<br>Độ trễ: $\sim 0.8\,\text{ms}$. | **Môi trường triển khai sản xuất** yêu cầu độ tin cậy cao, ít bị trôi dạt dữ liệu (concept drift). |
-| **`pytorch_deep` / `dnn`** | **Train**: Mạng nơ-ron sâu PyTorch đa tầng (Dense 256 -> 128 -> 64 -> 15) với BatchNorm, Dropout(0.3), AdamW Optimizer và CosineAnnealingLR. Tự động vẽ và xuất biểu đồ `loss_curve.png`.<br>**Inference**: Lan truyền tiến PyTorch qua GPU/CPU. | **Host / GPU / NPU Acceleration**.<br>Tự động nạp bộ dữ liệu lớn chuyên biệt `DNN-EdgeIIoT-dataset.csv` (1.2GB).<br>Trực quan hóa Train vs Val Loss qua từng Epoch.<br>Độ trễ: $\sim 1.0\,\text{ms}$. | **Lưu lượng mạng có mối tương quan phi tuyến tính sâu** giữa nhiều tầng giao thức (Application, Transport, Network) mà mô hình tuyến tính không biểu diễn được. |
-| **`random_forest`** | **Train**: Tập hợp $N$ cây quyết định độc lập (Bagging) với Bootstrap Sampling.<br>**Inference**: Trung bình cộng xác suất đa số. | **Host/Server Only**.<br>Khả năng tổng quát hóa cao, không bị quá khớp.<br>Độ trễ: $\sim 1.2\,\text{ms}$. | **Lưu lượng mạng thực tế phức tạp, nhiều nhiễu**, làm baseline đối chiếu cho các dòng mô hình boosting. |
-| **`extra_trees`** | **Train**: Random Forest cực đoan chọn ngưỡng ngẫu nhiên.<br>**Inference**: Tập hợp xác suất cây cực đoan. | **Host/Server Only**.<br>Tốc độ huấn luyện nhanh gấp đôi Random Forest.<br>Độ trễ: $\sim 1.0\,\text{ms}$. | **Huấn luyện nhanh trên tập dữ liệu lưu lượng lớn**. |
-| **`ensemble_voting`** | **Train**: Huấn luyện đồng thời Decision Tree, Random Forest và XGBoost.<br>**Inference**: Soft-Voting trung bình cộng xác suất. | **Host SOC Center**.<br>Độ tin cậy và điểm Macro F1 cao nhất.<br>Độ trễ: $\sim 2.5\,\text{ms}$. | **Trung tâm SOC phân tích sự cố an ninh nghiêm trọng**. |
-
-
----
-
-#### 2. Bộ Phát Hiện Bất Thường Không Giám Sát (Unsupervised Anomaly Detectors)
-
-| Thuật Toán (`--anomaly-model`) | Cơ Chế Hoạt Động & Tính Điểm | Đặc Tính Kỹ Thuật | Khuyến Nghị Sử Dụng Về Dữ Liệu |
-| :--- | :--- | :--- | :--- |
-| **`isolation_forest`** *(Mặc định)* | **Cơ chế**: Cô lập điểm dị biệt bằng cách cắt ngẫu nhiên các đặc trưng. Mẫu bất thường (Anomaly) nằm thưa thớt ở rìa nên bị cô lập với số lần cắt (Path Length) ngắn hơn nhiều so với mẫu bình thường.<br>**Điểm số**: Chuẩn hóa từ độ dài hành trình trung bình thành dải điểm `[0.0, 1.0]`. Điểm $> 0.55$ là bất thường. | **Rất nhẹ, tốc độ huấn luyện $O(n \log n)$**.<br>Tương thích hoàn hảo với dữ liệu mạng nhiều chiều (56 features).<br>Tiêu tốn ít RAM ($< 5\,\text{MB}$). | **Chuẩn mặc định của toàn hệ thống AERO**. Huấn luyện trên lưu lượng `Normal` sạch kết hợp baseline thực tế từ Data Lakehouse. Xuất sắc trong phát hiện tấn công Zero-day, đột biến lưu lượng (DDoS Flood, Scan). |
-| **`one_class_svm`** | **Cơ chế**: Ánh xạ dữ liệu lên không gian đặc trưng vô hạn chiều thông qua Kernel RBF, sau đó tìm siêu phẳng (hyperplane) tách biệt cực đại tập điểm Normal khỏi gốc tọa độ.<br>**Điểm số**: Khoảng cách có dấu (Signed Distance) từ vector đặc trưng tới siêu phẳng quyết định. | **Độ nhạy biên giới cao**.<br>Huấn luyện phức tạp ($O(n^2)$ đến $O(n^3)$), tốn nhiều CPU khi tập dữ liệu lớn ($> 50,000$ mẫu). | **Tập dữ liệu Normal có quy mô vừa và nhỏ** với hình thái ranh giới phi tuyến tính phức tạp, không tuân theo phân phối hình học đơn giản. |
-| **`elliptic_envelope`** | **Cơ chế**: Giả định dữ liệu phân phối chuẩn đa biến (Gaussian). Tính toán ma trận hiệp phương sai bền vững (Robust Covariance) và khoảng cách Mahalanobis để dựng elip bao bọc vùng an toàn.<br>**Điểm số**: Khoảng cách Mahalanobis chuẩn hóa. | **Tính toán ma trận cực nhanh**.<br>Rất nhạy cảm nếu dữ liệu vi phạm giả định phân phối chuẩn (Non-Gaussian). | **Môi trường mạng cục bộ ổn định**, các thiết bị IoT hoạt động định kỳ theo chu kỳ cố định (như cảm biến công nghiệp gửi số liệu đều đặn), ít nhiễu đột ngột. |
-| **`lof`** *(Local Outlier Factor)* | **Cơ chế**: Đo lường độ cô lập cục bộ bằng cách so sánh mật độ xung quanh một điểm với mật độ của $k$ láng giềng gần nhất (k-Nearest Neighbors). Điểm có mật độ thấp hơn đáng kể so với láng giềng được xem là dị biệt.<br>**Điểm số**: Tỷ số mật độ cục bộ (LOF Score). | **Phát hiện dị biệt theo cụm mật độ cục bộ**.<br>Yêu cầu lưu trữ các điểm dữ liệu láng giềng để suy luận (k-NN search). | **Phân tích ngoại tuyến chuyên sâu** hoặc phát hiện các mẫu tấn công chậm (Slow-rate Attacks, APT) ẩn nấp khéo léo trong các phân đoạn mạng mật độ khác nhau. |
-
----
-
-#### 3. Quy Trình Tái Huấn Luyện Kết Hợp Thực Tế (Hybrid Real-World Retraining)
-
-Để khắc phục hiện tượng **lệch phân phối (Covariate Shift)** giữa tập dữ liệu học thuật (Edge-IIoTset) và môi trường Wi-Fi thực tế tại hiện trường (dẫn tới hiện tượng cảnh báo giả), AERO cung cấp cơ chế học kết hợp:
-```bash
-# Huấn luyện Hybrid: Kết hợp tập chuẩn Edge-IIoTset + Lưu lượng Normal thực tế từ Data Lakehouse
-python ml_engine/train.py --classifier decision_tree --anomaly-model isolation_forest --data-source hybrid
-```
-- **Bước 1**: `DataLakeManager` quét các phân vùng Parquet (`data_lake/raw/date=YYYY-MM-DD/`) để trích xuất các khung truyền thực tế được gắn nhãn `Normal`.
-- **Bước 2**: Pipeline tự động chuẩn hóa vector đặc trưng qua `EdgeTrafficPreprocessor` và gộp vào tập huấn luyện của Isolation Forest.
-- **Bước 3**: Mô hình Isolation Forest mới học được cả hành vi an ninh chuẩn và đặc thù lưu lượng thực tế xung quanh, **triệt tiêu hoàn toàn báo động giả (False Positives)** trong các phiên vận hành kế tiếp.
-
----
-
-## ⏱️ Formulate Bài Toán Dưới Dạng Chuỗi Thời Gian (Time-Series Formulation)
-
-### 1. Quan sát Bản chất Dữ liệu Mạng
-- **Bộ benchmark Edge-IIoTset**: Gồm các luồng gói tin pcap/flow được gắn nhãn thời gian `frame.time`, khoảng thời gian giữa các gói (Inter-arrival Time - IAT), độ dài phiên (Flow Duration) và các chỉ số tích lũy theo cửa sổ.
-- **Kho dữ liệu Telemetry Data Lakehouse**: Thu thập lưu lượng từ Host/ESP32 theo từng cửa sổ thời gian trượt $\Delta t = 1.0\text{s}$ lưu dưới dạng Parquet. Các chỉ số như `packet_rate`, `byte_rate`, `syn_ratio`, `udp_ratio`, `tcp_fin_ratio`, `unique_dst_ports` tạo thành **Chuỗi thời gian đa biến (Multivariate Time-Series)**.
-- **Tính tuần tự của các cuộc tấn công IoT**: Các đợt tấn công thực tế không xuất hiện độc lập mà tuân theo chuỗi các pha thời gian:
-  1. *Pha Thăm dò (Reconnaissance)*: Port Scanning, Vulnerability Scanning (tăng đột biến tỷ lệ SYN, packet count trên nhiều cổng).
-  2. *Pha Khai thác & Xâm nhập (Exploitation)*: Password Brute-force, SQL Injection, HTTP Flooding.
-  3. *Pha Vận hành độc hại (Impact/Exfiltration)*: DoS/DDoS (traffic bão hòa), Exfiltration (traffic outbound lớn bất thường kéo dài).
-
-### 2. Mô hình Hóa Toán học (Formulation)
-Thay vì xử lý từng mẫu độc lập tại thời điểm $t$: $x_t \in \mathbb{R}^D$, ta gom chuỗi trượt lịch sử độ dài $W$ (ví dụ $W = 10 \sim 30$ bước thời gian, tương đương $10\text{s} \sim 30\text{s}$):
-$$X_t = [x_{t-W+1}, x_{t-W+2}, \dots, x_t] \in \mathbb{R}^{W \times D}$$
-
-Hai hướng tiếp cận kiến trúc chính:
-1. **Phát hiện Bất thường Chuỗi Thời gian (Unsupervised Time-Series Anomaly Detection)**:
-   - **Reconstruction Error (LSTM / TCN Autoencoder)**: Mô hình Autoencoder chỉ được huấn luyện trên chuỗi Normal. Khi gặp chuỗi bất thường, sai số tái tạo $\|X_t - \hat{X}_t\|_2$ tăng đột biến vượt ngưỡng $\tau$.
-   - **Forecasting Residual**: Mô hình dự báo trạng thái kế tiếp $\hat{x}_{t+1} = f(X_t)$. Nếu gói tin thực tế $x_{t+1}$ lệch xa dự báo, gắn cờ Anomaly.
-2. **Phân loại Chuỗi Tấn công (Supervised Sequence Classification)**:
-   - Mô hình mạng tuần hoàn (Bi-LSTM, GRU) hoặc tích chập 1D (Temporal Convolutional Network - TCN) nhận đầu vào ma trận $X_t \in \mathbb{R}^{W \times D}$ và dự đoán nhãn tấn công $y_t \in \{0, 1, \dots, 14\}$.
-
-### 3. Đánh giá Tính Khả Thi: Edge (ESP32) vs Host/Cloud Server
-- **Trên Vi điều khiển biên (ESP32 / MCU)**:
-  - Bộ nhớ SRAM giới hạn ($\sim 320\text{KB}$). Duy trì một Ring Buffer kích thước $W \times D = 30 \times 56 \times 4 \approx 6.7\text{KB}$ RAM hoàn toàn khả thi.
-  - Tuy nhiên, tính toán tuần tự ma trận của LSTM/GRU tốn $> 200\text{ms}$ mỗi bước nếu không có bộ tăng tốc NPU, không đáp ứng được yêu cầu real-time $< 1\text{ms}$.
-  - **Khuyến nghị**: Trên ESP32, giải pháp tối ưu là trích xuất **đặc trưng thống kê tích lũy theo cửa sổ (Aggregated Window Features)** kết hợp **Decision Tree C Code TinyML** (đạt độ trễ $< 50\,\mu s$).
-- **Trên Host PC / SOC Server**:
-  - Hoàn toàn phù hợp để triển khai PyTorch Deep Learning (LSTM, GRU, TCN, Transformer) trích xuất trực tiếp từ các tệp Parquet Data Lakehouse.
-
-### 4. Kết Quả Thực Nghiệm So Sánh: Dữ Liệu Tĩnh (Tabular) vs Chuỗi Thời Gian (Time-Series)
-
-Để kiểm chứng hiệu quả thực tế, hệ thống hỗ trợ so sánh trực tiếp 2 phương pháp trên cùng bộ dữ liệu thực nghiệm Edge-IIoTset và Telemetry Data Lakehouse:
-
-| Thuật Toán | Formulation Dữ Liệu | Số Đặc Trưng Đầu Vào | Accuracy | Macro F1 | Thời Gian Train | Khả Năng Triển Khai (Deployment) |
-| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Decision Tree** | **Tabular Baseline** (Không Time-Series) | 56 | **92.20%** | **86.74%** | **4.63s** | **100% TinyML ESP32 Ready** (C Header `< 50µs`) |
-| **Decision Tree** | **Time-Series Sliding Window** ($W=10$) | 336 (6 nhóm động) | **90.89%** | **84.16%** | **5.16s** | **100% TinyML ESP32 Ready** (C Header `< 60µs`) |
-| **XGBoost** | **Time-Series Sliding Window** ($W=10$) | 336 (6 nhóm động) | **92.39%** | **85.91%** | **15.27s** | **Host SOC Server** (Độ ổn định & chống nhiễu cao) |
-| **PyTorch Bi-LSTM** | **3D Sequential Tensor** ($W=10, D=56$) | $10 \times 56$ | **91.29%** | **89.27% (Weighted)** | **63.17s** | **Host GPU / SOC Server** (Học quan hệ thời gian sâu) |
-
-> [!NOTE]
-> **Nhận xét kiến trúc**:
-> - Với các mô hình cây (Decision Tree, XGBoost), hàm `extract_window_dynamic_features()` tổng hợp 6 nhóm đặc trưng động học ($x_t$, Mean, Std, Delta tức thời $\Delta_{\text{step}}$, Delta cửa sổ $\Delta_{\text{window}}$, và Peak-to-Peak Range) giúp mô hình nắm bắt được **vận tốc và gia tốc biến thiên** của lưu lượng mà vẫn giữ nguyên khả năng biên dịch sang C Header cho vi điều khiển ESP32.
-> - Với PyTorch Deep Learning, cờ `--timeseries` tự động chuyển đổi mạng nơ-ron từ dạng 2D MLP sang **2-Layer Bidirectional LSTM (`EdgeLSTMNet`)** với đầu vào ma trận 3D $(N, W, D)$, theo dõi sự tiến triển của chuỗi tấn công đa bước.
-
-#### Lệnh Thử Nghiệm:
-```bash
-# 1. Huấn luyện Tabular Baseline chuẩn (Không Time-Series):
-python ml_engine/train.py --classifier decision_tree
-
-# 2. Huấn luyện Time-Series với kích thước cửa sổ trượt W=10:
-python ml_engine/train.py --classifier decision_tree --timeseries --window-size 10
-python ml_engine/train.py --classifier xgboost --timeseries --window-size 10
-python ml_engine/train.py --classifier pytorch_deep --timeseries --window-size 10
-```
-
----
-
-## ☁️ Đồng Bộ Kho Dữ Liệu Data Lakehouse Lên Cloudflare R2 / S3 (Hợp Tác Nhóm Toàn Cầu)
-
-Khi triển khai thực tế, mỗi thành viên trong nhóm nghiên cứu vận hành hệ thống tại các môi trường mạng khác nhau (ở nhà, trường học, quán cà phê). Hệ thống tích hợp giải pháp đồng bộ **Cloudflare R2 Object Storage**:
-
-### 1. Tại Sao Chọn Cloudflare R2 Thay Vì MinIO Local?
-- **MinIO Local**: Chỉ hoạt động khi toàn bộ thành viên kết nối chung mạng LAN/Wi-Fi phòng lab. Muốn chia sẻ từ xa cần cấu hình Static IP, NAT Port Forwarding hoặc VPN nội bộ phức tạp.
-- **Cloudflare R2 (Lưu trữ Đám mây Toàn cầu)**:
-  - **10GB Lưu trữ miễn phí vĩnh viễn** (Free Tier hào phóng).
-  - **0đ Phí Băng Thông Tải Về (Zero Egress Fees)**: Khắc phục nhược điểm lớn nhất của AWS S3 (vốn tính phí đắt đỏ khi download dữ liệu lớn), Cloudflare R2 hoàn toàn miễn phí băng thông egress.
-  - **Tương thích 100% chuẩn S3 API**: Tích hợp trực tiếp qua SDK `boto3` tiêu chuẩn, không cần cài đặt thư viện phụ thuộc phức tạp.
-  - **Độ trễ thấp toàn cầu**: Tận dụng hạ tầng Anycast CDN phủ rộng khắp thế giới của Cloudflare.
-
-### 2. Cấu trúc Lưu trữ Đối tượng
-```
-Cloudflare R2 Bucket: 'edge-lakehouse'
-├── data_lake/
-│   ├── raw/
-│   │   ├── date=2026-09-15/
-│   │   │   ├── sess_20260915_100000.parquet
-│   │   └── date=2026-09-16/
-│   │       └── sess_20260916_090000.parquet
-│   └── catalog.db (SQLite Metadata Catalog)
-```
-
-### 3. Cấu hình Kết nối Cloudflare R2 (Qua `.env`)
-Tạo hoặc chỉnh sửa file `.env` tại thư mục gốc dự án:
-```ini
-# Cấu hình Cloudflare R2 Object Storage (Khuyến nghị)
-R2_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-R2_ACCESS_KEY_ID=your_r2_access_key_id
-R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
-R2_BUCKET=edge-lakehouse
-R2_SECURE=true
-R2_AUTO_SYNC=true
-
-# (Hệ thống vẫn hỗ trợ fallback tương thích ngược nếu bạn dùng MinIO/S3 cũ:)
-# MINIO_ENDPOINT=localhost:9000
-# MINIO_ACCESS_KEY=minioadmin
-# MINIO_SECRET_KEY=minioadmin
-# MINIO_BUCKET=edge-lakehouse
-```
-
-### 4. Tích Hợp Đồng Bộ 2 Chiều: Push Khi Vận Hành & Pull Khi Huấn Luyện
-
-#### A. Kéo Dữ Liệu Tự Động Trước Khi Huấn Luyện (`train.py --pull-remote`)
-Tự động tải các phân vùng Parquet mới nhất do các thành viên khác thu thập từ Cloudflare R2 về máy trước khi gom dữ liệu huấn luyện:
-```bash
-python ml_engine/train.py --classifier decision_tree --data-source hybrid --pull-remote
-```
-
-#### B. Đẩy Dữ Liệu Tự Động Khi Hệ Thống Vận Hành (`run_system.py --push-remote`)
-Khi kích hoạt cờ `--push-remote`, hệ thống sẽ kích hoạt một tiến trình nền tự động đồng bộ Parquet và Catalog lên Cloudflare R2 định kỳ mỗi 5 phút và tự động push lần cuối khi đóng phiên:
-```bash
-python run_system.py --push-remote
-```
-
-#### C. Đồng Bộ Trực Tiếp 1-Click Trên Giao Diện Web SOC Dashboard
-Trên thanh Header của Web Dashboard có nút **`[☁️ Sync R2 / Cloud]`**. Người vận hành chỉ cần click chuột để kích hoạt đồng bộ tức thời lên Cloudflare R2 với thông báo trạng thái Toast hiển thị trực tiếp.
-
-#### D. Công cụ CLI Chuyên Dụng (`data_lake/sync_lakehouse.py`)
-```bash
-# Kiểm tra trạng thái kết nối Cloudflare R2 và danh sách phân vùng:
-python data_lake/sync_lakehouse.py --action status
-
-# Đẩy toàn bộ phân vùng Parquet và catalog.db từ máy cục bộ lên R2:
-python data_lake/sync_lakehouse.py --action push
-
-# Kéo toàn bộ phân vùng dữ liệu từ R2 về máy cục bộ:
-python data_lake/sync_lakehouse.py --action pull
-```
-
----
-
-## 🗂️ Quản Lý Artifacts Theo Thư Mục Riêng & Chạy Đa Mô Hình
-
-Để phục vụ so sánh và thử nghiệm nhiều thuật toán mà không bị ghi đè trọng số lẫn nhau, AERO tự động phân chia thư mục xuất artifacts:
-
-### 1. Cấu trúc Thư mục Artifacts
-```
-ml_engine/models/
-├── decision_tree_isolation_forest/          # Decision Tree Tabular chuẩn (kèm tinyml_model.h)
-├── decision_tree_isolation_forest_ts_w10/    # Decision Tree Time-Series W=10 (kèm tinyml_model.h)
-├── xgboost_isolation_forest/                # XGBoost Tabular chuẩn
-├── xgboost_isolation_forest_ts_w10/          # XGBoost Time-Series W=10
-├── pytorch_deep_isolation_forest/           # PyTorch DNN chuẩn 2D
-├── pytorch_deep_isolation_forest_ts_w10/    # PyTorch Bi-LSTM 3D (kèm loss_curve.png)
-└── [Fallback Files]                         # Tự động đồng bộ bản sao mới nhất tại thư mục gốc
-```
-
-### 2. Huấn luyện các mô hình vào thư mục riêng
-```bash
-# Huấn luyện Decision Tree (xuất tinyml_model.h cho ESP32):
-python ml_engine/train.py --classifier decision_tree --anomaly-model isolation_forest
-
-# Huấn luyện XGBoost (độ chính xác cao):
-python ml_engine/train.py --classifier xgboost --anomaly-model isolation_forest
-
-# Huấn luyện PyTorch Deep Learning (in epoch & vẽ loss_curve.png):
-python ml_engine/train.py --classifier pytorch_deep --anomaly-model isolation_forest
-```
-
-### 3. Khởi chạy Hệ thống với Mô hình Tùy Chọn
-Khi vận hành thời gian thực, `run_system.py` tự động truy vết và nạp đúng thư mục artifacts tương ứng thông qua các cờ:
-```bash
-# Chạy với mô hình Decision Tree (mặc định):
-python run_system.py --classifier decision_tree --anomaly-model isolation_forest
-
-# Chạy với mô hình XGBoost:
-python run_system.py --classifier xgboost --anomaly-model isolation_forest
-
-# Chạy với mô hình PyTorch Deep Learning:
-python run_system.py --classifier pytorch_deep --anomaly-model isolation_forest
-
-# Hoặc chỉ định trực tiếp thư mục artifacts:
-python run_system.py --models-dir ml_engine/models/xgboost_isolation_forest
-```
-
----
-
-## ⚡ PHẦN 2: Khởi Chạy Toàn Bộ Hệ Thống (Artifact Loading & Live Inference)
-
-
-Phiên chạy `run_system.py` là trung tâm vận hành runtime của hệ sinh thái.
-
-### Cơ chế hoạt động:
-1. **Hoàn toàn KHÔNG huấn luyện trong runtime (Zero Training Overhead)**: `run_system.py` hoạt động ở chế độ suy luận thuần túy, đảm bảo khởi động siêu tốc và ổn định.
-2. **Tự động nạp Artifacts đã có**: Hệ thống kiểm tra các tệp `attack_classifier.joblib`, `scaler.joblib` và `model_metadata.json` trong `ml_engine/models/`.
-3. **Cơ chế nhắc nhở thông minh (Smart Reminder)**: Nếu chưa tìm thấy artifacts (chưa chạy Phần 1), hệ thống sẽ hiển thị bảng thông báo nổi bật hướng dẫn chi tiết lệnh cần chạy và dừng tiến trình an toàn:
-   ```text
-   ============================================================================
-     [NHAC NHO QUAN TRONG] CHUA TIM THAY ARTIFACTS MO HINH MACHINE LEARNING!
-   ============================================================================
-     He thong van hanh (run_system.py) hoat dong o che do suy luan thuan tuy,
-     khong con tu dong huan luyen de dam bao tinh on dinh va toc do khoi dong.
-
-     Vui long chay quy trinh huan luyen offline truoc de tao artifacts:
-         python ml_engine/train.py --classifier decision_tree
-
-      Hoac toi uu hoa sieu tham so (HPO) voi Optuna:
-          python ml_engine/train.py --classifier decision_tree --optuna --cv 5
-
-     Sau khi huan luyen thanh cong va xuat artifacts, hay chay lai:
-         python run_system.py
-   ============================================================================
-   ```
-4. **Khởi động đồng bộ 4 tiến trình nền**:
-   - MQTT Broker (Port 1883).
-   - Real-time Inference Engine (`inference_service.py`): Nhận telemetry, chuẩn hóa qua 61 đặc trưng, suy luận kép 2 tầng với độ trễ $< 1.5\,\text{ms}$.
-   - FastAPI Backend & WebSocket Broadcaster (Port 8000).
-   - Telemetry Probe (mặc định: Simulator tự động phát luồng dữ liệu).
-
-#### Cú pháp khởi chạy:
-```bash
-# 1. Khởi chạy tiêu chuẩn (Mặc định bắt luồng mạng thật của PC qua Host Sniffer):
-python run_system.py
-
-# 2. Khởi chạy KÈM BỘ BẮN GÓI TIN MẠNG THẬT (Điều khiển on-demand từ các nút bấm Web Dashboard):
-python run_system.py --attack-sim
-
-# 3. Khởi chạy đón bo mạch ESP32 thật qua WiFi + BẮN GÓI TIN THẬT để ESP32 bắt over-the-air:
-python run_system.py --probe esp32 --attack-sim
-
-# 4. 1-Click Tự động build & nạp firmware ESP32 qua CLI (Không cần mở Arduino IDE):
-python run_system.py --probe esp32 --attack-sim --flash
-
-# 5. Chỉ định cổng Serial khi nạp ESP32 trên các hệ điều hành khác nhau:
-python run_system.py --flash --port COM4              # Windows
-python run_system.py --flash --port /dev/ttyUSB0      # Linux
-python run_system.py --flash --port /dev/cu.usbserial-0001 # macOS
-
-# 6. Tùy chọn chỉ định IP đích cụ thể để bắn gói tin độc hại:
-python run_system.py --attack-sim --attack-target 192.168.1.1
-
-# 7. Tùy chỉnh ngưỡng cảnh báo Anomaly Score (mặc định 0.55):
-python run_system.py --threshold 0.65
-
-# 8. Khởi chạy không tự động bật trình duyệt:
-python run_system.py --no-browser
-```
-
----
-
-## 📟 Đấu Nối Phần Cứng ESP32 & Màn Hình OLED SSD1306
-
-### Sơ đồ chân I2C & Cảnh báo ngoại vi:
-| Linh Kiện | Chân Module | Chân ESP32 (NodeMCU / WROOM) | Mô Tả Chức Năng |
-| :--- | :--- | :--- | :--- |
-| **OLED SSD1306** | **VDD / VCC** | **3.3V** (Dây Đỏ) | Nguồn cấp 3.3V cho IC điều khiển màn hình |
-| *(0.96" hoặc 0.91")* | **GND** | **GND** (Dây Đen) | Chân nối đất |
-| | **SCK / SCL** | **GPIO 23 (D23)** hoặc **GPIO 22 (D22)** (Dây Vàng) | Tín hiệu I2C Clock (firmware tự động quét cả D23 & D22) |
-| | **SDA** | **GPIO 21 (D21)** (Dây Xanh) | Tín hiệu I2C Data |
-| **Đèn LED Đỏ** | Anode (+) | **GPIO 4** (D4) qua trở 220Ω | Sáng rực rỡ khi phát hiện cuộc tấn công |
-| | Cathode (-) | **GND** | |
-| **Còi Buzzer** | VCC (+) | **GPIO 19** (D19) | Kêu ngắt quãng 25ms (chống sụt áp nguồn 3.3V) |
-| | GND (-) | **GND** | |
-
-> [!TIP]
-> **Khắc phục sự cố màn hình OLED không hiển thị (Màn hình tối đen):**
-> 1. **Kiểm tra dây nối**: 
->    - Đỏ: `3V3` $\rightarrow$ `VDD`
->    - Đen: `GND` $\rightarrow$ `GND`
->    - Vàng: `D23` $\rightarrow$ `SCK` (Firmware đã cấu hình SCL tại GPIO 23 và hỗ trợ tự động quét cả D23 & D22)
->    - Xanh: `D21` $\rightarrow$ `SDA`
-> 2. **Kiểm tra loại màn hình (128x64 vs 128x32)**: Nếu bạn dùng màn hình nhỏ **0.91 inch (128x32 pixels)**, hãy mở `firmware/esp32_probe/config.h` và đổi `#define SCREEN_HEIGHT 64` thành `#define SCREEN_HEIGHT 32` để tránh bị đen màn hình do sai chu kỳ quét multiplex!
-> 3. **Tính năng Auto-Recovery**: Firmware được trang bị bộ quét I2C tự động (0x3C/0x3D) và tự động thử kích hoạt lại màn hình mỗi 5 giây trong `loop()`, nên ngay cả khi bạn cắm dây màn hình sau khi ESP32 đã boot thì màn hình vẫn tự động sáng!
-> 4. Chi tiết xem thêm tại: [docs/ESP32_FLASHING_GUIDE.md](file:///d:/STT%202026/docs/ESP32_FLASHING_GUIDE.md).
-
----
-
-## 🛠️ Vận Hành Thủ Công Từng Thành Phần (Manual Execution)
-
-Nếu bạn muốn mở từng terminal riêng biệt để quan sát log chi tiết từng tầng:
-
-### Bước 1: Khởi động MQTT Broker
-- **Sử dụng Embedded Python Broker (Không cần cài đặt thêm)**:
-  ```bash
-  python broker/embedded_broker.py
-  ```
-- **Hoặc sử dụng Docker Mosquitto**:
-  ```bash
-  cd broker && docker-compose up -d
-  ```
-
-### Bước 2: Chạy Service suy luận thời gian thực
-```bash
-python ml_engine/inference_service.py
-```
-*(Lưu ý: Entrypoint dòng lệnh tập trung để tùy chỉnh `--threshold`, `--broker-port` là `python run_system.py`)*
-
-### Bước 3: Khởi động Web Dashboard Server
-```bash
-python dashboard/backend/app.py
-```
-Truy cập giao diện: `http://localhost:8000`
-
-### Bước 4: Chạy nguồn phát Telemetry & Bộ bắn gói tin độc hại
-- **Bắt lưu lượng mạng thật từ card mạng máy tính (Host Sniffer)**:
-  ```bash
-  python firmware/host_probe/host_sniffer.py
-  ```
-- **Phát động các đợt tấn công mạng thật qua socket (Attack Traffic Generator)**:
-  ```bash
-  python firmware/simulator/attack_traffic_generator.py
-  ```
-- **Hoặc bo mạch ESP32 vật lý (Promiscuous Mode)**:
-  Xem hướng dẫn nạp code tại: [docs/ESP32_FLASHING_GUIDE.md](file:///d:/STT%202026/docs/ESP32_FLASHING_GUIDE.md)
-
----
-
-## 📂 Cấu Trúc Thư Mục Dự Án (Decoupled Modular Architecture)
-
-```
-d:\STT 2026\
-├── firmware\
-│   ├── esp32_probe\
-│   │   ├── esp32_probe.ino            # Mã nguồn Arduino C++ cho ESP32 bắt gói tin & TinyML
-│   │   ├── config.h                   # Cấu hình WiFi SSID, Pass, MQTT Broker IP
-│   │   └── tinyml_model.h             # Mô hình TinyML C Header được cập nhật tự động
-│   ├── host_probe\
-│   │   └── host_sniffer.py            # Bắt lưu lượng mạng thật từ máy tính (Module cho run_system)
-│   └── simulator\
-│       └── attack_traffic_generator.py # Module duy nhất bắn gói tin mạng thật (Raw Socket, điều khiển từ Web UI)
-├── data_lake\
-│   ├── lakehouse.py                   # DataLakeManager (quản lý phân vùng Parquet, nén Snappy, SQLite catalog)
-│   ├── remote_storage.py              # MinIO / S3 Object Storage Manager (Upload/Download partitions)
-│   ├── sync_lakehouse.py              # CLI Tool đồng bộ kho dữ liệu (push, pull, status)
-│   ├── collector.py                   # MQTT DataLakeCollector ghi luồng telemetry nền
-│   ├── catalog.db                     # SQLite Metadata Catalog lưu danh mục sessions và ngày
-│   └── raw\                           # Thư mục chứa các phân vùng Parquet theo ngày (date=YYYY-MM-DD)
-├── broker\
-│   ├── mosquitto.conf                 # Cấu hình chuẩn Eclipse Mosquitto
-│   ├── docker-compose.yml             # Chạy Mosquitto nhanh bằng Docker
-│   └── embedded_broker.py             # Embedded pure Python MQTT broker (Module cho run_system)
-├── ml_engine\
-│   ├── config\
-│   │   ├── __init__.py
-│   │   └── schema.py                  # Khai báo FULL 61 Features, 15 Labels Edge-IIoTset & Defaults
-│   ├── preprocessing\
-│   │   ├── __init__.py
-│   │   ├── edge_iiotset_preprocessor.py # Xử lý dữ liệu full 63 cột, OrdinalEncoder, StandardScaler
-│   │   ├── feature_preprocessor.py    # Wrapper tương thích ngược và trích xuất vector
-│   │   └── dataset_generator.py       # Bộ sinh dữ liệu synthetic traffic đa kịch bản
-│   ├── tuning\
-│   │   ├── __init__.py
-│   │   └── optuna_tuner.py            # Thư viện hàm Optuna HPO (Search Space, Pruners, K-Fold CV & SQLite)
-│   ├── algorithms\
-│   │   ├── base.py                    # Base protocol cho Classifier & Anomaly Detector
-│   │   ├── classifiers\               # Modular Classifiers Package
-│   │   │   ├── trees.py               # DecisionTree, RandomForest, ExtraTrees (TinyML Ready)
-│   │   │   ├── boosting.py            # XGBoost, LightGBM, CatBoost
-│   │   │   ├── deep_learning.py       # PyTorch EdgeDeepNet Classifier (Vẽ & xuất loss_curve.png)
-│   │   │   ├── linear.py              # LogisticRegression Baseline
-│   │   │   └── ensemble.py            # Soft-Voting Ensemble
-│   │   └── anomaly_detectors.py       # IsolationForest, OneClassSVM, EllipticEnvelope, LOF
-│   ├── exporter\
-│   │   ├── __init__.py
-│   │   └── tinyml_exporter.py         # Chuyển đổi mô hình sang C Header (ESP32 TinyML)
-│   ├── export_tinyml.py               # Tiện ích export TinyML (CLI tập trung tại: train.py --export-tinyml-only)
-│   ├── datasets\                      # Thư mục chứa dataset Edge-IIoTset CSV
-│   ├── models\                        # Thư mục chứa Artifacts đã huấn luyện
-│   │   ├── decision_tree_isolation_forest/ # Artifacts riêng Decision Tree (Weights + C Header)
-│   │   ├── xgboost_isolation_forest/       # Artifacts riêng XGBoost Model
-│   │   ├── lightgbm_isolation_forest/      # Artifacts riêng LightGBM Model
-│   │   ├── pytorch_deep_isolation_forest/  # Artifacts riêng PyTorch DNN (kèm loss_curve.png)
-│   │   ├── attack_classifier.joblib   # [Fallback] Bản sao mô hình vừa huấn luyện gần nhất
-│   │   ├── isolation_forest.joblib    # [Fallback] Bản sao phát hiện bất thường
-│   │   ├── preprocessor.joblib        # Bộ tiền xử lý (Encoders + Scaler)
-│   │   ├── scaler.joblib              # Weights của StandardScaler
-│   │   ├── model_metadata.json        # Thông số cấu hình & kết quả đánh giá mô hình
-│   │   ├── optuna_study.db            # Cơ sở dữ liệu SQLite lưu trữ lịch sử trials Optuna
-│   │   └── tinyml_model.h             # Tệp header C sinh ra cho vi điều khiển
-│   ├── train.py                       # Master Training Pipeline (Entrypoint: HPO + Multi-model Output)
-│   └── inference_service.py           # Service suy luận thời gian thực 2 tầng qua MQTT
-├── dashboard\
-│   ├── backend\
-│   │   ├── app.py                     # FastAPI root application, lifespan & router coordinator
-│   │   ├── config.py                  # Cấu hình biến môi trường (MQTT_HOST, MQTT_PORT, PORT)
-│   │   ├── models.py                  # Pydantic schema models cho REST API
-│   │   ├── state.py                   # In-memory SystemState (history, alerts, connected nodes)
-│   │   ├── websocket_manager.py       # ConnectionManager quản lý WebSocket clients & broadcast
-│   │   ├── mqtt_bridge.py             # MQTT subscriber bridge chuyển tiếp sang WebSocket
-│   │   └── routers\
-│   │       ├── api.py                 # REST API endpoints (/api/status, /api/simulator/scenario, etc.)
-│   │       └── ws.py                  # WebSocket endpoint (/ws/telemetry)
-│   └── frontend\
-│       ├── index.html                 # Semantic HTML Layout, nạp script type="module"
-│       ├── css\style.css              # Cyberpunk Glassmorphism Styling & Design System
-│       └── js\
-│           ├── main.js                # Root Application Coordinator (ES Modules Entrypoint)
-│           ├── state.js               # Centralized Reactive State Store & Pub/Sub Event Bus
-│           ├── services\
-│           │   ├── api_service.js     # REST API client (Fetch kịch bản, ngưỡng threshold)
-│           │   ├── websocket_service.js # WebSocket client kết nối /ws/telemetry tự động reconnect
-│           │   └── audio_service.js   # Web Audio API Synthesizer (còi báo động SOC & alert beeps)
-│           └── components\
-│               ├── header.js          # Connection status dot, nodes online, audio alarm toggle
-│               ├── kpi_grid.js        # 4 thẻ KPI (Packet Rate, Byte Rate, Anomaly Score, Threats)
-│               ├── control_bar.js     # Interactive Attack Simulator control buttons
-│               ├── charts.js          # Chart.js 3 biểu đồ (Throughput, Protocol, Anomaly) & Threshold Slider
-│               ├── risk_assessment.js # Phán quyết Edge TinyML, Phân phối xác suất 15 lớp, Pipeline Flow
-│               └── packet_inspector.js# Bảng bắt gói tin Wireshark-Style thời gian thực, filter & clear
-├── docs\                              # Tài liệu kỹ thuật kiến trúc, API và ESP32
-├── run_system.py                      # Master Runtime Launcher (Nhập trực tiếp broker & probes, quản lý tập trung)
-├── run_system.bat                     # Entry point Windows Command Prompt / Batch
-├── run_system.sh                      # Entry point Linux / macOS / WSL Shell Script
-├── test_pipeline.py                   # Automated Integration Pipeline Test
-├── requirements.txt                   # Danh sách thư viện Python
-└── README.md                          # Tài liệu hướng dẫn toàn diện dự án
-```
-
----
-
-## 📊 Danh Mục 15 Lớp Tấn Công Chuẩn Edge-IIoTset
-
-| Nhãn Tấn Công (Label) | Danh Mục Mạng / Tầng Giao Thức | Hành Vi & Dấu Hiệu Đặc Trưng |
-|---|---|---|
-| **Normal** | Toàn bộ các tầng mạng | Lưu lượng truy cập an toàn, bình thường, Anomaly Score $< 0.35$ |
-| **DDoS_UDP** | Transport Layer (UDP) | Bão gói tin UDP áp đảo làm cạn kiệt băng thông đường truyền |
-| **DDoS_ICMP** | Network Layer (ICMP) | Ping flood / Smurf attack gửi dồn dập gói tin ICMP Echo Request |
-| **DDoS_TCP** | Transport Layer (TCP) | SYN Flood / Connection Flood làm tràn hàng đợi backlog |
-| **DDoS_HTTP** | Application Layer (HTTP) | Tấn công dồn dập HTTP GET/POST làm tê liệt Web Server |
-| **Port_Scanning** | Network Reconnaissance | Quét dò các cổng mở phân tán trên thiết bị IoT / Industrial Gateway |
-| **Vulnerability_scanner**| Reconnaissance & Audit | Quét tìm các lỗ hổng dịch vụ mạng và phần mềm lỗi thời |
-| **SQL_injection** | Application Layer (Database) | Chèn câu lệnh SQL độc hại qua HTTP request params nhằm đọc/ghi DB |
-| **XSS** | Application Layer (Web) | Tiêm mã kịch bản độc hại (Cross-site Scripting) vào ứng dụng web |
-| **Ransomware** | Host & File System | Mã độc tống tiền mã hóa dữ liệu máy trạm / SCADA |
-| **Backdoor** | Command & Control (C2) | Thiết lập cổng sau ngầm để kiểm soát thiết bị từ xa |
-| **Uploading** | Application Layer (Web/FTP) | Tải tệp tin thực thi độc hại (Web Shell, Malware) lên máy chủ |
-| **Password** | Authentication Brute-force | Tấn công vét cạn mật khẩu SSH, Telnet, HTTP Basic Auth |
-| **MITM** | Data Link / ARP Spoofing | Tấn công nhiễm độc ARP (ARP Poisoning) chặn bắt dữ liệu giữa chừng |
-| **Fingerprinting** | Reconnaissance (OS/Service) | Dò quét chữ ký hệ điều hành và phiên bản dịch vụ mạng đang chạy |
-
----
-
-## 🧪 Kiểm Thử Tích Hợp Tự Động (Integration Test)
-
-Để kiểm tra tính toàn vẹn của toàn bộ luồng kết nối Broker $\rightarrow$ Inference $\rightarrow$ Prediction $\rightarrow$ Alert:
-```bash
-python test_pipeline.py
-```
-Kết quả kiểm thử thành công sẽ in thông báo:
-```text
-Testing end-to-end pipeline...
-[InferenceEngine] Da load thanh cong: [decision_tree] + [isolation_forest]!
-Direct inference assertion passed: Anomaly detected, threat = Port_Scanning, latency = 59.51 ms
-MQTT End-to-end verified! Received 2 messages on subscribed topics.
-[ALL TESTS PASSED SUCCESSFULLY!]
-```
-
----
-
-## 📜 Giấy Phép (License)
-Dự án được phát hành theo giấy phép [MIT License](LICENSE).
+# AERO — Giám sát lưu lượng mạng và thí nghiệm Edge AI
+
+AERO gồm host TShark capture, telemetry ESP32, MQTT, Python FastAPI/dashboard,
+training ML offline, Parquet/SQLite data lake và Digital Twin/RL/GAN thử nghiệm.
+Tài liệu cập nhật theo implementation ngày **12/10/2026**.
+
+**--twin-lab dùng loopback, không dùng Wi-Fi**, target cố định **127.0.0.1**.
+Đã có pipeline workload/capture/import và attribution theo flow; **chưa bảo đảm
+Normal/attack trong Twin đại diện cho loopback tổng quát, Wi-Fi thực hoặc tái hiện
+attack của paper Edge-IIoTset**.
+
+## Tính năng hiện có
+
+- Host tự chạy TShark ngầm, không cần mở GUI Wireshark. Đọc TCP/UDP/ICMP/HTTP/TLS/QUIC…
+  tùy traffic; lọc MQTT/dashboard của hệ thống để giảm vòng phản hồi telemetry.
+- Input model là **56 canonical features**, theo ml_engine/config/schema.py.
+  Có **15 nhãn tổng cộng: Normal và 14 attack**; số cột CSV gốc khác số input model.
+- Runtime nạp artifacts đã train, không tự train. Có dual pipeline anomaly detector
+  và classifier; không bảo đảm độ chính xác, latency hoặc zero false positive trên mạng mới.
+- MQTT realtime tách packet, cửa sổ tốc độ và prediction. Packet QoS 1 vẫn bị drop
+  trước publish khi queue đầy; PUBACK không xác nhận collector đã ghi Parquet.
+- Data lake lưu packet nhận được vào Parquet theo ngày, metadata trong SQLite.
+  Summary chỉ tính batch còn file; không cam kết lưu đủ mọi live packet.
+- Dashboard có packet inspector, rate/protocol chart, prediction, workload status
+  và lake summary. Chart bổ sung polling API mỗi 2 giây; workload status mỗi 5 giây.
+  Các module JS có fingerprint chung để tránh dùng lẫn component cũ/mới.
+- Nút Normal/attack UI chạy **workload Twin + PCAP capture + Parquet import**.
+  Accepted không đồng nghĩa COMPLETED hay attack được xác minh.
+- ESP32 có radio sniffer, window telemetry, local alert và inference/export modules.
+  Window ESP32 không tương đương 56 host packet features; không coi Wi-Fi mã hóa
+  là TCP/HTTP plaintext đo được. Cần artifact phù hợp khả năng probe.
+- Twin vật lý/RL và GAN là thành phần thử nghiệm. Vector simulation không phải
+  packet đo thật; thử policy chưa chứng minh phòng thủ mạng thực.
+
+## Chuẩn bị
+
+Python 3.10+, dependencies requirements.txt, Wireshark/TShark và dumpcap.
+Windows cần Npcap để capture. Có Mosquitto native hoặc broker đang chạy, và
+artifacts tương thích với classifier/anomaly được chọn.
+
+~~~powershell
+python -m pip install -r requirements.txt
+~~~
+
+Tạo .env từ .env.example **chỉ nếu chưa có .env**; giữ secrets/cấu hình hiện có.
+Launcher nạp .env ở repository; biến môi trường có sẵn ưu tiên hơn .env, CLI broker
+flags ưu tiên hơn cấu hình broker. Host dùng mạng hệ điều hành đã kết nối, không
+cần SSID/password để capture.
+
+## Các chế độ chạy
+
+### Wi-Fi/Ethernet thực của máy
+
+~~~powershell
+python run_system.py --probe host --broker-host 127.0.0.1 --broker-port 1883 --classifier random_forest --anomaly-model isolation_forest
+~~~
+
+Bỏ cả --lab-capture và --twin-lab. Mỗi lần startup host thường, run_system tự chạy
+tshark -D và đọc link state của OS để chọn các card vật lý đang hoạt động, rồi
+cập nhật HOST_CAPTURE_INTERFACES trong .env bằng device ID hiện tại. Windows
+đối chiếu GUID với Npcap, không ưu tiên card Wi-Fi đã disconnected. Nếu cả Ethernet
+và Wi-Fi đang up thì capture cả hai. Không cần cờ chọn interface hoặc mở CMD để
+tìm index; giá trị cũ được tự thay ở startup. Chỉ cập nhật khóa capture, giữ nguyên
+credentials và settings khác. Lab flags tự chọn loopback trong bộ nhớ, không ghi
+loopback đè cấu hình host thường. Replay PCAP/no-tshark/không chạy probe không refresh.
+Restart sau khi đổi card/mạng;
+chưa có tự chuyển card giữa phiên đang chạy.
+Host quan sát traffic đi qua interface của máy, không tự thấy toàn bộ traffic
+của mọi thiết bị trong Wi-Fi. Tạo hoạt động sử dụng bình thường để có packet.
+Xem [chọn interface và đặt probe cho mạng khác](docs/CAPTURE_PLACEMENT.md) để phân
+biệt capture=0 ở Twin, tự discovery adapter và kiến trúc AP/mirror/monitor mode.
+
+### Chỉ quan sát loopback localhost
+
+~~~powershell
+python run_system.py --probe host --lab-capture --broker-host 127.0.0.1 --broker-port 1883 --classifier random_forest --anomaly-model isolation_forest
+~~~
+
+Flag chọn loopback qua LAB_CAPTURE_INTERFACES, **không tự sinh workload**.
+Không có ứng dụng localhost khác hoạt động có thể không có packet: dashboard/MQTT
+của hệ thống bị lọc. Wi-Fi đi Internet không xuất hiện trên loopback.
+
+### Twin: chạy workload và thu dữ liệu từ UI
+
+~~~powershell
+python run_system.py --probe host --twin-lab --broker-host 127.0.0.1 --broker-port 1883 --classifier random_forest --anomaly-model isolation_forest
+~~~
+
+Mở **http://localhost:8000/**, chọn thời lượng **1–60 giây**, bấm Normal hoặc lớp
+được hỗ trợ. Native backend tự tạo HTTP target; dừng dịch vụ lab thủ công cũ nếu
+đang chiếm cổng 8088. Chỉ một experiment chạy/import tại một thời điểm.
+
+- Vàng Đang chuẩn bị → vàng Đang bắn: lớp — Đang thu PCAP → vàng Đang lưu
+  → xanh khi COMPLETED; lỗi hiện đỏ.
+- **Dừng & lưu** hủy workload rồi đóng capture và nhập dữ liệu; chờ COMPLETED.
+- dumpcap → PCAPNG → TShark offline → Parquet batch trực tiếp, không dùng queue
+  MQTT packet làm đường lưu toàn bộ thí nghiệm.
+- PCAP/log/manifest: data_lake/experiments/<experiment_id>/.
+  Parquet: data_lake/raw/date=YYYY-MM-DD/, session riêng cho importer.
+- Capture giới hạn 65 giây/64 MiB, import timeout 120 giây; đối chiếu frame count
+  bằng capinfos nếu có. Không bảo đảm zero loss ở driver/kernel.
+- --twin-lab không kết hợp --lab-capture, --attack-sim, --no-tshark, --no-sim
+  hoặc probe khác host. Nút Twin không cần generator legacy chạy nền.
+
+### ESP32 và simulator
+
+~~~powershell
+python run_system.py --probe esp32 --broker-host YOUR_HOST_LAN_IP --broker-port 1883
+python run_system.py --probe sim --broker-host 127.0.0.1 --broker-port 1883
+~~~
+
+ESP32 cần broker truy cập được từ mạng board; 127.0.0.1 không phải máy host từ board.
+Simulator là telemetry giả lập, không phải capture thực.
+Xem [ESP32 flashing](docs/ESP32_FLASHING_GUIDE.md) và
+[kiến trúc ESP32](docs/ESP32_PIPELINE_AND_NETWORK_ARCHITECTURE.md).
+
+## Cấu hình .env
+
+Cấu hình host + lab tại nhà:
+
+~~~dotenv
+MQTT_BROKER_HOST=127.0.0.1
+MQTT_BROKER_PORT=1883
+HOST_CAPTURE_INTERFACES=""
+HOST_PCAP_FILE=""
+HOST_PROBE_ID=Host-PC-Live-Probe
+LAB_TARGET_IP=127.0.0.1
+LAB_ALLOWED_TARGETS=127.0.0.1/32
+LAB_HTTP_PORT=8088
+LAB_CAPTURE_INTERFACES=auto-loopback
+TWIN_LAB_BACKEND=native
+TWIN_CAPTURE_INTERFACE=auto-loopback
+AUTO_DETECT_WIFI=false
+MQTT_AUTO_DISCOVERY=false
+~~~
+
+| Khóa | Hành vi |
+| --- | --- |
+| HOST_CAPTURE_INTERFACES | run_system tự cập nhật device ID card vật lý đang up ở startup host thường; lab chỉ override trong bộ nhớ. |
+| LAB_CAPTURE_INTERFACES | --lab-capture: auto-loopback hoặc một tên/index loopback hợp lệ; không dùng index 8 cố định. |
+| TWIN_CAPTURE_INTERFACE | --twin-lab và worker experiment: auto-loopback hoặc loopback hợp lệ; không chuyển sang Wi-Fi. |
+| HOST_PCAP_FILE | Host replay PCAP/PCAPNG thay vì live. Để rỗng khi khảo sát thực; hai flag lab xóa override cho lần chạy. |
+| TWIN_LAB_BACKEND | native sở hữu HTTP target; docker yêu cầu target container đã chạy. |
+| LAB_HTTP_PORT | HTTP lab 8088, phải khác broker/dashboard. |
+| LAB_TARGET_IP, LAB_ALLOWED_TARGETS | Ràng buộc generator legacy; không thay target Twin hiện cố định localhost. |
+| WIFI_SSID, WIFI_PASSWORD | Cấu hình firmware ESP32; không tự kết nối Wi-Fi của hệ điều hành host. |
+| AUTO_DETECT_WIFI, MQTT_AUTO_DISCOVERY | Discovery opt-in, mặc định false; không cần cho host lab. |
+
+Liệt kê adapter trong PowerShell:
+
+~~~powershell
+& 'C:\Program Files\Wireshark\tshark.exe' -D
+~~~
+
+Số NIC có thể đổi sau cài WSL/Hyper-V/VirtualBox. Dùng auto-loopback cho lab,
+tên thiết bị cho Wi-Fi chỉ định. TSHARK_PATH có thể chỉ executable nếu không ở
+đường dẫn mặc định; discovery chờ 15 giây và báo lỗi cụ thể.
+
+Không commit .env/credentials. ESP32 dùng credentials.h ignored từ
+credentials.h.example; thay SSID/password cần build/flash.
+**Dừng launcher bằng Ctrl+C rồi chạy lại sau đổi .env/backend**; reload trang
+không nạp cấu hình process. --dashboard-port và --threshold có defaults CLI
+8000 và 0.55: muốn đổi hãy dùng flags, không chỉ sửa PORT/ANOMALY_THRESHOLD.
+
+## Runtime flags
+
+Danh sách chính xác: **python run_system.py --help**.
+
+| Flag | Hành vi / lưu ý |
+| --- | --- |
+| --probe host/esp32/sim | Nguồn telemetry; mặc định host. |
+| --broker-host, --broker-port | Chọn MQTT; broker remote phải chạy sẵn. Launcher dùng broker local sẵn có hoặc khởi động local. |
+| --dashboard-port 8000 | Cổng dashboard. |
+| --classifier random_forest, --anomaly-model isolation_forest | Chọn artifacts; không tự train. |
+| --models-dir PATH | Chỉ định bundle artifacts. |
+| --threshold 0.55 | Ngưỡng runtime, không phải xác minh ground truth. |
+| --window 1.0 | Chu kỳ cửa sổ đo host, đơn vị giây. |
+| --twin-lab | Host loopback + UI workload/capture/import; không có workload thì capture=0 có thể bình thường. |
+| --lab-capture | Đổi host capture sang loopback, không sinh traffic. |
+| --no-tshark | Host fallback, không bảo đảm 56 packet features; không dùng với hai flag lab. |
+| --no-browser | Không tự mở browser. |
+| --record-lake, --no-record-lake, --no-record | Bật/tắt MQTT live collector, mặc định bật. Không tắt persistence của worker Twin. |
+| --attack-sim, --attack-target | Generator legacy riêng; target phải thuộc lab allowlist. Không cần để chạy nút Twin, không kết hợp --twin-lab. |
+| --no-sim | Alias chế độ hardware ESP32; không đồng nghĩa tắt workload Twin. |
+| --arduino-cli, --flash, --port COM4 | Build/upload board; không dùng khi chỉ khảo sát host. |
+| --rl-defense | Twin/RL service thử nghiệm; khác --twin-lab. |
+| --enforce-real-network | Opt-in enforcement OS; không cần để collect, chưa là policy thực đã được kiểm chứng. |
+| --push-remote | Cloud sync; chỉ bật khi chủ động cấu hình upload dữ liệu. |
+
+Một số flags dùng SmartBooleanAction, như --attack-sim false.
+Hai flag lab là store_true. Cách chọn model khác:
+python run_system.py --help; danh sách training: python train.py --list-models.
+
+## Workload Twin đã hợp lý với thực tế chưa?
+
+**Chưa xác minh tương đương.** Loopback dùng socket thật nhưng không có radio,
+airtime contention, RF loss hay RTT/link-layer như mạng vật lý. Pkt/s cao không
+chứng minh workload đúng.
+
+| Lớp UI | Hành vi hiện có | Bằng chứng / giới hạn |
+| --- | --- | --- |
+| Normal | HTTP GET/POST, 64/512/4096/16384 byte, nghỉ 50–200 ms, seed theo experiment. | HTTP 200/header/nội dung được kiểm tra. Chỉ baseline HTTP; chưa đa dạng MQTT/DNS/TLS/QUIC/thiết bị. |
+| Port_Scanning | TCP connect scan nhiều cổng lab sở hữu, hai open và các cổng closed. | Mặc định 8088–8099; không scan ứng dụng khác của Windows. |
+| Vulnerability_scanner | HTTP probe robots/admin/config/backup endpoints. | Request scan, không chứng minh exploit; không phải Nikto toàn bộ. |
+| DDoS_TCP | Crafted SYN-only giới hạn trên Linux; Windows dùng container Linux. | Không dùng TCP connect fallback; chưa đo distributed DoS impact. |
+| DDoS_HTTP | HTTP workload giới hạn. | Chưa đo tác động từ chối dịch vụ. |
+| DDoS_UDP | UDP burst tới receiver lab thực, payload đa kích thước. | Có counter receive; một nguồn loopback, không phải botnet phân tán. |
+| Uploading | Multipart HTTP upload file fixture. | Không thực thi PHP/webshell hoặc lưu file người dùng. |
+| SQL_injection / XSS | Grammar query/form/JSON vào SQLite tạm và endpoint phản chiếu. | SQL SELECT injection được test trên fixture; browser XSS chưa test execution. |
+| DDoS_ICMP | ICMP echo ID/timestamp attribution, raw Linux/container. | Không gán nhãn ICMP lỗi của traffic UDP là ICMP flood. |
+| Password | Nhiều login attempts vào tài khoản lab. | Có phản hồi success/failure; không dùng tài khoản thật. |
+| Fingerprinting | SYN/ACK/SYN-ACK tới cổng open/closed, ICMP echo và banner HTTP. | Kiểm tra đáp ứng TCP/ICMP; surrogate probe, không kết luận OS bằng xprobe2. |
+| MITM | Relay DNS đổi địa chỉ sensor.test sang dịch vụ lab khác; client truy cập theo đáp án và nhận nội dung bị thay đổi. | DNS diversion surrogate; không tái hiện ARP poisoning. |
+| Backdoor | Agent fixture kết nối ngược; controller đọc inventory và bytes fixture qua TCP. | Không shell/persistence; chỉ fixture tự tạo. |
+| Ransomware | Kênh ngược điều khiển AES-256-GCM trên ba file fixture, truyền ciphertext, khôi phục và kiểm tra bytes. | Chỉ file tạm trong container; không dùng file người dùng. |
+
+SQLi/XSS hiện dùng grammar v1, mỗi lớp 8 family và query GET/form POST/JSON POST,
+thay cho danh sách cố định 6/4 request. Đã kiểm tra offline 10.000 unique requests
+mỗi lớp. Cùng pool endpoint/parameter/User-Agent; Normal cũng dùng chung pool
+User-Agent. Manifest ghi actual generator seed, version và số request theo family/
+placement; Parquet ghi request_variant_id/template_family/placement/method theo
+flow. Đây là metadata để group split, không phải input model. Không lấy số unique
+chuỗi làm chứng minh tính thực tế. Xem [SQLi/XSS variants](docs/SQLI_XSS_VARIANTS.md).
+
+Đã có dispatch/UI cho Normal + 14 lớp. Bốn surrogate v4 được nhận vào supervised
+training sau kiểm chứng effect trên flow, vẫn không phải tái hiện benchmark.
+Khi chạy `--twin-lab` trên Windows, launcher tự mở Docker Desktop ngầm nếu engine
+chưa sẵn sàng, chờ Linux engine tối đa 120 giây rồi mới chọn interface capture.
+Worker kiểm tra lại nếu Docker bị đóng giữa phiên. Docker phải được cài và hoàn tất
+setup WSL2/virtualization; lỗi hoặc timeout được báo rõ, không tự chuyển từ Windows
+containers sang Linux containers. Không cần thêm flag hoặc sửa `.env` cho auto-start.
+Launcher không tắt Docker Desktop khi thoát vì đây là dịch vụ dùng chung.
+Image aero-twin-raw:v4 được dựng
+khi chạy lần đầu nếu thiếu. Container không có network ngoài, chỉ mount thư mục
+experiment; PCAP trong container được import về lake host. Host realtime loopback
+không nhìn thấy loopback bên trong container. Không tự retrain model.
+Xem [audit phiên mới và fidelity](docs/TWIN_ATTACK_AUDIT_20261012.md).
+Normal và attack tự gán nhãn cho packet khớp flow hai chiều và thời gian.
+Policy hiện tại **không yêu cầu label_verified**; nhãn có nguồn controlled_flow.
+Đây là attribution workload, không chứng minh attack thành công. Packet nền/không attributable và ICMP
+chưa có attribution tuple gốc giữ Unknown. Không bấm attack không tự gán Normal
+cho mọi packet; prediction của model không phải ground truth.
+
+Muốn đánh giá: thu Normal Wi-Fi riêng, Normal lab riêng, so cùng dịch vụ/workload
+theo protocol, frame/payload size, request rate, IAT, RTT và tỷ lệ error. Cần thêm
+UDP/MQTT receiver hoạt động, dịch vụ test phù hợp từng attack và bằng chứng tác
+động để đánh giá độ đúng kịch bản. Chia train/test theo phiên/môi trường; chưa concat chỉ vì
+đủ feature hoặc chọn đúng nút.
+
+Snapshot đến batch 204: 84.566 live rows Unknown; bốn Twin capture nhập đủ 11.150
+PCAP packets; kết quả 0 eligible trong audit cũ dùng verified gate trước thay đổi policy.
+Hiện nhãn controlled_flow hợp lệ được nhận dù cờ cũ false. Đã sửa manifest nguồn wildcard TCP/UDP cho phiên mới;
+không tự đổi dữ liệu cũ. Xem [audit session 204](docs/A%20Linh/PARQUET_SESSION_204_AUDIT_12_10_2026.md).
+
+## Training offline và data lake
+
+### Nội dung thô dành cho NLP sau này
+
+Host live và Twin importer lưu thêm metadata riêng, không đổi 56 model features:
+raw_tcp_payload_hex (bytes dưới dạng hex), raw_tcp_payload_text (UTF-8 hợp lệ,
+không tạo plaintext cho TLS/QUIC), raw_http_query, raw_http_uri, raw_http_body,
+raw_mqtt_message/topic và raw_packet_info. Chuỗi được giữ nguyên trước categorical
+normalization, kể cả khoảng trắng và literal 0. Không tự tokenize/fit NLP encoder.
+Xem [raw application content](docs/RAW_APPLICATION_CONTENT.md) cho encoding,
+missing/truncation và giới hạn packet-level. Cần restart host/backend để áp dụng;
+Parquet cũ không tự được bổ sung nội dung.
+
+~~~powershell
+python train.py --help
+python train.py --classifier random_forest --anomaly-model isolation_forest --data-source edge-iiotset --invalid-rows drop
+~~~
+
+Lệnh thứ hai **train và ghi artifacts**, chỉ chạy khi chủ động huấn luyện;
+dùng --output-dir nếu muốn giữ bundle cũ. --invalid-rows drop loại record benchmark
+malformed có báo cáo; không sửa nhãn hoặc phục hồi packet mất của live capture.
+CSV ML snapshot đã quan sát 396 malformed records và 5.411 exact feature/label
+duplicates loại trước sampling/split; số liệu phụ thuộc dataset.
+
+Training có holdout test; preprocessing fit train, HPO fit trong fold.
+--refit-full là deployment refit sau đánh giá, không phải artifact được kiểm thử
+độc lập trên dữ liệu chưa nhìn thấy. --timeseries hiện bị chặn chờ session splits
+và runtime/export parity. CLI dùng --sample-ratio, không dùng --samples cũ.
+--data-source hybrid tồn tại và là default training; cần audit nhãn/provenance/domain
+trước khi dùng, không tự concatenate mọi Parquet.
+
+Hybrid đọc lake một lần và chỉ các cột training, không nạp raw body/Info cho model 56
+features. Log báo path, eligibility và counts theo lớp. Nếu thiếu Normal lake trong
+30 ngày, Isolation Forest dùng Normal TRAIN benchmark; attack lake hợp lệ vẫn vào
+classifier. Thông báo này không có nghĩa lake rỗng. Thu Normal Twin nếu muốn baseline
+lab, không đổi tất cả Unknown thành Normal. oneDNN startup messages không phải lỗi
+concat; các log đó có thể xuất hiện do dependencies ML được import.
+
+Tối ưu retraining: packet đã qua quality gate được project cả bảng theo đúng thứ tự
+56 features, thay vì tạo DataFrame cho từng packet; encoding/scaling vẫn ở preprocessor.
+Bỏ lượt transform classifier lake trước khi refit TRAIN vì kết quả đó bị ghi đè.
+Parquet footer và projected columns được đọc qua cùng handle. Không cần flag mới;
+log `Read + quality gate` tách thời gian đọc/kiểm tra khỏi phần sau. Đo trên 5.000
+packet lake: extraction cũ 17,72s, projection mới 0,015s, đọc 0,26s. Đây là tốc độ
+của bước extraction, không phải mức tăng tốc toàn training. Ba regression xác nhận
+vector/encoding parity, mixed schema và hybrid training. Không cache scaler/encoder
+giữa các lần fit; không bỏ quality gate hay thay đổi split để tăng tốc.
+
+Wi-Fi và loopback nên giữ dataset/evaluation và profile triển khai riêng, nhất là
+Normal baseline/threshold của anomaly detector. Classifier chung/hybrid chỉ nên chọn
+sau so benchmark-only, domain-specific và mixed model trên test theo session ở từng
+domain. Pipeline hiện chưa có CLI tự lọc domain/routing model; --data-source hybrid
+đọc mọi dòng lake đủ điều kiện, holdout chính là benchmark. --output-dir (training)
+và --models-dir (runtime) có thể quản lý bundle riêng, nhưng không tự lọc dữ liệu
+Wi-Fi/loopback. Không random-split packet cùng flow để chứng minh generalization.
+
+data_lake/quality.py yêu cầu packet schema hợp lệ, identity và nhãn canonical từ
+controlled_flow/manual_review; không kiểm tra label_verified (cột cũ nếu có bị bỏ qua).
+Protocol không có field dùng zero theo contract; field không đo được phải ghi missing.
+Unknown hoặc context UI không attributable vẫn không đủ điều kiện training.
+
+Capture Twin giới hạn loopback và endpoint sở hữu: scan dùng dải TCP từ LAB_HTTP_PORT
+theo TWIN_SCAN_PORT_COUNT (mặc định 12), các HTTP/UDP workload dùng cổng chính.
+MITM DNS fixture thêm UDP cổng chính+2; ICMP chỉ echo identifier của experiment.
+Host realtime dùng hợp các scope lab, không phải mọi socket loopback.
+
+Khi bật --twin-lab, host probe realtime cũng lọc đúng cổng lab này. Đường inference
+là host TShark → MQTT → model đã nạp → dashboard; importer PCAP Twin chỉ ghi Parquet,
+không suy luận lại mọi dòng nhập vào lake. Vì thế counts PCAP/lake không phải số lượt
+inference. UI hiển thị top 5 xác suất và thêm xác suất lớp đang chọn trong Twin nếu
+model có lớp đó, kể cả khi xác suất thấp hoặc bằng 0. Nhãn collect không ép model
+đoán đúng lớp; anomaly gate quyết định cảnh báo cuối, độc lập với thanh xác suất.
+
+Ngày 12/10/2026, theo xác nhận của người vận hành rằng các phiên thực địa không có
+attack, đã review 304.685 packet Unknown ngoài dấu hiệu lab thành Normal. Nhãn ghi
+manual_review/operator_assertion, giữ nhãn/source trước đó và ID annotation. 4.475
+Unknown có dấu hiệu lab được giữ lại; các nhãn attack đã có không đổi. Bản sao gốc
+và review.json ở data_lake/label_backups/de40eb6fb3d6419b8b4d5150c6057935/.
+Đây là review snapshot đã có, không tự đổi Unknown của các phiên tương lai. Công cụ
+`python scratch/apply_operator_normal.py` xem trước; `--apply` áp dụng với backup.
+Gán nhãn không tự cập nhật model đang chạy: train lại bundle chủ động, rồi restart
+run_system với đúng --classifier/--anomaly-model hoặc --models-dir đã train.
+
+## Docker, MQTT và vận hành
+
+Native Twin không cần Docker. HTTP target container:
+
+~~~powershell
+docker compose --env-file .env -f digital_twin/lab/compose.yaml up -d
+~~~
+
+Đặt TWIN_LAB_BACKEND=docker, restart launcher. Service chỉ publish localhost,
+network container nội bộ; Windows capture trên loopback cổng publish, không phải
+toàn bộ container bridge. Compose config đã kiểm tra, runtime container chưa được
+kiểm chứng trong các audit trên; worker không tự chạy Compose.
+
+Packet edge/telemetry/traffic QoS 1; window edge/telemetry/window QoS 0;
+edge/experiments/status QoS 1 retained, chỉ thông tin. Commands legacy QoS 1 không
+retained. Xem [MQTT API](docs/MQTT_API_SPEC.md).
+
+Log Host captured/published/dropped/failed thuộc đường realtime: failed=0 không
+phủ nhận queue drop. Manifest Twin có bộ đếm PCAP/parse/save riêng; COMPLETED xác
+nhận import thành công, không xác nhận driver zero loss.
+
+## Cấu trúc và tài liệu
+
+| Đường dẫn | Trách nhiệm |
+| --- | --- |
+| run_system.py, wrappers .bat/.sh | Runtime orchestration. |
+| firmware/host_probe/, launcher/ | Host capture, workers, discovery, serial/flash helpers. |
+| firmware/esp32_probe/ | C++ radio, inference, MQTT/alerts. |
+| firmware/simulator/ | Legacy generator và telemetry simulation. |
+| broker/ | Mosquitto config/manager và development fallback. |
+| dashboard/backend/, dashboard/frontend/ | FastAPI, MQTT/WebSocket, native JS modules. |
+| data_lake/ | Collector, Parquet/SQLite, quality gate và optional cloud sync. |
+| digital_twin/experiment_service.py, digital_twin/lab/ | Workload/capture/attribution, HTTP target. |
+| digital_twin/ | Physics/RL/safety/enforcement thử nghiệm. |
+| ml_engine/, train.py | Schema, preprocessing, training/inference/export. |
+| docs/, Literature/, tests/, scratch/ | Tài liệu, nghiên cứu, regression/audit. |
+
+- [Chạy Twin và schema nhãn](docs/TWIN_EXPERIMENT_COLLECTION.md)
+- [Host packet collection](docs/HOST_PACKET_COLLECTION.md)
+- [Data health review](docs/DATA_HEALTH_AND_COLLECTION_REVIEW.md)
+- [Digital Twin/GAN](docs/DIGITAL_TWIN_AND_GAN_GUIDE.md) — đối chiếu implementation.
+- Đề án: docs/Sáng tạo trẻ.docx; hướng dẫn agent: AGENTS.md.
+
+## Kiểm tra và phạm vi xác minh
+
+~~~powershell
+node tests/dashboard_controls.mjs
+node tests/dashboard_windows.mjs
+python -m unittest discover -s tests -p test_twin_experiments.py -v
+python -m unittest discover -s tests -p test_dashboard_assets.py -v
+~~~
+
+Các tests không tái hiện benchmark hoặc xác minh attack thực. Native capture
+integration trong test Twin là opt-in; tests thường có HTTP/socket localhost benign.
+Không chạy test_traffic_generator.py như unit test: có thể gửi traffic thật.
+test_pipeline.py là smoke test hạn chế, cần model/broker, không chứng minh toàn bộ
+subscriber path. Pilot Normal/PCAP nhỏ không bảo đảm throughput dài hạn, độ đa dạng,
+latency ESP32 hay model quality trên mạng triển khai.
+
+## Giấy phép
+
+MIT — xem [LICENSE](LICENSE).

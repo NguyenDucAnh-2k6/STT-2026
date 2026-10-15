@@ -24,7 +24,6 @@ from .boosting import (
     GradientBoostingWrapper
 )
 from .deep_learning import (
-    EdgeDeepNet,
     PyTorchDeepWrapper
 )
 from .linear import (
@@ -34,6 +33,15 @@ from .ensemble import (
     EnsembleVotingWrapper
 )
 from ..base import BaseAttackClassifier
+
+
+def __getattr__(name: str) -> Any:
+    if name == "EdgeDeepNet":
+        from . import deep_learning
+        if not deep_learning.TORCH_AVAILABLE:
+            raise ImportError("EdgeDeepNet requires optional PyTorch; install torch for deep-learning models")
+        return deep_learning.EdgeDeepNet
+    raise AttributeError(name)
 
 
 SUPPORTED_CLASSIFIERS: Dict[str, Dict[str, Any]] = {

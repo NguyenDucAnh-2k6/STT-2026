@@ -112,3 +112,42 @@ Người dùng có thể phát động luồng đối kháng socket thật ra m�
   - Kỹ thuật **Low & Slow**: Tốc độ vừa phải, chèn jitter ngẫu nhiên 5–25ms.
   - Payload biến thiên ngẫu nhiên từ 40 đến 520 bytes (mô phỏng dummy padding của WGAN).
   - Trộn gói tin hợp pháp để hạ thấp `syn_ratio`.
+
+---
+
+## 5. MODULE 3: HỌC TĂNG CƯỜNG (RL) & PHÒNG THỦ MẠNG ĐÓNG VÒNG
+
+Dựa trên kiến trúc đề xuất tại `docs/Triển_khai_Digital_Twin.docx`:
+
+```
+Real Traffic -> Edge ML Detection -> Digital Twin -> RL Policy ->
+Sandbox Dry-Run Simulation -> Safety Controller -> Network Controller ->
+Real Network / Host Firewall -> Feedback Loop (MQTT)
+```
+
+### 5.1. Không gian Hành động Phòng thủ Chuẩn (Standard Defense Actions):
+Dựa trên các tiêu chuẩn an ninh mạng công nghiệp (NIST SP 800-61 / MITRE D3FEND):
+1. `NO_ACTION`: Giữ nguyên mạng khi lưu lượng bình thường (tránh báo động giả và gián đoạn dịch vụ).
+2. `RATE_LIMIT_IP`: Siết lưu lượng IP nguồn (áp dụng cho UDP Flood, DoS nhẹ).
+3. `BLOCK_IP_FIREWALL`: Thêm quy tắc tường lửa OS chặn nguồn (SYN Flood, Port Scan hung hãn).
+4. `ISOLATE_MAC_DEAUTH`: Cách ly tầng 2 Wi-Fi (Rogue AP, thiết bị IoT nội bộ bị nhiễm độc).
+5. `SWITCH_CHANNEL`: Đổi kênh vô tuyến Wi-Fi AP (tránh nghẽn sóng RF / Jamming kênh).
+6. `HONEYPOT_REDIRECT`: Chuyển hướng lưu lượng trinh sát vào Honeypot ảo.
+
+### 5.2. Safety Controller & Host Firewall Enforcer
+- **Bảo vệ Whitelist:** Tuyệt đối không chặn các nút sống còn (`127.0.0.1`, Router Gateway, MQTT Broker).
+- **Thẩm định Sandbox:** Yêu cầu `collateral_damage_pct < 15%` và `health_score >= 0.65`.
+- **Thực thi đa nền tảng:** Tự động gọi `netsh advfirewall` (Windows), `iptables` (Linux), hoặc `pfctl` (macOS).
+- **Lease Time & Rollback:** Tự động giải phóng IP sau 300 giây để tránh chặn nhầm vĩnh viễn.
+
+### 5.3. Các lệnh thực thi:
+```bash
+# 1. Huấn luyện và chạy thử nghiệm chu trình RL Defense trong Sandbox:
+python digital_twin/run_rl_pipeline.py --train --episodes 150
+
+# 2. Khởi chạy toàn bộ hệ thống tích hợp sẵn RL Defense tự động:
+python run_system.py --rl-defense
+# Hoặc trên Windows Launcher:
+run_system.bat --rl-defense
+```
+

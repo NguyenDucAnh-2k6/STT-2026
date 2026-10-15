@@ -22,6 +22,7 @@ import os
 import sys
 import time
 import json
+from collections import OrderedDict
 from typing import Dict, Any, Optional
 
 # Đảm bảo thư mục gốc dự án luôn nằm trong sys.path khi gọi trực tiếp
@@ -38,6 +39,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
 
 import numpy as np
 import joblib
+from ml_engine.edge.prediction import edge_prediction, radio_prediction_input
 import paho.mqtt.client as mqtt
 
 from ml_engine.config.schema import (
@@ -202,6 +204,8 @@ class AnomalyInferenceEngine:
         dict:
             Chi tiết kết quả suy luận kèm nhãn tấn công và độ trễ tính toán.
         """
+        if telemetry.get("probe_type") == "esp32" and telemetry.get("edge_input_profile"):
+            return edge_prediction(telemetry)
         start_time = time.perf_counter()
 
         labels_list = self.metadata.get("labels", LABEL_NAMES)
@@ -210,13 +214,31 @@ class AnomalyInferenceEngine:
         # 1. PURE MACHINE LEARNING INFERENCE (100% SUY DIỄN TỪ MODEL ARTIFACTS)
         # -------------------------------------------------------------
         try:
+            if self.metadata.get("preprocessing_version") != 2:
+                raise ValueError("Model requires retraining with preprocessing version 2.")
+            if telemetry.get("record_kind", "window") != "packet":
+                raise ValueError("Window telemetry is incompatible with this packet-feature model; train a window model separately.")
+            if telemetry.get("probe_type") == "esp32" and telemetry.get("radio_protected"):
+                raise ValueError("Encrypted Wi-Fi frame: canonical protocol features are unavailable.")
             raw_features = self.preprocessor.extract_features(telemetry)
+            missing = [name for name in self.preprocessor.feature_names if name not in raw_features.columns]
+            if missing or telemetry.get("feature_semantics") != "edgeiiot-packet-v1":
+                raise ValueError(f"Incomplete/incompatible packet features ({len(missing)} missing).")
+            from ml_engine.preprocessing.validation import invalid_feature_counts
+            if telemetry.get("missing_features") != [] or raw_features.isna().any().any():
+                raise ValueError("Packet contains unmeasured/null canonical features.")
+            if invalid_feature_counts(raw_features):
+                raise ValueError("Packet contains malformed numeric measurements.")
             scaled_features = self.preprocessor.transform(raw_features)
+            if not np.isfinite(scaled_features).all():
+                raise ValueError("Non-finite feature vector.")
 
             # A. Phân loại tấn công đa lớp (Classifier Model)
             if hasattr(self.classifier, "predict_proba"):
                 raw_proba = self.classifier.predict_proba(scaled_features)[0]
                 proba = np.array(raw_proba, dtype=float)
+                if not np.isfinite(proba).all() or (proba < 0).any() or proba.sum() <= 0:
+                    raise ValueError("Classifier returned invalid probabilities")
                 class_idx = int(np.argmax(proba))
                 confidence = float(proba[class_idx])
             else:
@@ -266,7 +288,7 @@ class AnomalyInferenceEngine:
                     neg_mse = float(self.anomaly_detector.score_samples(scaled_features)[0])
                     mse = -neg_mse
                 else:
-                    mse = 0.1
+                    raise ValueError("Anomaly detector does not provide reconstruction scores")
                 min_loss = getattr(self.anomaly_detector, "min_loss_", 0.0)
                 max_loss = getattr(self.anomaly_detector, "max_loss_", 1.0)
                 normalized_score = float((mse - min_loss) / max(max_loss - min_loss, 1e-6))
@@ -279,15 +301,17 @@ class AnomalyInferenceEngine:
                 elif hasattr(self.anomaly_detector, "decision_function"):
                     score_sample = float(self.anomaly_detector.decision_function(scaled_features)[0])
                 else:
-                    score_sample = -0.40
+                    raise ValueError("Anomaly detector does not provide scores")
 
-                score_min = float(self.metadata.get("isolation_score_min", -0.60))
-                score_max = float(self.metadata.get("isolation_score_max", -0.36))
+                score_min = float(self.metadata["isolation_score_min"])
+                score_max = float(self.metadata["isolation_score_max"])
                 score_span = max(score_max - score_min, 1e-6)
                 norm_dist = (score_max - score_sample) / score_span
                 # Chuẩn hóa liên tục đơn điệu (Monotonic scaling):
                 normalized_score = float(1.0 / (1.0 + np.exp(-4.0 * (norm_dist - 0.5))))
 
+            if not np.isfinite(normalized_score):
+                raise ValueError("Anomaly detector returned a nonfinite score")
             normalized_score = float(np.clip(normalized_score, 0.0, 1.0))
             normalized_score = round(normalized_score, 4)
 
@@ -303,16 +327,24 @@ class AnomalyInferenceEngine:
                 final_threat = "Normal"
 
         except Exception as e:
-            import traceback
-            print(f"[InferenceEngine] [LOI TRICH XUAT / SUY LUAN]: {e}")
-            traceback.print_exc()
-            attack_type = "Normal"
-            final_threat = "Normal"
-            confidence = 0.50
-            normalized_score = 0.0
-            is_anomaly = False
-            class_probabilities = {lbl: (0.50 if lbl == "Normal" else 0.0) for lbl in labels_list}
-            top_probabilities = {"Normal": 50.0}
+            print(f"[InferenceEngine] Inference unavailable: {e}")
+            return {
+                "device_id": telemetry.get("device_id", "unknown-probe"),
+                "timestamp": telemetry.get("timestamp", int(time.time() * 1000)),
+                "inference_status": "unavailable", "error": str(e),
+                "is_anomaly": None, "anomaly_score": None, "severity": "UNKNOWN",
+                "threat_type": "Unknown", "confidence": 0.0,
+                "latency_ms": round((time.perf_counter() - start_time) * 1000, 2),
+                "class_probabilities": {}, "top_probabilities": {},
+                "edge_prediction": telemetry.get("edge_prediction", "Unknown"),
+                "edge_flag": telemetry.get("edge_flag", False),
+                "edge_model": telemetry.get("edge_model", "unavailable"),
+                "edge_inference_status": telemetry.get("edge_inference_status", "unavailable"),
+                "edge_features_count": telemetry.get("edge_features_count", 0),
+                "host_classifier": self.metadata.get("classifier_type", "unknown"),
+                "host_anomaly_detector": self.metadata.get("anomaly_detector_type", "unknown"),
+                "raw_telemetry": telemetry
+            }
 
         # -------------------------------------------------------------
         # 2. ĐÁNH GIÁ MỨC ĐỘ NGUY HIỂM & KẾT QUẢ CUỐI CÙNG
@@ -329,14 +361,18 @@ class AnomalyInferenceEngine:
             severity = "MEDIUM"
 
         edge_pred = telemetry.get("edge_prediction", final_threat if is_anomaly else "Normal")
-        edge_flag = bool(telemetry.get("edge_flag", is_anomaly))
+        edge_status = telemetry.get("edge_inference_status")
+        edge_flag = None if edge_status == "unavailable" else bool(telemetry.get("edge_flag", is_anomaly))
         host_clf = self.metadata.get("classifier_type", type(self.classifier).__name__)
         host_ano = self.metadata.get("anomaly_detector_type", type(self.anomaly_detector).__name__)
         host_feat_cnt = self.metadata.get("features_count", len(self.preprocessor.feature_names) if hasattr(self.preprocessor, "feature_names") else 56)
 
         raw_edge_model = telemetry.get("edge_model")
         raw_edge_feats = telemetry.get("edge_features_count")
-        if not raw_edge_model or raw_edge_model == "C-Tree" or not raw_edge_feats:
+        if edge_status == "unavailable":
+            edge_model = raw_edge_model or "unavailable"
+            edge_feat_cnt = raw_edge_feats if raw_edge_feats is not None else 0
+        elif not raw_edge_model or raw_edge_model == "C-Tree" or not raw_edge_feats:
             is_dl = host_clf in ("pytorch_deep", "dnn") or host_ano in ("deep_autoencoder", "autoencoder")
             edge_model = "EdgeDeepNet + AutoencoderNet (TFLite)" if is_dl else f"{host_clf} + {host_ano} (TinyML C)"
             edge_feat_cnt = host_feat_cnt
@@ -352,6 +388,7 @@ class AnomalyInferenceEngine:
             print(f"[ML Inference #{self.prediction_count}] Lưu lượng Bình thường: Normal (Score: {normalized_score:.4f} < {self.anomaly_threshold:.2f}) | Models: [{host_clf} + {host_ano}] | Latency: {latency_ms:.2f}ms")
 
         return {
+            "inference_status": "ok",
             "device_id": telemetry.get("device_id", "unknown-probe"),
             "timestamp": telemetry.get("timestamp", int(time.time() * 1000)),
             "is_anomaly": is_anomaly,
@@ -365,6 +402,7 @@ class AnomalyInferenceEngine:
             "edge_prediction": edge_pred,
             "edge_flag": edge_flag,
             "edge_model": edge_model,
+            "edge_inference_status": edge_status,
             "edge_features_count": edge_feat_cnt,
             "host_classifier": host_clf,
             "host_anomaly_detector": host_ano,
@@ -380,13 +418,19 @@ def start_mqtt_inference_service(
     models_dir: Optional[str] = None
 ):
     """Khởi động MQTT listener và xử lý suy luận thời gian thực."""
-    engine = AnomalyInferenceEngine(models_dir=models_dir, anomaly_threshold=threshold)
+    edge_mode = os.getenv("AERO_PROBE_MODE") == "esp32"
+    engine = None if edge_mode else AnomalyInferenceEngine(models_dir=models_dir, anomaly_threshold=threshold)
+    edge_seen: OrderedDict = OrderedDict()
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="EdgeAI-Host-Inference-Engine")
 
     def on_connect(c, userdata, flags, rc, properties=None):
         if rc == 0:
             print(f"[InferenceService] Da ket noi den MQTT Broker {broker_host}:{broker_port}")
             client.subscribe("edge/telemetry/traffic")
+            if edge_mode:
+                client.subscribe("edge/telemetry/radio", qos=1)
+            if os.getenv("AERO_PROBE_MODE") != "esp32":
+                client.subscribe("edge/telemetry/twin_live", qos=1)
             client.subscribe("edge/attack/status")
             client.subscribe("edge/config/threshold")
             print("[InferenceService] Da subscribe topic: 'edge/telemetry/traffic', 'edge/attack/status' & 'edge/config/threshold'")
@@ -400,13 +444,18 @@ def start_mqtt_inference_service(
                     cfg = json.loads(msg.payload.decode("utf-8"))
                     if "threshold" in cfg:
                         new_thresh = float(cfg["threshold"])
-                        engine.anomaly_threshold = new_thresh
+                        if not np.isfinite(new_thresh) or not 0 <= new_thresh <= 1:
+                            raise ValueError("threshold must be finite and between 0 and 1")
+                        if engine is not None:
+                            engine.anomaly_threshold = new_thresh
                         print(f"[InferenceEngine] Da cap nhat Anomaly Threshold theo UI: {new_thresh:.2f}")
                 except Exception as e:
                     print(f"[InferenceEngine] Loi cap nhat threshold: {e}")
                 return
 
             if msg.topic == "edge/attack/status":
+                if engine is None:
+                    return
                 try:
                     st_payload = json.loads(msg.payload.decode("utf-8", errors="ignore"))
                     engine.active_scenario = st_payload.get("scenario", "Normal")
@@ -424,7 +473,30 @@ def start_mqtt_inference_service(
             except json.JSONDecodeError:
                 return
 
-            result = engine.predict(payload)
+            if edge_mode:
+                if msg.topic != "edge/telemetry/radio":
+                    return  # Optional TShark rows are persisted independently, not re-inferred.
+                from firmware.esp32_probe.radio_capture import parse_radio_sample
+                if msg.retain or len(msg.payload) > 8192:
+                    return
+                sample = parse_radio_sample(payload, int(time.time() * 1000))
+                if sample.identity in edge_seen:
+                    return
+                payload = radio_prediction_input(sample)
+                edge_seen[sample.identity] = None
+                if len(edge_seen) > 8192:
+                    edge_seen.popitem(last=False)
+                accepted = client.publish("edge/telemetry/traffic", json.dumps(payload, allow_nan=False), qos=1, retain=False)
+                if accepted.rc != mqtt.MQTT_ERR_SUCCESS:
+                    print("[ESP32] Native feature publish unavailable; prediction still forwarded")
+
+            if (payload.get("probe_type") == "esp32" and payload.get("record_kind") == "window"
+                    and payload.get("radio_capture_version") == 1):
+                return  # Radio packets own inference; windows only report volume/health.
+
+            result = edge_prediction(payload) if engine is None else engine.predict(payload)
+            result["packet_id"] = payload.get("packet_id")
+            result["capture_id"] = payload.get("capture_id")
 
             # Publish kết quả dự đoán cho Dashboard
             res_json = json.dumps(result)
@@ -432,17 +504,21 @@ def start_mqtt_inference_service(
 
             top_items = list(result.get("top_probabilities", {}).items())[:3]
             top_str = ", ".join([f"{k}: {v:.1f}%" for k, v in top_items])
+            if result.get("inference_status") != "ok":
+                print(f"[INFERENCE UNAVAILABLE] {result.get('error')}")
+                return
             edge_info = f" | Edge TinyML: {result.get('edge_prediction', 'Normal')}"
+            inference_source = "ESP32" if result.get("inference_source") == "esp32" else "Host"
 
             # Nếu phát hiện bất thường nghiêm trọng, bắn cảnh báo
             if result.get("is_anomaly", False):
                 client.publish("edge/alerts/high_priority", res_json)
-                print(f" [!!! ALERT - {result['severity']} !!!] Host: {result['threat_type']} ({result['confidence']*100:.1f}%){edge_info} "
+                print(f" [!!! ALERT - {result['severity']} !!!] {inference_source}: {result['threat_type']} ({result['confidence']*100:.1f}%){edge_info} "
                       f"[Score: {result['anomaly_score']:.2f} | Latency: {result['latency_ms']}ms]")
                 if top_str:
                     print(f"      └─ Top Probs: [{top_str}]")
             else:
-                print(f" [OK] Host: Normal ({result['confidence']*100:.1f}%){edge_info} (Score: {result['anomaly_score']:.2f}) [Latency: {result['latency_ms']}ms]")
+                print(f" [OK] {inference_source}: Normal ({result['confidence']*100:.1f}%){edge_info} (Score: {result['anomaly_score']:.2f}) [Latency: {result['latency_ms']}ms]")
                 if top_str:
                     print(f"      └─ Top Probs: [{top_str}]")
 
@@ -454,8 +530,6 @@ def start_mqtt_inference_service(
 
     connected = False
     hosts_to_try = [broker_host]
-    if "127.0.0.1" not in hosts_to_try:
-        hosts_to_try.append("127.0.0.1")
 
     for h in hosts_to_try:
         try:
@@ -475,7 +549,7 @@ def start_mqtt_inference_service(
         print("=" * 60)
         print("  EDGE AI REAL-TIME INFERENCE SERVICE DANG CHAY...")
         print(f"  - Broker: {broker_host}:{broker_port}")
-        print(f"  - Nguong canh bao Anomaly: {threshold}")
+        print("  - ESP32 su dung nguong duoc bao trong ket qua tren chip" if edge_mode else f"  - Nguong canh bao Anomaly: {threshold}")
         print("=" * 60)
         client.loop_forever()
     except KeyboardInterrupt:

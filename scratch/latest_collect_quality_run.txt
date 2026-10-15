@@ -1,0 +1,433 @@
+{
+  "live_session": "session_sess_8a48088cfaad48b5ac54c2bce094f48f",
+  "live_files": 71,
+  "live": {
+    "rows": 31941,
+    "labels": {
+      "Unknown": 31941
+    },
+    "eligibility": {
+      "accepted": 0,
+      "rejected": 31941,
+      "reasons": {
+        "duplicate_identity": 0,
+        "malformed_numeric_features": 0,
+        "unlabeled_or_incompatible": 31941
+      }
+    },
+    "time_start": "2026-10-12T10:55:45.499000+07:00",
+    "time_end": "2026-10-12T10:56:54.716000+07:00",
+    "protocols": {
+      "TCP": 31559,
+      "TLSv1.2": 195,
+      "HTTP": 95,
+      "HTTP/JSON": 92
+    },
+    "payload": {
+      "present": 15666,
+      "length_matches_tcp_len": 15666,
+      "http_request": 95,
+      "http_response": 87,
+      "sqli_signature": 56,
+      "xss_signature": 39,
+      "sqlmap_user_agent": 56,
+      "benign_target_json_response": 92,
+      "absent": 16275
+    },
+    "unique_payloads": 382,
+    "unique_request_templates": 10,
+    "info_column_present": false,
+    "info_nonempty": 0,
+    "null_features": 0,
+    "malformed": 0,
+    "missing_feature_rows": 0,
+    "truncated_rows": 0,
+    "duplicate_packet_id": 0,
+    "feature_only_duplicates": 4,
+    "constant_features": [
+      "arp.opcode",
+      "arp.hw.size",
+      "icmp.checksum",
+      "icmp.seq_le",
+      "icmp.transmit_timestamp",
+      "icmp.unused",
+      "http.referer",
+      "http.tls_port",
+      "tcp.connection.rst",
+      "udp.port",
+      "udp.stream",
+      "udp.time_delta",
+      "dns.qry.name",
+      "dns.qry.name.len",
+      "dns.qry.qu",
+      "dns.qry.type",
+      "dns.retransmission",
+      "dns.retransmit_request",
+      "dns.retransmit_request_in",
+      "mqtt.conack.flags",
+      "mqtt.conflag.cleansess",
+      "mqtt.conflags",
+      "mqtt.hdrflags",
+      "mqtt.len",
+      "mqtt.msg_decoded_as",
+      "mqtt.msg",
+      "mqtt.msgtype",
+      "mqtt.proto_len",
+      "mqtt.protoname",
+      "mqtt.topic",
+      "mqtt.topic_len",
+      "mqtt.ver",
+      "mbtcp.len",
+      "mbtcp.trans_id",
+      "mbtcp.unit_id"
+    ],
+    "sequence_span": 200386,
+    "sequence_coverage": 0.15939736308923777,
+    "frame_quantiles": {
+      "0.5": 44.0,
+      "0.95": 45.0,
+      "1.0": 1123.0
+    }
+  },
+  "experiments": [
+    {
+      "id": "0303ddfcd8cb4579b84d249d5d777761",
+      "scenario": "XSS",
+      "files": 6,
+      "manifest": {
+        "phase": "COMPLETED",
+        "pcap_packets": 2809,
+        "parsed_packets": 2809,
+        "rejected_packets": 0,
+        "saved_rows": 2809,
+        "labeled_rows": 2809,
+        "unknown_rows": 0,
+        "labeling_policy": "automatic-flow-v2",
+        "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)"
+      },
+      "flow_count": 216,
+      "audit": {
+        "rows": 2809,
+        "labels": {
+          "XSS": 2809
+        },
+        "eligibility": {
+          "accepted": 2809,
+          "rejected": 0,
+          "reasons": {
+            "duplicate_identity": 0,
+            "malformed_numeric_features": 0,
+            "unlabeled_or_incompatible": 0
+          }
+        },
+        "time_start": "2026-10-12T10:56:24.440000+07:00",
+        "time_end": "2026-10-12T10:56:39.498000+07:00",
+        "protocols": {
+          "TCP": 2377,
+          "HTTP": 216,
+          "HTTP/JSON": 216
+        },
+        "payload": {
+          "absent": 2161,
+          "present": 648,
+          "length_matches_tcp_len": 648,
+          "http_request": 216,
+          "http_response": 216,
+          "sqli_signature": 0,
+          "xss_signature": 216,
+          "sqlmap_user_agent": 0,
+          "benign_target_json_response": 216
+        },
+        "unique_payloads": 268,
+        "unique_request_templates": 4,
+        "info_column_present": false,
+        "info_nonempty": 0,
+        "null_features": 0,
+        "malformed": 0,
+        "missing_feature_rows": 0,
+        "truncated_rows": 0,
+        "duplicate_packet_id": 0,
+        "feature_only_duplicates": 0,
+        "constant_features": [
+          "arp.opcode",
+          "arp.hw.size",
+          "icmp.checksum",
+          "icmp.seq_le",
+          "icmp.transmit_timestamp",
+          "icmp.unused",
+          "http.referer",
+          "http.tls_port",
+          "tcp.connection.rst",
+          "udp.port",
+          "udp.stream",
+          "udp.time_delta",
+          "dns.qry.name",
+          "dns.qry.name.len",
+          "dns.qry.qu",
+          "dns.qry.type",
+          "dns.retransmission",
+          "dns.retransmit_request",
+          "dns.retransmit_request_in",
+          "mqtt.conack.flags",
+          "mqtt.conflag.cleansess",
+          "mqtt.conflags",
+          "mqtt.hdrflags",
+          "mqtt.len",
+          "mqtt.msg_decoded_as",
+          "mqtt.msg",
+          "mqtt.msgtype",
+          "mqtt.proto_len",
+          "mqtt.protoname",
+          "mqtt.topic",
+          "mqtt.topic_len",
+          "mqtt.ver",
+          "mbtcp.len",
+          "mbtcp.trans_id",
+          "mbtcp.unit_id"
+        ],
+        "sequence_span": 2809,
+        "sequence_coverage": 1.0,
+        "frame_quantiles": {
+          "0.5": 44.0,
+          "0.95": 236.0,
+          "1.0": 236.0
+        }
+      },
+      "client_port_range": [
+        51946,
+        64572
+      ],
+      "flow_label_mismatch": 0,
+      "pcap_info_categories": {
+        "TCP SYN": 432,
+        "TCP ACK": 1281,
+        "HTTP GET": 216,
+        "Other": 216,
+        "HTTP response": 216,
+        "TCP FIN": 448
+      },
+      "parquet_payload_matches_pcap": 2809
+    },
+    {
+      "id": "e1d6a1ca46324a188f2be2efad944a0f",
+      "scenario": "SQL_injection",
+      "files": 6,
+      "manifest": {
+        "phase": "COMPLETED",
+        "pcap_packets": 2920,
+        "parsed_packets": 2920,
+        "rejected_packets": 0,
+        "saved_rows": 2920,
+        "labeled_rows": 2920,
+        "unknown_rows": 0,
+        "labeling_policy": "automatic-flow-v2",
+        "capture_filter": "host 127.0.0.1 and (tcp port 8088 or udp port 8088)"
+      },
+      "flow_count": 224,
+      "audit": {
+        "rows": 2920,
+        "labels": {
+          "SQL_injection": 2920
+        },
+        "eligibility": {
+          "accepted": 2920,
+          "rejected": 0,
+          "reasons": {
+            "duplicate_identity": 0,
+            "malformed_numeric_features": 0,
+            "unlabeled_or_incompatible": 0
+          }
+        },
+        "time_start": "2026-10-12T10:55:53.573000+07:00",
+        "time_end": "2026-10-12T10:56:08.815000+07:00",
+        "protocols": {
+          "TCP": 2472,
+          "HTTP": 224,
+          "HTTP/JSON": 224
+        },
+        "payload": {
+          "absent": 2248,
+          "present": 672,
+          "length_matches_tcp_len": 672,
+          "http_request": 224,
+          "http_response": 224,
+          "sqli_signature": 224,
+          "xss_signature": 0,
+          "sqlmap_user_agent": 224,
+          "benign_target_json_response": 224
+        },
+        "unique_payloads": 295,
+        "unique_request_templates": 6,
+        "info_column_present": false,
+        "info_nonempty": 0,
+        "null_features": 0,
+        "malformed": 0,
+        "missing_feature_rows": 0,
+        "truncated_rows": 0,
+        "duplicate_packet_id": 0,
+        "feature_only_duplicates": 0,
+        "constant_features": [
+          "arp.opcode",
+          "arp.hw.size",
+          "icmp.checksum",
+          "icmp.seq_le",
+          "icmp.transmit_timestamp",
+          "icmp.unused",
+          "http.referer",
+          "http.tls_port",
+          "tcp.connection.rst",
+          "udp.port",
+          "udp.stream",
+          "udp.time_delta",
+          "dns.qry.name",
+          "dns.qry.name.len",
+          "dns.qry.qu",
+          "dns.qry.type",
+          "dns.retransmission",
+          "dns.retransmit_request",
+          "dns.retransmit_request_in",
+          "mqtt.conack.flags",
+          "mqtt.conflag.cleansess",
+          "mqtt.conflags",
+          "mqtt.hdrflags",
+          "mqtt.len",
+          "mqtt.msg_decoded_as",
+          "mqtt.msg",
+          "mqtt.msgtype",
+          "mqtt.proto_len",
+          "mqtt.protoname",
+          "mqtt.topic",
+          "mqtt.topic_len",
+          "mqtt.ver",
+          "mbtcp.len",
+          "mbtcp.trans_id",
+          "mbtcp.unit_id"
+        ],
+        "sequence_span": 2920,
+        "sequence_coverage": 1.0,
+        "frame_quantiles": {
+          "0.5": 44.0,
+          "0.95": 236.0,
+          "1.0": 236.0
+        }
+      },
+      "client_port_range": [
+        51862,
+        62598
+      ],
+      "flow_label_mismatch": 0,
+      "pcap_info_categories": {
+        "TCP SYN": 448,
+        "TCP ACK": 1329,
+        "HTTP GET": 224,
+        "Other": 224,
+        "HTTP response": 224,
+        "TCP FIN": 471
+      },
+      "parquet_payload_matches_pcap": 2920
+    }
+  ],
+  "combined_twin": {
+    "rows": 5729,
+    "labels": {
+      "SQL_injection": 2920,
+      "XSS": 2809
+    },
+    "eligibility": {
+      "accepted": 5729,
+      "rejected": 0,
+      "reasons": {
+        "duplicate_identity": 0,
+        "malformed_numeric_features": 0,
+        "unlabeled_or_incompatible": 0
+      }
+    },
+    "time_start": "2026-10-12T10:55:53.573000+07:00",
+    "time_end": "2026-10-12T10:56:39.498000+07:00",
+    "protocols": {
+      "TCP": 4849,
+      "HTTP": 440,
+      "HTTP/JSON": 440
+    },
+    "payload": {
+      "absent": 4409,
+      "present": 1320,
+      "length_matches_tcp_len": 1320,
+      "http_request": 440,
+      "http_response": 440,
+      "sqli_signature": 224,
+      "xss_signature": 216,
+      "sqlmap_user_agent": 224,
+      "benign_target_json_response": 440
+    },
+    "unique_payloads": 563,
+    "unique_request_templates": 10,
+    "info_column_present": false,
+    "info_nonempty": 0,
+    "null_features": 0,
+    "malformed": 0,
+    "missing_feature_rows": 0,
+    "truncated_rows": 0,
+    "duplicate_packet_id": 0,
+    "feature_only_duplicates": 0,
+    "constant_features": [
+      "arp.opcode",
+      "arp.hw.size",
+      "icmp.checksum",
+      "icmp.seq_le",
+      "icmp.transmit_timestamp",
+      "icmp.unused",
+      "http.referer",
+      "http.tls_port",
+      "tcp.connection.rst",
+      "udp.port",
+      "udp.stream",
+      "udp.time_delta",
+      "dns.qry.name",
+      "dns.qry.name.len",
+      "dns.qry.qu",
+      "dns.qry.type",
+      "dns.retransmission",
+      "dns.retransmit_request",
+      "dns.retransmit_request_in",
+      "mqtt.conack.flags",
+      "mqtt.conflag.cleansess",
+      "mqtt.conflags",
+      "mqtt.hdrflags",
+      "mqtt.len",
+      "mqtt.msg_decoded_as",
+      "mqtt.msg",
+      "mqtt.msgtype",
+      "mqtt.proto_len",
+      "mqtt.protoname",
+      "mqtt.topic",
+      "mqtt.topic_len",
+      "mqtt.ver",
+      "mbtcp.len",
+      "mbtcp.trans_id",
+      "mbtcp.unit_id"
+    ],
+    "sequence_span": 5729,
+    "sequence_coverage": 1.0,
+    "frame_quantiles": {
+      "0.5": 44.0,
+      "0.95": 236.0,
+      "1.0": 236.0
+    }
+  },
+  "missing_classes_in_latest_twin": [
+    "Backdoor",
+    "DDoS_HTTP",
+    "DDoS_ICMP",
+    "DDoS_TCP",
+    "DDoS_UDP",
+    "Fingerprinting",
+    "MITM",
+    "Normal",
+    "Password",
+    "Port_Scanning",
+    "Ransomware",
+    "Uploading",
+    "Vulnerability_scanner"
+  ]
+}

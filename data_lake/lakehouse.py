@@ -1,505 +1,228 @@
-#!/usr/bin/env python3
-"""
-Data Lakehouse Manager Module
-==============================
-Quản lý lưu trữ dữ liệu mạng hàng ngày theo chuẩn Apache Parquet và SQLite Catalog:
-1. Phân vùng dữ liệu theo ngày: data_lake/raw/date=YYYY-MM-DD/session_{id}.parquet
-2. Lưu siêu dữ liệu vào SQLite: data_lake/catalog.db
-3. Cung cấp API trích xuất dữ liệu Normal cho Anomaly Detector và toàn bộ dữ liệu cho Classifier.
-4. Đảm bảo hiệu năng cao với bộ đệm bộ nhớ (in-memory buffer) và nén Snappy.
-"""
-
+"""Append immutable Parquet batches; raw measurements and labels stay separate."""
+import json
+import logging
+import math
 import os
-import sys
-import time
 import sqlite3
 import threading
-from datetime import datetime
-from typing import Dict, Any, List, Optional, Tuple
+import time
+import uuid
+from datetime import datetime, timezone
+from contextlib import closing
+from pathlib import Path
+from typing import Any, Optional, Callable
 
 import pandas as pd
-import numpy as np
+import pyarrow.parquet as pq
+from ml_engine.config.schema import EDGE_IIOTSET_FEATURES
+from ml_engine.preprocessing.validation import CATEGORICAL_FEATURES
+from ml_engine.preprocessing.modules.base import normalize_categorical_value
+from .quality import select_training_records, TRAINING_OPTIONAL_COLUMNS
 
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOG = logging.getLogger(__name__)
+
+
+def raw_numeric(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        parsed = int(value, 16) if isinstance(value, str) and value.lower().startswith("0x") else float(value)
+        return parsed if math.isfinite(parsed) else None
+    except (ValueError, TypeError, OverflowError):
+        return None
 
 
 class DataLakeManager:
-    """
-    Trình quản lý kho dữ liệu Data Lakehouse cho hệ thống Edge AI.
-    """
-
-    def __init__(self, base_dir: Optional[str] = None):
-        self.base_dir = base_dir or os.path.join(ROOT_DIR, "data_lake")
-        self.raw_dir = os.path.join(self.base_dir, "raw")
-        self.catalog_db_path = os.path.join(self.base_dir, "catalog.db")
-        os.makedirs(self.raw_dir, exist_ok=True)
-
-        self._lock = threading.Lock()
-        self.current_session_id: Optional[str] = None
-        self.current_probe_type: str = "esp32"
-        self.current_sniffer_mode: str = "all-networks"
-        self.session_start_time: float = 0.0
-        self.current_parquet_path: Optional[str] = None
-
-        self.buffer: List[Dict[str, Any]] = []
-        self.flush_threshold: int = 50
-        self.last_flush_time: float = time.time()
-
-        self.session_total_records: int = 0
-        self.session_normal_records: int = 0
-        self.session_attack_records: int = 0
-
-        self._init_catalog_db()
-
-    def _init_catalog_db(self):
-        """Khởi tạo bảng cơ sở dữ liệu siêu dữ liệu (SQLite Catalog)."""
-        with sqlite3.connect(self.catalog_db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS sessions (
-                    session_id TEXT PRIMARY KEY,
-                    start_time REAL,
-                    end_time REAL,
-                    date_partition TEXT,
-                    probe_type TEXT,
-                    sniffer_mode TEXT,
-                    total_records INTEGER,
-                    normal_records INTEGER,
-                    attack_records INTEGER,
-                    parquet_path TEXT,
-                    file_size_kb REAL
-                )
-            """)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS daily_partitions (
-                    date_partition TEXT PRIMARY KEY,
-                    total_sessions INTEGER,
-                    total_records INTEGER,
-                    normal_records INTEGER,
-                    attack_records INTEGER,
-                    last_updated REAL
-                )
-            """)
+    def __init__(self, base_dir: Optional[str] = None) -> None:
+        self.base_dir = str(base_dir or Path(__file__).resolve().parent)
+        self.raw_dir = str(Path(self.base_dir) / "raw")
+        Path(self.raw_dir).mkdir(parents=True, exist_ok=True)
+        self.catalog_db_path = str(Path(self.base_dir) / "catalog.db")
+        self._lock = threading.RLock()
+        self.current_session_id = None
+        self.last_training_report: dict = {}
+        self.buffer: list[dict[str, Any]] = []
+        self.flush_threshold = 500
+        self.session_total_records = 0
+        self.session_normal_records = 0
+        self.session_attack_records = 0
+        self._batch = 0
+        self.current_probe_type = "host"
+        self.current_sniffer_mode = "host-interface"
+        with closing(sqlite3.connect(self.catalog_db_path)) as conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS packet_batches (path TEXT PRIMARY KEY, session_id TEXT, created REAL, records INTEGER, normal INTEGER, attack INTEGER, size_kb REAL)")
             conn.commit()
 
-    def start_session(self, probe_type: str = "esp32", sniffer_mode: str = "all-networks") -> str:
-        """Bắt đầu một phiên thu thập dữ liệu mới."""
+    def start_session(self, probe_type: str = "host", sniffer_mode: str = "host-interface") -> str:
         with self._lock:
-            # Nếu đang có session cũ chưa đóng, đóng trước
-            if self.current_session_id and len(self.buffer) > 0:
-                self._flush_locked()
-                self._update_session_db_locked(is_final=True)
-
-            now = datetime.now()
-            date_str = now.strftime("%Y-%m-%d")
-            ts_str = now.strftime("%H%M%S")
-            self.current_session_id = f"sess_{date_str.replace('-', '')}_{ts_str}_{os.getpid()}"
-            self.current_probe_type = probe_type
-            self.current_sniffer_mode = sniffer_mode
-            self.session_start_time = time.time()
-
-            self.session_total_records = 0
-            self.session_normal_records = 0
-            self.session_attack_records = 0
-            self.buffer = []
-            self.last_flush_time = time.time()
-
-            # Đường dẫn phân vùng Parquet
-            partition_dir = os.path.join(self.raw_dir, f"date={date_str}")
-            os.makedirs(partition_dir, exist_ok=True)
-            self.current_parquet_path = os.path.join(partition_dir, f"session_{self.current_session_id}.parquet")
-
-            # Ghi nhận session khởi tạo vào SQLite
-            with sqlite3.connect(self.catalog_db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT OR REPLACE INTO sessions 
-                    (session_id, start_time, end_time, date_partition, probe_type, sniffer_mode, total_records, normal_records, attack_records, parquet_path, file_size_kb)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    self.current_session_id,
-                    self.session_start_time,
-                    self.session_start_time,
-                    date_str,
-                    self.current_probe_type,
-                    self.current_sniffer_mode,
-                    0, 0, 0,
-                    self.current_parquet_path,
-                    0.0
-                ))
-                conn.commit()
-
-            print(f"[DataLake] Da khoi tao phien thu thap moi: '{self.current_session_id}'")
-            print(f"           Phan vung: date={date_str} | File: {os.path.basename(self.current_parquet_path)}")
+            if self.current_session_id:
+                self.close_session()
+            self.current_session_id = "sess_" + uuid.uuid4().hex
+            self.current_probe_type, self.current_sniffer_mode = probe_type, sniffer_mode
+            self.session_total_records = self.session_normal_records = self.session_attack_records = 0
+            self._batch = 0
             return self.current_session_id
 
-    def record_telemetry(
-        self,
-        telemetry: Dict[str, Any],
-        ground_truth: str = "Normal",
-        prediction: Optional[Dict[str, Any]] = None,
-        extracted_features: Optional[Dict[str, float]] = None
-    ):
-        """Ghi nhận một điểm dữ liệu telemetry vào bộ đệm của phiên hiện tại."""
+    def record_telemetry(self, telemetry: dict[str, Any], ground_truth: str = "Unknown",
+                         prediction: Optional[dict[str, Any]] = None,
+                         extracted_features: Optional[dict[str, Any]] = None) -> None:
         with self._lock:
             if not self.current_session_id:
                 self.start_session()
-
-            now_ts = time.time()
-            is_attack = 0 if ground_truth.lower() == "normal" else 1
-
-            row: Dict[str, Any] = {
-                "session_id": self.current_session_id,
-                "timestamp": telemetry.get("timestamp", int(now_ts * 1000)),
-                "datetime_iso": datetime.fromtimestamp(now_ts).isoformat(),
-                "probe_type": self.current_probe_type,
-                "sniffer_mode": self.current_sniffer_mode,
-                "channel": str(telemetry.get("channel", "1")),
-                # Đặc trưng lưu lượng cơ sở (Traffic Volume)
-                "packet_rate": float(telemetry.get("packet_rate", 0.0)),
-                "byte_rate": float(telemetry.get("byte_rate", 0.0)),
-                "avg_packet_size": float(telemetry.get("avg_packet_size", 0.0)),
-                "packet_size_std": float(telemetry.get("packet_size_std", 0.0)),
-                # Phân bố giao thức (Protocol Distribution)
-                "tcp_ratio": float(telemetry.get("tcp_ratio", 0.0)),
-                "udp_ratio": float(telemetry.get("udp_ratio", 0.0)),
-                "icmp_ratio": float(telemetry.get("icmp_ratio", 0.0)),
-                # Cờ và trạng thái TCP chi tiết (TCP Flags & Semantic State)
-                "syn_ratio": float(telemetry.get("syn_ratio", 0.0)),
-                "ack_ratio": float(telemetry.get("ack_ratio", 0.0)),
-                "rst_ratio": float(telemetry.get("rst_ratio", 0.0)),
-                "fin_ratio": float(telemetry.get("fin_ratio", 0.0)),
-                "syn_completion_ratio": float(telemetry.get("syn_completion_ratio", 1.0)),
-                # Độ đa dạng địa chỉ và cổng (Endpoint Diversity - Phản ánh "D" trong DDoS)
-                "unique_src_ports": int(telemetry.get("unique_src_ports", 0)),
-                "unique_dst_ports": int(telemetry.get("unique_dst_ports", 0)),
-                "unique_src_ips": int(telemetry.get("unique_src_ips", 0)),
-                "unique_dst_ips": int(telemetry.get("unique_dst_ips", 0)),
-                "src_dst_pair_count": int(telemetry.get("src_dst_pair_count", 0)),
-                # Động lực học thời gian & Entropy (Temporal Dynamics & Port Entropy)
-                "mean_iat": float(telemetry.get("mean_iat", 0.0)),
-                "std_iat": float(telemetry.get("std_iat", 0.0)),
-                "dst_port_entropy": float(telemetry.get("dst_port_entropy", 0.0)),
-                # Số lượng gói tin
-                "tcp_count": int(telemetry.get("tcp_count", 0)),
-                "udp_count": int(telemetry.get("udp_count", 0)),
-                "icmp_count": int(telemetry.get("icmp_count", 0)),
-                # Nhãn Ground-Truth (Chỉ dùng cho Evaluation - Tuyệt đối không rò rỉ vào feature input)
-                "ground_truth_scenario": ground_truth,
-                "is_attack": is_attack,
-            }
-
-            # Thông tin dự đoán mô hình (nếu có)
-            if prediction:
-                row["predicted_threat"] = prediction.get("threat_type", "Normal")
-                row["anomaly_score"] = float(prediction.get("anomaly_score", 0.0))
-                row["confidence"] = float(prediction.get("confidence", 1.0))
-                row["edge_prediction"] = prediction.get("edge_prediction", "Normal")
-                row["edge_flag"] = int(bool(prediction.get("edge_flag", False)))
-            else:
-                row["predicted_threat"] = telemetry.get("edge_prediction", "Normal")
-                row["anomaly_score"] = 0.0
-                row["confidence"] = 1.0
-                row["edge_prediction"] = telemetry.get("edge_prediction", "Normal")
-                row["edge_flag"] = int(bool(telemetry.get("edge_flag", False)))
-
-            # Đặc trưng mở rộng Edge-IIoTset (56 features) nếu được trích xuất
-            if extracted_features and isinstance(extracted_features, dict):
-                for k, v in extracted_features.items():
-                    row[f"feat_{k}"] = float(v)
-
-            self.buffer.append(row)
-            self.session_total_records += 1
-            if is_attack == 1:
-                self.session_attack_records += 1
-            else:
-                self.session_normal_records += 1
-
-            # Tự động flush nếu đạt ngưỡng số lượng hoặc chu kỳ 10 giây
-            if len(self.buffer) >= self.flush_threshold or (now_ts - self.last_flush_time >= 10.0):
+            row = dict(telemetry)
+            if row.get("timestamp_kind") == "uptime_ms":
+                row["source_timestamp"] = row.get("timestamp")
+                row["timestamp"] = int(time.time() * 1000)
+                row["timestamp_kind"] = "receipt_epoch_ms"
+            row.update(session_id=self.current_session_id, sniffer_mode=telemetry.get("sniffer_mode", self.current_sniffer_mode),
+                       probe_type=telemetry.get("probe_type", self.current_probe_type),
+                       receipt_timestamp=int(time.time() * 1000), ground_truth_scenario=ground_truth,
+                       is_attack=None if ground_truth == "Unknown" else int(ground_truth != "Normal"))
+            pred = prediction or {}
+            row.update(predicted_threat=pred.get("threat_type", "Unknown"),
+                       inference_status=pred.get("inference_status", "unavailable"),
+                       anomaly_score=pred.get("anomaly_score"), confidence=pred.get("confidence"))
+            # Persist canonical raw values exactly once, never scaled/encoded outputs.
+            for name in EDGE_IIOTSET_FEATURES:
+                if name in row:
+                    row[name] = (normalize_categorical_value(row[name]) if name in CATEGORICAL_FEATURES
+                                 and row[name] is not None else
+                                 raw_numeric(row[name]) if name not in CATEGORICAL_FEATURES else None)
+            # Nested UI payloads do not become implicit Arrow structures with unstable schemas.
+            for name, value in list(row.items()):
+                if isinstance(value, dict) or (isinstance(value, list) and name not in ("missing_features", "absent_fields")):
+                    row[name] = json.dumps(value, ensure_ascii=False, allow_nan=False)
+            # Ensure identifiers are always strings to prevent Arrow schema conflict (e.g. mixed int/str capture_id)
+            for id_field in ("capture_id", "boot_id", "device_id", "packet_id", "session_id", "dissection_id"):
+                if id_field in row and row[id_field] is not None:
+                    row[id_field] = str(row[id_field])
+            if len(self.buffer) >= self.flush_threshold:
                 self._flush_locked()
+            self.buffer.append(row)
 
-    def _flush_locked(self):
-        """Ghi buffer hiện tại sang file Parquet (yêu cầu đã giữ _lock)."""
-        if not self.buffer or not self.current_parquet_path:
-            return
-
-        try:
-            df_new = pd.DataFrame(self.buffer)
-
-            # Nếu file parquet đã tồn tại, đọc và nối thêm
-            if os.path.exists(self.current_parquet_path):
-                df_existing = pd.read_parquet(self.current_parquet_path)
-                df_combined = pd.concat([df_existing, df_new], ignore_index=True)
-            else:
-                df_combined = df_new
-
-            df_combined.to_parquet(self.current_parquet_path, engine="pyarrow", compression="snappy", index=False)
-            self.buffer.clear()
-            self.last_flush_time = time.time()
-
-            self._update_session_db_locked(is_final=False)
-        except Exception as e:
-            print(f"[DataLake] Canh bao khi flush Parquet: {e}")
-
-    def _update_session_db_locked(self, is_final: bool = False):
-        """Cập nhật trạng thái session và partition vào catalog SQLite."""
-        if not self.current_session_id or not self.current_parquet_path:
-            return
-
-        file_size_kb = 0.0
-        if os.path.exists(self.current_parquet_path):
-            file_size_kb = round(os.path.getsize(self.current_parquet_path) / 1024.0, 2)
-
-        now_ts = time.time()
-        date_str = datetime.fromtimestamp(self.session_start_time).strftime("%Y-%m-%d")
-
-        try:
-            with sqlite3.connect(self.catalog_db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE sessions SET
-                        end_time = ?,
-                        total_records = ?,
-                        normal_records = ?,
-                        attack_records = ?,
-                        file_size_kb = ?
-                    WHERE session_id = ?
-                """, (
-                    now_ts if is_final else self.last_flush_time,
-                    self.session_total_records,
-                    self.session_normal_records,
-                    self.session_attack_records,
-                    file_size_kb,
-                    self.current_session_id
-                ))
-
-                # Cập nhật daily_partitions
-                cursor.execute("""
-                    SELECT COUNT(*), SUM(total_records), SUM(normal_records), SUM(attack_records)
-                    FROM sessions WHERE date_partition = ?
-                """, (date_str,))
-                row = cursor.fetchone()
-                if row and row[0] is not None:
-                    tot_sess, tot_rec, norm_rec, atk_rec = row
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO daily_partitions
-                        (date_partition, total_sessions, total_records, normal_records, attack_records, last_updated)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (date_str, tot_sess, tot_rec or 0, norm_rec or 0, atk_rec or 0, now_ts))
-
-                conn.commit()
-        except Exception as e:
-            print(f"[DataLake] Canh bao cap nhat catalog SQLite: {e}")
-
-    def close_session(self) -> Dict[str, Any]:
-        """Đóng phiên thu thập hiện tại, đảm bảo toàn bộ dữ liệu đã được ghi đĩa an toàn."""
+    def annotate_pending_scenarios(self, annotate: Callable[[dict[str, Any]], dict[str, Any]]) -> None:
+        """Refresh only experiment context on owned, not-yet-persisted records."""
         with self._lock:
-            if not self.current_session_id:
-                return {}
+            for row in self.buffer:
+                row.update(annotate(row))
 
+    def _flush_locked(self) -> None:
+        if not self.buffer:
+            return
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        partition = Path(self.raw_dir) / f"date={today}"
+        partition.mkdir(parents=True, exist_ok=True)
+        path = partition / f"session_{self.current_session_id}_batch_{self._batch:06d}.parquet"
+        temporary = path.with_suffix(".parquet.tmp")
+        frame = pd.DataFrame(self.buffer)
+        for id_field in ("capture_id", "boot_id", "device_id", "packet_id", "session_id", "dissection_id"):
+            if id_field in frame.columns:
+                frame[id_field] = frame[id_field].astype(str)
+        frame.to_parquet(temporary, index=False, compression="snappy")
+        os.replace(temporary, path)
+        normal = int(frame.ground_truth_scenario.eq("Normal").sum())
+        attack = int((~frame.ground_truth_scenario.isin(["Normal", "Unknown"])).sum())
+        with closing(sqlite3.connect(self.catalog_db_path)) as conn:
+            conn.execute("INSERT OR REPLACE INTO packet_batches VALUES (?, ?, ?, ?, ?, ?, ?)",
+                         (str(path), self.current_session_id, time.time(), len(frame), normal, attack, path.stat().st_size / 1024))
+            conn.commit()
+        self.session_total_records += len(frame)
+        self.session_normal_records += normal
+        self.session_attack_records += attack
+        self.buffer.clear()
+        self._batch += 1
+
+    def flush(self) -> None:
+        with self._lock:
             self._flush_locked()
-            self._update_session_db_locked(is_final=True)
 
-            summary = {
-                "session_id": self.current_session_id,
-                "start_time": self.session_start_time,
-                "end_time": time.time(),
-                "duration_sec": round(time.time() - self.session_start_time, 1),
-                "total_records": self.session_total_records,
-                "normal_records": self.session_normal_records,
-                "attack_records": self.session_attack_records,
-                "parquet_path": self.current_parquet_path,
-                "file_size_kb": round(os.path.getsize(self.current_parquet_path) / 1024.0, 2) if (self.current_parquet_path and os.path.exists(self.current_parquet_path)) else 0.0
-            }
-
-            print("\n" + "=" * 65)
-            print(" [DataLake] PHIEN THU THAP DU LIEU DA DUOC LUU AN TOAN VAO KHO:")
-            print(f"  * Session ID     : {summary['session_id']}")
-            print(f"  * Tong so mau    : {summary['total_records']:,} (Normal: {summary['normal_records']:,} | Attacks: {summary['attack_records']:,})")
-            print(f"  * Thoi luong     : {summary['duration_sec']}s")
-            print(f"  * Parquet File   : {summary['parquet_path']} ({summary['file_size_kb']} KB)")
-            print("=" * 65 + "\n")
-
-            # Tự động đẩy file lên MinIO/S3 nếu cấu hình MINIO_AUTO_SYNC=true
-            auto_sync = os.getenv("MINIO_AUTO_SYNC", "false").lower() in ("true", "1", "yes")
-            if auto_sync and summary["parquet_path"] and os.path.exists(summary["parquet_path"]):
-                try:
-                    from data_lake.remote_storage import get_minio_storage_manager
-                    minio_mgr = get_minio_storage_manager()
-                    rel_parquet = os.path.relpath(summary["parquet_path"], self.base_dir).replace("\\", "/")
-                    remote_key = f"data_lake/{rel_parquet}"
-                    ok = minio_mgr.upload_file(summary["parquet_path"], remote_key)
-                    if ok:
-                        minio_mgr.upload_file(self.catalog_db_path, "data_lake/catalog.db")
-                        print(f" [DataLake/MinIO] Da tu dong dong bo session len MinIO: {remote_key}")
-                except Exception as e:
-                    print(f" [DataLake/MinIO] Khong the auto-sync len MinIO: {e}")
-
+    def close_session(self) -> dict[str, Any]:
+        with self._lock:
+            self._flush_locked()
+            summary = {"session_id": self.current_session_id, "total_records": self.session_total_records,
+                       "normal_records": self.session_normal_records, "attack_records": self.session_attack_records}
             self.current_session_id = None
             return summary
 
-    def sync_to_remote(self) -> Dict[str, Any]:
-        """Đẩy toàn bộ phân vùng Parquet và catalog lên MinIO."""
-        from data_lake.remote_storage import get_minio_storage_manager
-        return get_minio_storage_manager().sync_lake_to_remote()
+    def get_summary_stats(self) -> dict[str, Any]:
+        # The catalog can outlive files removed externally. Count only batches
+        # still on disk; keep catalog entries so restored files remain visible.
+        with self._lock, closing(sqlite3.connect(self.catalog_db_path)) as conn:
+            batches = conn.execute("SELECT path, session_id, records, normal, attack, size_kb, created FROM packet_batches").fetchall()
+            sessions: dict[str, list[Any]] = {}
+            for path, session_id, count, normal, attack, size_kb, created in batches:
+                if not Path(path).is_file():
+                    continue
+                row = sessions.setdefault(session_id, [session_id, 0, 0, 0, 0.0, created, created])
+                for index, value in enumerate((count, normal, attack, size_kb), start=1):
+                    row[index] += value
+                row[5], row[6] = min(row[5], created), max(row[6], created)
+            rows = sorted(sessions.values(), key=lambda row: row[6], reverse=True)
+        recent = [{"session_id": r[0], "total_records": r[1], "records_count": r[1], "start_time": r[5], "normal_records": r[2],
+                   "attack_records": r[3], "unknown_records": r[1] - r[2] - r[3],
+                   "attack_scenario": "Normal" if r[2] == r[1] else "Unknown" if r[2] + r[3] == 0 else "Mixed",
+                   "file_size_kb": r[4], "datetime": datetime.fromtimestamp(r[5]).isoformat(),
+                   "probe_type": "host", "sniffer_mode": "host-interface"} for r in rows[:5]]
+        return {"total_sessions": len(rows), "total_records": sum(r[1] for r in rows),
+                "buffered_records": len(self.buffer), "current_session_id": self.current_session_id,
+                "current_session_records": next((r[1] for r in rows if r[0] == self.current_session_id), 0),
+                "normal_records": sum(r[2] for r in rows), "attack_records": sum(r[3] for r in rows),
+                "unknown_records": sum(r[1] - r[2] - r[3] for r in rows),
+                "total_storage_kb": sum(r[4] for r in rows), "recent_sessions": recent}
 
-    def sync_from_remote(self) -> Dict[str, Any]:
-        """Tải các phân vùng Parquet mới từ MinIO về máy."""
-        from data_lake.remote_storage import get_minio_storage_manager
-        return get_minio_storage_manager().sync_remote_to_lake()
+    def load_all_training_data(self, columns: Optional[list[str]] = None) -> pd.DataFrame:
+        frames = []
+        all_columns: list[str] = []
+        for path in sorted(Path(self.raw_dir).rglob("*.parquet")):
+            selected = None
+            # Read the footer and projected data through the same file handle.
+            # Small batches otherwise pay two file opens/metadata reads each.
+            with pq.ParquetFile(path) as parquet:
+                if columns is not None:
+                    available = set(parquet.schema_arrow.names)
+                    selected = [name for name in columns if name in available]
+                frame = parquet.read(columns=selected).to_pandas()
+            for name in frame.columns:
+                if name not in all_columns:
+                    all_columns.append(name)
+            if len(frame):
+                # Explicitly remove all-null blocks before concat, then restore
+                # columns. Nullable metadata in old/new schemas must not drive
+                # pandas' changing dtype inference or lose row identities.
+                frames.append(frame.loc[:, frame.notna().any(axis=0)])
+        return pd.concat(frames, ignore_index=True).reindex(columns=all_columns) if frames else pd.DataFrame(columns=all_columns)
 
-
-    def get_summary_stats(self) -> Dict[str, Any]:
-        """Truy vấn siêu dữ liệu tổng quan kho Data Lake phục vụ Web Dashboard."""
-        with sqlite3.connect(self.catalog_db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*), SUM(total_records), SUM(normal_records), SUM(attack_records), SUM(file_size_kb) FROM sessions")
-            row = cursor.fetchone()
-            total_sessions = row[0] or 0
-            total_records = row[1] or 0
-            normal_records = row[2] or 0
-            attack_records = row[3] or 0
-            total_storage_kb = round(row[4] or 0.0, 2)
-
-            # Lấy thống kê ngày hôm nay
-            today_str = datetime.now().strftime("%Y-%m-%d")
-            cursor.execute("SELECT total_sessions, total_records, normal_records, attack_records FROM daily_partitions WHERE date_partition = ?", (today_str,))
-            today_row = cursor.fetchone()
-            today_stats = {
-                "date": today_str,
-                "sessions": today_row[0] if today_row else 0,
-                "total_records": today_row[1] if today_row else 0,
-                "normal_records": today_row[2] if today_row else 0,
-                "attack_records": today_row[3] if today_row else 0
-            }
-
-            # Lấy 5 session gần nhất
-            cursor.execute("""
-                SELECT session_id, date_partition, probe_type, sniffer_mode, total_records, normal_records, attack_records, file_size_kb, start_time
-                FROM sessions ORDER BY start_time DESC LIMIT 5
-            """)
-            recent_sessions = []
-            for r in cursor.fetchall():
-                recent_sessions.append({
-                    "session_id": r[0],
-                    "date": r[1],
-                    "probe_type": r[2],
-                    "sniffer_mode": r[3],
-                    "total_records": r[4],
-                    "normal_records": r[5],
-                    "attack_records": r[6],
-                    "file_size_kb": r[7],
-                    "datetime": datetime.fromtimestamp(r[8]).strftime("%Y-%m-%d %H:%M:%S")
-                })
-
-            return {
-                "total_sessions": total_sessions,
-                "total_records": total_records,
-                "normal_records": normal_records,
-                "attack_records": attack_records,
-                "total_storage_kb": total_storage_kb,
-                "today": today_stats,
-                "recent_sessions": recent_sessions
-            }
+    def load_labeled_dataset(self, valid_labels: Optional[list[str]] = None,
+                             columns: Optional[list[str]] = None) -> pd.DataFrame:
+        if columns is not None:
+            columns = list(dict.fromkeys(columns + TRAINING_OPTIONAL_COLUMNS))
+        frame, report = select_training_records(self.load_all_training_data(columns=columns))
+        self.last_training_report = report
+        LOG.info("Training eligibility: %s", report)
+        return frame[frame.ground_truth_scenario.isin(valid_labels)] if valid_labels and not frame.empty else frame
 
     def load_normal_baseline_dataset(self, days: int = 30) -> pd.DataFrame:
-        """
-        Trích xuất toàn bộ dữ liệu Normal sạch từ các phân vùng Parquet
-        phục vụ huấn luyện mô hình Anomaly Detector (Isolation Forest).
-        """
-        dfs = []
-        for root, _, files in os.walk(self.raw_dir):
-            for f in files:
-                if f.endswith(".parquet"):
-                    file_path = os.path.join(root, f)
-                    try:
-                        df = pd.read_parquet(file_path)
-                        # Lọc chỉ lấy các dòng Normal thực tế
-                        df_normal = df[df["ground_truth_scenario"] == "Normal"]
-                        if not df_normal.empty:
-                            dfs.append(df_normal)
-                    except Exception as e:
-                        print(f"[DataLake] Canh bao doc {file_path}: {e}")
-
-        if not dfs:
-            return pd.DataFrame()
-        return pd.concat(dfs, ignore_index=True)
-
-    def load_all_training_data(self) -> pd.DataFrame:
-        """Trích xuất toàn bộ dữ liệu (cả Normal và Attacks) từ các phân vùng Parquet."""
-        dfs = []
-        for root, _, files in os.walk(self.raw_dir):
-            for f in files:
-                if f.endswith(".parquet"):
-                    file_path = os.path.join(root, f)
-                    try:
-                        df = pd.read_parquet(file_path)
-                        if not df.empty:
-                            dfs.append(df)
-                    except Exception as e:
-                        print(f"[DataLake] Canh bao doc {file_path}: {e}")
-
-        if not dfs:
-            return pd.DataFrame()
-        return pd.concat(dfs, ignore_index=True)
-
-    def load_labeled_dataset(self, valid_labels: Optional[List[str]] = None) -> pd.DataFrame:
-        """
-        Trích xuất toàn bộ dữ liệu CÓ NHÃN GROUND-TRUTH HỢP LỆ từ Data Lake.
-        Tự động lờ đi (bỏ qua) tất cả các bản ghi không có nhãn, nhãn rỗng, nhãn không xác định
-        hoặc nhãn chung chung như 'Attacking', 'IDLE', 'Unknown', 'ZeroDay_Anomaly'.
-        """
-        full_df = self.load_all_training_data()
-        if full_df.empty:
-            return pd.DataFrame()
-
-        label_col = "ground_truth_scenario" if "ground_truth_scenario" in full_df.columns else "label"
-        if label_col not in full_df.columns:
-            return pd.DataFrame()
-
-        canonical_map = {
-            "normal": "Normal", "ddos_udp": "DDoS_UDP", "ddos_icmp": "DDoS_ICMP",
-            "sql_injection": "SQL_injection", "vulnerability_scanner": "Vulnerability_scanner",
-            "ddos_tcp": "DDoS_TCP", "ddos_http": "DDoS_HTTP", "uploading": "Uploading",
-            "backdoor": "Backdoor", "port_scanning": "Port_Scanning", "xss": "XSS",
-            "ransomware": "Ransomware", "password": "Password", "fingerprinting": "Fingerprinting",
-            "mitm": "MITM"
-        }
-
-        # Bỏ qua các giá trị rỗng/null/unknown
-        cleaned = full_df[label_col].astype(str).str.strip().str.lower()
-        mapped_labels = cleaned.map(canonical_map)
-
-        # Lọc chỉ lấy những dòng có nhãn thuộc 15 lớp chuẩn Edge-IIoTset
-        valid_mask = mapped_labels.notna()
-        labeled_df = full_df[valid_mask].copy()
-        labeled_df[label_col] = mapped_labels[valid_mask].values
-
-        if valid_labels:
-            labeled_df = labeled_df[labeled_df[label_col].isin(valid_labels)]
-
-        return labeled_df
+        frame = self.load_labeled_dataset(["Normal"])
+        return frame[frame.timestamp.ge((time.time() - days * 86400) * 1000)] if not frame.empty else frame
 
     @staticmethod
-    def sanitize_features_for_training(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Bảo vệ ngăn chặn rò rỉ dữ liệu (Prevent Data Leakage):
-        Loại bỏ tuyệt đối toàn bộ metadata phiên, nhãn ground-truth và kết quả dự đoán của mô hình
-        khỏi tập đặc trưng đầu vào (input features).
-        """
-        from ml_engine.config.schema import DATA_LEAKAGE_METADATA_COLUMNS
-        leakage_cols = [c for c in DATA_LEAKAGE_METADATA_COLUMNS if c in df.columns]
-        return df.drop(columns=leakage_cols, errors="ignore")
+    def sanitize_features_for_training(frame: pd.DataFrame) -> pd.DataFrame:
+        return frame[EDGE_IIOTSET_FEATURES].copy()
+
+    def sync_to_remote(self) -> dict:
+        from .remote_storage import get_remote_storage_manager
+        return get_remote_storage_manager().sync_lake_to_remote()
+
+    def sync_from_remote(self) -> dict:
+        from .remote_storage import get_remote_storage_manager
+        return get_remote_storage_manager().sync_remote_to_lake()
 
 
-
-# Singleton instance
-_lake_manager_instance: Optional[DataLakeManager] = None
+_manager: Optional[DataLakeManager] = None
 
 
 def get_lakehouse_manager() -> DataLakeManager:
-    global _lake_manager_instance
-    if _lake_manager_instance is None:
-        _lake_manager_instance = DataLakeManager()
-    return _lake_manager_instance
+    global _manager
+    if _manager is None:
+        _manager = DataLakeManager()
+    return _manager

@@ -1,0 +1,130 @@
+{
+  "experiments": [
+    {
+      "scenario": "Normal",
+      "phase": "COMPLETED",
+      "saved_rows": 102,
+      "labeled_rows": 102,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    },
+    {
+      "scenario": "Port_Scanning",
+      "phase": "COMPLETED",
+      "saved_rows": 48,
+      "labeled_rows": 48,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    },
+    {
+      "scenario": "Vulnerability_scanner",
+      "phase": "COMPLETED",
+      "saved_rows": 390,
+      "labeled_rows": 390,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    },
+    {
+      "scenario": "DDoS_UDP",
+      "phase": "COMPLETED",
+      "saved_rows": 320,
+      "labeled_rows": 320,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    },
+    {
+      "scenario": "DDoS_HTTP",
+      "phase": "COMPLETED",
+      "saved_rows": 1175,
+      "labeled_rows": 1175,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    },
+    {
+      "scenario": "SQL_injection",
+      "phase": "COMPLETED",
+      "saved_rows": 414,
+      "labeled_rows": 414,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    },
+    {
+      "scenario": "XSS",
+      "phase": "COMPLETED",
+      "saved_rows": 416,
+      "labeled_rows": 416,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    },
+    {
+      "scenario": "Uploading",
+      "phase": "COMPLETED",
+      "saved_rows": 64,
+      "labeled_rows": 64,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    },
+    {
+      "scenario": "Password",
+      "phase": "COMPLETED",
+      "saved_rows": 307,
+      "labeled_rows": 307,
+      "unknown_rows": 0,
+      "supervised_training_eligible": true
+    },
+    {
+      "scenario": "Fingerprinting",
+      "phase": "COMPLETED",
+      "saved_rows": 186,
+      "labeled_rows": 186,
+      "unknown_rows": 0,
+      "supervised_training_eligible": false
+    },
+    {
+      "scenario": "MITM",
+      "phase": "COMPLETED",
+      "saved_rows": 20,
+      "labeled_rows": 20,
+      "unknown_rows": 0,
+      "supervised_training_eligible": false
+    },
+    {
+      "scenario": "Backdoor",
+      "phase": "COMPLETED",
+      "saved_rows": 194,
+      "labeled_rows": 194,
+      "unknown_rows": 0,
+      "supervised_training_eligible": false
+    },
+    {
+      "scenario": "Ransomware",
+      "phase": "COMPLETED",
+      "saved_rows": 66,
+      "labeled_rows": 66,
+      "unknown_rows": 0,
+      "supervised_training_eligible": false
+    }
+  ],
+  "eligibility": {
+    "accepted": 3236,
+    "rejected": 466,
+    "reasons": {
+      "duplicate_identity": 0,
+      "scenario_not_training_eligible": 466,
+      "legacy_twin_attack_requires_recollection": 0,
+      "malformed_numeric_features": 0,
+      "unlabeled_or_incompatible": 466
+    }
+  },
+  "accepted_labels": {
+    "DDoS_HTTP": 1175,
+    "XSS": 416,
+    "SQL_injection": 414,
+    "Vulnerability_scanner": 390,
+    "DDoS_UDP": 320,
+    "Password": 307,
+    "Normal": 102,
+    "Uploading": 64,
+    "Port_Scanning": 48
+  }
+}

@@ -1,0 +1,272 @@
+Read snapshot: 86 files, 37034 rows
+{
+  "snapshot_files": 86,
+  "lake": {
+    "rows": 37034,
+    "columns": 102,
+    "canonical_features": 56,
+    "canonical_null_cells": 0,
+    "numeric_nonfinite_cells": 0,
+    "malformed_rows": 0,
+    "malformed_fields": {},
+    "missing_feature_rows": 0,
+    "truncated_rows": 0,
+    "duplicate_packet_identity_rows": 0,
+    "duplicate_feature_vectors": 10,
+    "distinct_feature_vectors": 37024,
+    "constant_canonical_features": [
+      "arp.opcode",
+      "arp.hw.size",
+      "icmp.checksum",
+      "icmp.seq_le",
+      "icmp.transmit_timestamp",
+      "icmp.unused",
+      "http.file_data",
+      "http.content_length",
+      "http.request.uri.query",
+      "http.request.method",
+      "http.referer",
+      "http.request.full_uri",
+      "http.request.version",
+      "http.response",
+      "http.tls_port",
+      "tcp.connection.rst",
+      "tcp.connection.syn",
+      "tcp.connection.synack",
+      "tcp.flags.ack",
+      "udp.port",
+      "udp.stream",
+      "udp.time_delta",
+      "dns.qry.name",
+      "dns.qry.name.len",
+      "dns.qry.qu",
+      "dns.qry.type",
+      "dns.retransmission",
+      "dns.retransmit_request",
+      "dns.retransmit_request_in",
+      "mqtt.conack.flags",
+      "mqtt.conflag.cleansess",
+      "mqtt.conflags",
+      "mqtt.hdrflags",
+      "mqtt.len",
+      "mqtt.msg_decoded_as",
+      "mqtt.msg",
+      "mqtt.msgtype",
+      "mqtt.proto_len",
+      "mqtt.protoname",
+      "mqtt.topic",
+      "mqtt.topic_len",
+      "mqtt.ver",
+      "mbtcp.len",
+      "mbtcp.trans_id",
+      "mbtcp.unit_id"
+    ],
+    "tcp_flow_count": 19,
+    "largest_tcp_flow_rows": 12248,
+    "top_three_tcp_flows_rows": 36407,
+    "tcp_one_byte_payload_rows": 18315,
+    "verified_rows": 0,
+    "training_eligibility": {
+      "accepted": 0,
+      "rejected": 37034,
+      "reasons": {
+        "duplicate_identity": 0,
+        "malformed_numeric_features": 0,
+        "unverified_or_incompatible": 37034
+      }
+    },
+    "ground_truth": {
+      "Unknown": 37034
+    },
+    "label_sources": {
+      "unverified": 37034
+    },
+    "requested_labels": {
+      "Unknown": 37034
+    },
+    "requested_by_target_match": {
+      "false": {
+        "Unknown": 37034
+      }
+    },
+    "protocols": {
+      "TCP": 36852,
+      "WebSocket": 96,
+      "TLSv1.2": 86
+    },
+    "record_kind": {
+      "packet": 37034
+    },
+    "semantics": {
+      "edgeiiot-packet-v1": 37034
+    },
+    "schema_versions": {
+      "2": 37034
+    },
+    "capture_backends": {
+      "tshark": 37034
+    },
+    "dissection_modes": {
+      "live-one-pass": 37034
+    },
+    "extractor_versions": {
+      "tshark-packet-v1": 37034
+    },
+    "tshark_versions": {
+      "TShark (Wireshark) 4.6.9 (v4.6.9-0-g2d548b197c75).": 37034
+    },
+    "absent_count_quantiles": {
+      "0.0": 46.0,
+      "0.5": 47.0,
+      "0.95": 47.0,
+      "1.0": 47.0
+    },
+    "absent_by_feature": {
+      "arp.opcode": 37034,
+      "arp.hw.size": 37034,
+      "icmp.checksum": 37034,
+      "icmp.seq_le": 37034,
+      "icmp.transmit_timestamp": 37034,
+      "icmp.unused": 37034,
+      "http.file_data": 37034,
+      "http.content_length": 37034,
+      "http.request.uri.query": 37034,
+      "http.request.method": 37034,
+      "http.referer": 37034,
+      "http.request.full_uri": 37034,
+      "http.request.version": 37034,
+      "http.response": 37034,
+      "http.tls_port": 37034,
+      "tcp.connection.fin": 37032,
+      "tcp.connection.rst": 37034,
+      "tcp.connection.syn": 37034,
+      "tcp.connection.synack": 37034,
+      "tcp.options": 37025,
+      "udp.port": 37034,
+      "udp.stream": 37034,
+      "udp.time_delta": 37034,
+      "dns.qry.name": 37034,
+      "dns.qry.name.len": 37034,
+      "dns.qry.qu": 37034,
+      "dns.qry.type": 37034,
+      "dns.retransmission": 37034,
+      "dns.retransmit_request": 37034,
+      "dns.retransmit_request_in": 37034,
+      "mqtt.conack.flags": 37034,
+      "mqtt.conflag.cleansess": 37034,
+      "mqtt.conflags": 37034,
+      "mqtt.hdrflags": 37034,
+      "mqtt.len": 37034,
+      "mqtt.msg_decoded_as": 37034,
+      "mqtt.msg": 37034,
+      "mqtt.msgtype": 37034,
+      "mqtt.proto_len": 37034,
+      "mqtt.protoname": 37034,
+      "mqtt.topic": 37034,
+      "mqtt.topic_len": 37034,
+      "mqtt.ver": 37034,
+      "mbtcp.len": 37034,
+      "mbtcp.trans_id": 37034,
+      "mbtcp.unit_id": 37034,
+      "tcp.payload": 18529
+    },
+    "nonzero_numeric_rows": {
+      "arp.opcode": 0,
+      "arp.hw.size": 0,
+      "icmp.checksum": 0,
+      "icmp.seq_le": 0,
+      "icmp.transmit_timestamp": 0,
+      "icmp.unused": 0,
+      "http.content_length": 0,
+      "http.response": 0,
+      "http.tls_port": 0,
+      "tcp.ack": 37034,
+      "tcp.ack_raw": 37034,
+      "tcp.checksum": 37034,
+      "tcp.connection.fin": 2,
+      "tcp.connection.rst": 0,
+      "tcp.connection.syn": 0,
+      "tcp.connection.synack": 0,
+      "tcp.dstport": 37034,
+      "tcp.flags": 37034,
+      "tcp.flags.ack": 37034,
+      "tcp.len": 18505,
+      "tcp.seq": 37031,
+      "tcp.srcport": 37034,
+      "udp.port": 0,
+      "udp.stream": 0,
+      "udp.time_delta": 0,
+      "dns.qry.name.len": 0,
+      "dns.qry.qu": 0,
+      "dns.qry.type": 0,
+      "dns.retransmission": 0,
+      "dns.retransmit_request": 0,
+      "dns.retransmit_request_in": 0,
+      "mqtt.conack.flags": 0,
+      "mqtt.conflag.cleansess": 0,
+      "mqtt.conflags": 0,
+      "mqtt.hdrflags": 0,
+      "mqtt.len": 0,
+      "mqtt.msgtype": 0,
+      "mqtt.proto_len": 0,
+      "mqtt.topic_len": 0,
+      "mqtt.ver": 0,
+      "mbtcp.len": 0,
+      "mbtcp.trans_id": 0,
+      "mbtcp.unit_id": 0
+    },
+    "ipv4_loopback_rows": 37024,
+    "ipv6_rows": 10,
+    "own_mqtt_tcp_1883_rows": 0,
+    "own_dashboard_tcp_8000_rows": 0,
+    "http_lab_tcp_8088_rows": 0,
+    "captures": [
+      {
+        "capture": 1,
+        "rows": 37034,
+        "duration_sec": 190.34402203559875,
+        "sequence_min": 1,
+        "sequence_max": 227197,
+        "sequence_missing_within_observed_range": 190163,
+        "persisted_fraction_within_observed_sequence_range": 0.16300391290377955,
+        "ground_truth": {
+          "Unknown": 37034
+        },
+        "requested_labels": {
+          "Unknown": 37034
+        },
+        "protocols": {
+          "TCP": 36852,
+          "WebSocket": 96,
+          "TLSv1.2": 86
+        }
+      }
+    ]
+  },
+  "benchmark_ml": {
+    "rows": 157800,
+    "valid_numeric_rows": 157404,
+    "malformed_rows": 396,
+    "sha256": "53101fad091af20bee815860962a5016b802ee45d456a141042f6183094c3c1a",
+    "labels": {
+      "Normal": 24301,
+      "DDoS_UDP": 14498,
+      "DDoS_ICMP": 14090,
+      "Ransomware": 10925,
+      "DDoS_HTTP": 10561,
+      "SQL_injection": 10311,
+      "Uploading": 10269,
+      "DDoS_TCP": 10247,
+      "Backdoor": 10195,
+      "Vulnerability_scanner": 10076,
+      "Port_Scanning": 10071,
+      "XSS": 10052,
+      "Password": 9989,
+      "MITM": 1214,
+      "Fingerprinting": 1001
+    },
+    "matching_feature_hash_lake_rows": 0,
+    "comparison_scope": "Full ML benchmark after excluding malformed numeric rows; hash overlap is diagnostic, not proof of equality"
+  }
+}
+Report: D:\STT 2026\scratch\parquet_training_audit_2026-10-11.json

@@ -59,6 +59,8 @@ import json
 import time
 import argparse
 import shutil
+import uuid
+from pathlib import Path
 from typing import Dict, Any, Tuple, Optional, List
 
 # Đảm bảo thư mục gốc dự án luôn nằm trong sys.path
@@ -85,9 +87,15 @@ from ml_engine.config.schema import (
     LABEL_NAMES,
     DEFAULT_DATASET_SAMPLES
 )
+from ml_engine.config.edge_profiles import (
+    ESP32_PACKET_FEATURES,
+    ESP32_PACKET_PROFILE
+)
 from ml_engine.preprocessing import (
-    load_full_dataset,
-    EdgeTrafficPreprocessor
+    load_raw_dataset,
+    EdgeTrafficPreprocessor,
+    load_ustc_tfc2016_dataset,
+    EncryptedTrafficPreprocessor
 )
 from ml_engine.algorithms.classifiers import (
     get_classifier,
@@ -103,6 +111,7 @@ from ml_engine.exporter.tinyml_exporter import (
     export_model_to_c_header,
     export_decision_tree_to_header
 )
+from ml_engine.exporter.esp32_packet_exporter import export_packet_model
 from data_lake.lakehouse import get_lakehouse_manager
 from data_lake.remote_storage import get_remote_storage_manager
 from ml_engine.preprocessing.timeseries import (
@@ -115,9 +124,19 @@ def transform_lake_telemetry_batch(lake_df: pd.DataFrame, preprocessor: EdgeTraf
     """Chuyển đổi các bản ghi telemetry thu thập từ Data Lake thành ma trận đặc trưng chuẩn hóa."""
     if lake_df.empty:
         return np.empty((0, len(preprocessor.feature_names)))
-    rows = [preprocessor.extract_features(r.to_dict()).iloc[0] for _, r in lake_df.iterrows()]
-    combined_df = pd.DataFrame(rows)
-    return preprocessor.transform(combined_df)
+    return preprocessor.transform(lake_feature_frame(lake_df, preprocessor))
+
+
+def lake_feature_frame(lake_df: pd.DataFrame, preprocessor: EdgeTrafficPreprocessor) -> pd.DataFrame:
+    """Project eligible canonical packet columns without per-packet DataFrames.
+
+    The quality gate already requires measured canonical fields. Encoding and
+    scaling remain owned by the fitted preprocessor, exactly as at runtime.
+    """
+    missing = set(preprocessor.feature_names) - set(lake_df.columns)
+    if missing:
+        raise ValueError(f"Lake training records lack canonical fields: {sorted(missing)}")
+    return lake_df.loc[:, preprocessor.feature_names].reset_index(drop=True).copy()
 
 
 def print_supported_models():
@@ -141,6 +160,7 @@ def print_supported_models():
 def run_training_pipeline(
     classifier_type: str = "decision_tree",
     anomaly_type: str = "isolation_forest",
+    traffic_mode: str = "decrypted",
     data_source: str = "hybrid",
     dataset_path: Optional[str] = None,
     sample_ratio: float = 1.0,
@@ -154,7 +174,8 @@ def run_training_pipeline(
     output_dir: Optional[str] = None,
     use_timeseries: bool = False,
     window_size: int = 10,
-    pull_remote: bool = False
+    pull_remote: bool = False,
+    invalid_rows: str = "error"
 ):
     """
     Quy trình huấn luyện End-to-End:
@@ -164,9 +185,9 @@ def run_training_pipeline(
       4. Đánh giá ổn định Cross-Validation trên Train.
       5. Đánh giá khách quan trên tập Holdout Test (20% dữ liệu chưa từng thấy).
       6. Tùy chọn refit trên 100% dữ liệu phục vụ Edge Deployment.
-      7. Xuất toàn bộ Artifacts (Joblib, Metadata, C Header tinyml_model.h, TFLite).
+      7. Xuất toàn bộ Artifacts (Joblib, Metadata, C Header tinyml_model.h / esp32_packet_model.h, TFLite).
     """
-    if pull_remote:
+    if pull_remote and traffic_mode != "encrypted":
         print("\n[Cloudflare R2 / S3] Dang kiem tra va keo cac tep Parquet moi nhat tu remote storage...")
         try:
             remote_mgr = get_remote_storage_manager()
@@ -182,71 +203,91 @@ def run_training_pipeline(
         folder_name = f"{classifier_type}_{anomaly_type}"
         if use_timeseries:
             folder_name += f"_ts_w{window_size}"
-        output_dir = os.path.join(ROOT_DIR, "ml_engine", "models", folder_name)
+        output_dir = os.path.join(ROOT_DIR, "ml_engine", "models", traffic_mode, folder_name)
     os.makedirs(output_dir, exist_ok=True)
 
     cv_strat = f"{cv}-Fold Walk-Forward (TimeSeriesSplit)" if use_timeseries else f"{cv}-Fold Stratified CV"
     print("=" * 80)
     print("       EDGE AI NETWORK ANOMALY DETECTION - MASTER TRAINING PIPELINE")
-    print(f"   [Classifier: '{classifier_type}'] | [Anomaly Detector: '{anomaly_type}']")
-    print(f"   [Data Source: '{data_source.upper()}'] | [Time-Series: {'BAT (W=' + str(window_size) + ')' if use_timeseries else 'TAT (Tabular)'}]")
+    print(f"   [Traffic Domain: '{traffic_mode.upper()}'] | [Classifier: '{classifier_type}'] | [Anomaly Detector: '{anomaly_type}']")
+    data_src_label = "USTC-TFC2016 (PCAP L2-4)" if traffic_mode == "encrypted" else data_source.upper()
+    print(f"   [Data Source: '{data_src_label}'] | [Time-Series: {'BAT (W=' + str(window_size) + ')' if use_timeseries else 'TAT (Tabular)'}]")
     print(f"   [Optuna HPO: {'BAT (' + str(n_trials) + ' trials)' if use_optuna else 'TAT'}] | [CV Strategy: {cv_strat}]")
     print(f"   [Sample Ratio: {sample_ratio*100:.1f}%] | [Holdout Test Set: {test_size*100:.1f}%] | [Refit Full: {'BAT' if refit_full else 'TAT'}]")
     print("=" * 80)
 
     t_start = time.perf_counter()
 
-    # Tự động lựa chọn tập dữ liệu: ML-EdgeIIoT vs DNN-EdgeIIoT
-    if dataset_path is None:
-        is_dl_clf = classifier_type.lower() in ("pytorch_deep", "mlp", "deep_learning", "pytorch", "dnn")
-        is_dl_ano = anomaly_type.lower() in ("deep_autoencoder", "autoencoder")
-
-        dnn_csv = os.path.join(
-            ROOT_DIR, "ml_engine", "datasets", "Edge-IIoTset dataset",
-            "Selected dataset for ML and DL", "DNN-EdgeIIoT-dataset.csv"
-        )
-        ml_csv = os.path.join(
-            ROOT_DIR, "ml_engine", "datasets", "Edge-IIoTset dataset",
-            "Selected dataset for ML and DL", "ML-EdgeIIoT-dataset.csv"
-        )
-
-        if (is_dl_clf or is_dl_ano) and os.path.exists(dnn_csv):
-            dataset_path = dnn_csv
-            print(f"[Dataset] Lua chon tap du lieu Deep Learning: DNN-EdgeIIoT-dataset.csv (Classifier: '{classifier_type}', Anomaly: '{anomaly_type}')")
-        elif os.path.exists(ml_csv):
-            dataset_path = ml_csv
-            print(f"[Dataset] Lua chon tap du lieu Classical Machine Learning: ML-EdgeIIoT-dataset.csv (Classifier: '{classifier_type}', Anomaly: '{anomaly_type}')")
-
     # =========================================================================
     # BƯỚC 1: NẠP VÀ PHÂN CHIA DỮ LIỆU (TRAIN / HOLDOUT TEST SPLIT)
     # =========================================================================
-    print(f"\n[1/5] Nap du lieu va tach phan tang Train / Holdout Test (Sample Ratio: {sample_ratio*100:.1f}%)...")
-    X, y, preprocessor = load_full_dataset(
-        dataset_path=dataset_path,
-        sample_ratio=sample_ratio
-    )
+    if traffic_mode == "encrypted":
+        print(f"\n[1/5] Nap du lieu luu luong MA HOA (USTC-TFC2016) gom 10 dac trung Layer 2-4 (ESP32 Promiscuous)...")
+        raw_X, raw_y = load_ustc_tfc2016_dataset(dataset_dir=dataset_path, sample_ratio=sample_ratio)
+        if not 0.0 <= test_size < 1.0:
+            raise ValueError("test_size must be in [0, 1).")
+        if test_size > 0 and len(raw_X) >= 20:
+            raw_train, raw_test, labels_train, labels_test = train_test_split(
+                raw_X, raw_y, test_size=test_size, random_state=42, stratify=raw_y
+            )
+        else:
+            raw_train, labels_train = raw_X, raw_y
+            raw_test, labels_test = None, None
+        raw_train = raw_train.reset_index(drop=True)
+        labels_train = labels_train.reset_index(drop=True)
+        preprocessor = EncryptedTrafficPreprocessor(feature_names=list(raw_X.columns))
+        preprocessor.fit(raw_train, labels_train)
+    else:
+        # Tự động lựa chọn tập dữ liệu: ML-EdgeIIoT vs DNN-EdgeIIoT
+        if dataset_path is None:
+            is_dl_clf = classifier_type.lower() in ("pytorch_deep", "mlp", "deep_learning", "pytorch", "dnn")
+            is_dl_ano = anomaly_type.lower() in ("deep_autoencoder", "autoencoder")
 
+            dnn_csv = os.path.join(
+                ROOT_DIR, "ml_engine", "datasets", "Edge-IIoTset dataset",
+                "Selected dataset for ML and DL", "DNN-EdgeIIoT-dataset.csv"
+            )
+            ml_csv = os.path.join(
+                ROOT_DIR, "ml_engine", "datasets", "Edge-IIoTset dataset",
+                "Selected dataset for ML and DL", "ML-EdgeIIoT-dataset.csv"
+            )
+
+            if (is_dl_clf or is_dl_ano) and os.path.exists(dnn_csv):
+                dataset_path = dnn_csv
+                print(f"[Dataset] Lua chon tap du lieu Deep Learning: DNN-EdgeIIoT-dataset.csv (Classifier: '{classifier_type}', Anomaly: '{anomaly_type}')")
+            elif os.path.exists(ml_csv):
+                dataset_path = ml_csv
+                print(f"[Dataset] Lua chon tap du lieu Classical Machine Learning: ML-EdgeIIoT-dataset.csv (Classifier: '{classifier_type}', Anomaly: '{anomaly_type}')")
+
+        print(f"\n[1/5] Nap du lieu luu luong GIAI MA (Edge-IIoTset) gom 56 dac trung mang...")
+        if use_timeseries:
+            raise ValueError("Time-series training is disabled until windows are grouped by session and runtime/export parity is implemented.")
+        raw_X, raw_y = load_raw_dataset(dataset_path=dataset_path, sample_ratio=sample_ratio, invalid_rows=invalid_rows)
+        if not 0.0 <= test_size < 1.0:
+            raise ValueError("test_size must be in [0, 1).")
+        if test_size > 0 and len(raw_X) >= 20:
+            raw_train, raw_test, labels_train, labels_test = train_test_split(
+                raw_X, raw_y, test_size=test_size, random_state=42, stratify=raw_y
+            )
+        else:
+            raw_train, labels_train = raw_X, raw_y
+            raw_test, labels_test = None, None
+        raw_train = raw_train.reset_index(drop=True)
+        labels_train = labels_train.reset_index(drop=True)
+        preprocessor = EdgeTrafficPreprocessor(feature_names=list(raw_X.columns))
+        preprocessor.fit(raw_train, labels_train)
     feature_names = preprocessor.feature_names
     label_encoder = preprocessor.label_encoder
     label_names = list(label_encoder.classes_)
-    normal_idx = int(np.where(label_encoder.classes_ == "Normal")[0][0]) if "Normal" in label_encoder.classes_ else 0
-
-    # Phân chia Train / Holdout Test
-    if test_size > 0.0 and len(X) >= 20:
-        if use_timeseries:
-            split_idx = int(len(X) * (1.0 - test_size))
-            X_train, X_test = X[:split_idx], X[split_idx:]
-            y_train, y_test = y[:split_idx], y[split_idx:]
-        else:
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=test_size, random_state=42, stratify=y
-            )
-        print(f"  -> Tap huan luyen (Train Set) : {X_train.shape[0]:,} mau ({100*(1-test_size):.0f}%) [Dung de HPO va Fit]")
-        print(f"  -> Tap danh gia   (Test Set)  : {X_test.shape[0]:,} mau ({100*test_size:.0f}%) [Holdout Unseen Data - Do do lech thuc te]")
-    else:
-        X_train, y_train = X, y
-        X_test, y_test = None, None
-        print(f"  -> Su dung 100% du lieu cho Train: {X_train.shape[0]:,} mau (Khong tach Holdout Test)")
+    if "Normal" not in label_names:
+        raise ValueError("Anomaly training requires verified Normal samples.")
+    normal_idx = label_names.index("Normal")
+    X_train = preprocessor.transform(raw_train)
+    y_train = label_encoder.transform(labels_train)
+    X_test = preprocessor.transform(raw_test) if raw_test is not None else None
+    y_test = label_encoder.transform(labels_test) if labels_test is not None else None
+    X = preprocessor.transform(raw_X)
+    y = label_encoder.transform(raw_y)
 
     # Lưu preprocessor và scaler đồng bộ
     preprocessor_path = os.path.join(output_dir, "preprocessor.joblib")
@@ -257,19 +298,30 @@ def run_training_pipeline(
 
     # Trích xuất mẫu Normal từ tập TRAIN cho Anomaly Detector (Tuyệt đối không rò rỉ tập Test!)
     normal_mask_tr = (y_train == normal_idx)
-    X_train_normal = X_train[normal_mask_tr] if normal_mask_tr.sum() > 0 else X_train[:max(50, len(X_train)//4)]
+    X_train_normal = X_train[normal_mask_tr]
 
     # Tích hợp dữ liệu từ Data Lakehouse (Parquet)
     lake_records_used = 0
     lake_labeled_records_used = 0
-    if data_source in ("hybrid", "data-lake"):
+    if traffic_mode != "encrypted" and data_source in ("hybrid", "data-lake"):
         lake_mgr = get_lakehouse_manager()
+        from data_lake.quality import TRAINING_REQUIRED_COLUMNS
+        lake_load_start = time.perf_counter()
+        labeled_lake_df = lake_mgr.load_labeled_dataset(valid_labels=label_names,
+            columns=TRAINING_REQUIRED_COLUMNS + ["session_id", "capture_id", "data_provenance", "sniffer_mode"])
+        print(f"  [DataLake] Read + quality gate: {time.perf_counter() - lake_load_start:.2f}s")
+        print(f"  [DataLake] Nguon Parquet: {lake_mgr.raw_dir}")
+        print(f"  [DataLake] Eligibility: {lake_mgr.last_training_report}")
+        print(f"  [DataLake] Nhan hop le cho classifier: {labeled_lake_df.ground_truth_scenario.value_counts().to_dict() if not labeled_lake_df.empty else {}}")
 
         # 1. Cho Anomaly Detector: Lấy toàn bộ mẫu Normal sạch
-        lake_normal_df = lake_mgr.load_normal_baseline_dataset()
+        lake_normal_df = labeled_lake_df[labeled_lake_df.ground_truth_scenario.eq("Normal") &
+            pd.to_numeric(labeled_lake_df.timestamp, errors="coerce").ge((time.time() - 30 * 86400) * 1000)].copy() if not labeled_lake_df.empty else labeled_lake_df.copy()
         if not lake_normal_df.empty:
             lake_records_used = len(lake_normal_df)
             X_lake_normal = transform_lake_telemetry_batch(lake_normal_df, preprocessor)
+            if data_source == "data-lake" and len(X_lake_normal) < 50:
+                raise ValueError("Data-lake-only anomaly training requires at least 50 eligible Normal packet records.")
             if data_source == "data-lake" and len(X_lake_normal) >= 50:
                 print(f"\n[DataLake] Che do 'data-lake': Su dung 100% du lieu thuc te ({lake_records_used:,} mau) huan luyen Anomaly Detector.")
                 X_train_normal = X_lake_normal
@@ -278,22 +330,21 @@ def run_training_pipeline(
                 X_train_normal = np.vstack([X_train_normal, X_lake_normal])
         else:
             if data_source == "data-lake":
-                print("  [DataLake] Kho du lieu chua co ban ghi Normal! Fallback sang tap benchmark Edge-IIoTset.")
+                raise ValueError("No eligible attributable Normal packet records in data lake; refusing benchmark fallback.")
             else:
-                print("  [DataLake] Kho du lieu chua co ban ghi thuc te. Su dung tap Normal cua Edge-IIoTset.")
+                print("  [DataLake][Anomaly] Khong co Normal hop le trong 30 ngay gan day; dung Normal TRAIN cua Edge-IIoTset. Cac attack hop le van duoc nap cho classifier.")
 
         # 2. Cho Classifier: Lấy các bản ghi CÓ NHÃN GROUND-TRUTH HỢP LỆ (gán bởi Simulator)
-        labeled_lake_df = lake_mgr.load_labeled_dataset(valid_labels=label_names)
         if not labeled_lake_df.empty:
             lbl_col = "ground_truth_scenario" if "ground_truth_scenario" in labeled_lake_df.columns else "label"
             lake_labeled_records_used = len(labeled_lake_df)
-            X_lake_clf = transform_lake_telemetry_batch(labeled_lake_df, preprocessor)
             y_lake_raw = labeled_lake_df[lbl_col].astype(str).values
-            y_lake_enc = label_encoder.transform(y_lake_raw)
 
-            # Ghép vào tập huấn luyện của Classifier
-            X_train = np.vstack([X_train, X_lake_clf])
-            y_train = np.concatenate([y_train, y_lake_enc])
+            # Merge raw TRAIN rows first. The common block below refits on TRAIN
+            # and transforms once; an earlier scaled lake matrix was discarded.
+            lake_raw = lake_feature_frame(labeled_lake_df, preprocessor)
+            raw_train = pd.concat([raw_train, lake_raw], ignore_index=True)
+            labels_train = pd.concat([labels_train, pd.Series(y_lake_raw)], ignore_index=True)
 
             counts = pd.Series(y_lake_raw).value_counts().to_dict()
             counts_str = ", ".join([f"{k}: {v}" for k, v in list(counts.items())[:4]])
@@ -301,6 +352,19 @@ def run_training_pipeline(
             print(f"           (Tu dong lo di toan bo ban ghi telemetry chua duoc gan nhan).")
         else:
             print(f"[DataLake] Chua co ban ghi tan cong nao duoc gan nhan trong Data Lake. Lo di cac ban ghi chua co nhan.")
+
+    if lake_labeled_records_used:
+        # Vocabulary and scaling must include eligible field TRAIN records as well.
+        preprocessor.fit(raw_train, labels_train)
+        X_train = preprocessor.transform(raw_train)
+        y_train = label_encoder.transform(labels_train)
+        X_test = preprocessor.transform(raw_test) if raw_test is not None else None
+        X = preprocessor.transform(raw_X)
+        X_train_normal = X_train[y_train == normal_idx]
+        if data_source == "data-lake":
+            X_train_normal = transform_lake_telemetry_batch(lake_normal_df, preprocessor)
+        preprocessor.save(preprocessor_path)
+        joblib.dump(preprocessor.scaler, scaler_path)
 
     # Áp dụng Time-Series Sliding Window nếu được kích hoạt
     if use_timeseries:
@@ -343,8 +407,13 @@ def run_training_pipeline(
     # BƯỚC 2: TỐI ƯU HÓA SIÊU THAM SỐ (OPTUNA HPO)
     # =========================================================================
     best_params = {}
+    if traffic_mode == "encrypted":
+        if classifier_type in ("random_forest", "extra_trees"):
+            best_params = {"n_estimators": 16, "max_depth": 8, "min_samples_leaf": 16}
     best_cv_score = 0.0
     best_anomaly_params = {}
+    if traffic_mode == "encrypted" and anomaly_type == "isolation_forest":
+        best_anomaly_params = {"n_estimators": 16, "max_samples": 128}
     db_path = os.path.join(output_dir, "optuna_study.db")
 
     if use_optuna:
@@ -360,17 +429,22 @@ def run_training_pipeline(
             n_splits=cv,
             db_path=db_path,
             pruner_type=pruner_type,
-            use_timeseries=use_timeseries
+            use_timeseries=use_timeseries,
+            raw_features=raw_train, raw_labels=labels_train
         )
 
         # 2. HPO cho Anomaly Detector nếu được yêu cầu
         if tune_anomaly:
-            y_train_binary = (y_train != normal_idx).astype(int)  # 0: Normal, 1: Attack
+            tuning_train, tuning_val, tuning_labels, val_labels = train_test_split(
+                raw_train, labels_train, test_size=0.2, stratify=labels_train, random_state=43)
+            tuning_preprocessor = EdgeTrafficPreprocessor(feature_names=feature_names)
+            tuning_preprocessor.fit(tuning_train, tuning_labels)
+            tuning_normal = tuning_preprocessor.transform(tuning_train.loc[tuning_labels.eq("Normal")])
             best_anomaly_params, _, _ = optimize_anomaly_hyperparameters(
                 anomaly_type=anomaly_type,
-                X_train_normal=X_train_normal,
-                X_val=X_train,
-                y_val_binary=y_train_binary,
+                X_train_normal=tuning_normal,
+                X_val=tuning_preprocessor.transform(tuning_val),
+                y_val_binary=(val_labels.to_numpy() != "Normal").astype(int),
                 n_trials=max(5, n_trials // 2),
                 db_path=db_path
             )
@@ -407,7 +481,7 @@ def run_training_pipeline(
     anomaly_detector.fit(X_train_normal)
 
     # Hiệu chuẩn dải điểm Anomaly Score chuẩn xác từ phân vị
-    score_min, score_max = -0.65, -0.35
+    score_min, score_max = None, None
     if hasattr(anomaly_detector, "score_samples"):
         normal_scores = anomaly_detector.score_samples(X_train_normal)
         score_min = float(np.percentile(normal_scores, 2))
@@ -443,7 +517,10 @@ def run_training_pipeline(
     oof_mask = np.zeros(len(y_train), dtype=bool)
 
     for fold_idx, (tr_idx, val_idx) in enumerate(splits):
-        X_tr, X_val = X_train[tr_idx], X_train[val_idx]
+        fold_preprocessor = EdgeTrafficPreprocessor(feature_names=feature_names)
+        fold_preprocessor.fit(raw_train.iloc[tr_idx], labels_train.iloc[tr_idx])
+        X_tr = fold_preprocessor.transform(raw_train.iloc[tr_idx])
+        X_val = fold_preprocessor.transform(raw_train.iloc[val_idx])
         y_tr, y_val = y_train[tr_idx], y_train[val_idx]
 
         fold_clf = get_classifier(classifier_type, **best_params)
@@ -476,12 +553,13 @@ def run_training_pipeline(
     # =========================================================================
     # BƯỚC 5: ĐÁNH GIÁ KHÁCH QUAN TRÊN TẬP HOLDOUT TEST (UNSEEN DATA)
     # =========================================================================
-    test_acc = mean_acc
-    test_f1 = mean_f1
-    test_weighted_f1 = mean_f1
+    test_acc = None
+    test_f1 = None
+    test_weighted_f1 = None
     test_report_dict = {}
-    test_ano_auc = 0.0
-    test_ano_f1 = 0.0
+    test_ano_auc = None
+    test_ano_f1 = None
+    anomaly_evaluation_error = None
 
     if X_test is not None:
         print(f"\n[5/5] Danh gia khach quan tren Tap Test doc lap ({X_test.shape[0]:,} mau - Unseen Data)...")
@@ -507,9 +585,9 @@ def run_training_pipeline(
                 threshold = (score_min + score_max) / 2.0
                 ano_preds = (test_scores < threshold).astype(int)
                 test_ano_f1 = float(f1_score(y_test_binary, ano_preds, zero_division=0))
-            except Exception:
-                test_ano_auc = 0.95
-                test_ano_f1 = 0.92
+            except (ValueError, RuntimeError) as exc:
+                anomaly_evaluation_error = str(exc)
+                print(f"[Evaluation] Anomaly metrics unavailable: {exc}")
 
         # In bảng so sánh trực quan chuẩn mực khoa học
         print("\n" + "=" * 80)
@@ -521,7 +599,7 @@ def run_training_pipeline(
         print(f"  Classifier Accuracy     | {mean_acc*100:.2f}% ± {std_acc*100:.2f}%               | {test_acc*100:.2f}%")
         print(f"  Classifier Macro F1     | {mean_f1*100:.2f}% ± {std_f1*100:.2f}%               | {test_f1*100:.2f}%")
         print(f"  Classifier Weighted F1  | N/A                         | {test_weighted_f1*100:.2f}%")
-        if test_ano_auc > 0:
+        if test_ano_auc is not None and test_ano_f1 is not None:
             print(f"  Anomaly Detector ROC-AUC| N/A                         | {test_ano_auc*100:.2f}%")
             print(f"  Anomaly Detector F1     | N/A                         | {test_ano_f1*100:.2f}%")
         print("=" * 80)
@@ -536,6 +614,17 @@ def run_training_pipeline(
     if refit_full and X_test is not None:
         print(f"\n[Refit Full Mode] Tien hanh refit tren TOAN BO 100% du lieu ({X.shape[0]:,} mau)...")
         print("  -> Muc dich: Khai thac toi da moi mau du lieu de xuat trong so C Header/TFLite cho ESP32.")
+        if lake_labeled_records_used:
+            full_raw = pd.concat([raw_X, lake_raw], ignore_index=True)
+            full_labels = pd.concat([raw_y, pd.Series(y_lake_raw)], ignore_index=True)
+        else:
+            full_raw, full_labels = raw_X, raw_y
+        preprocessor.fit(full_raw, full_labels)
+        X, y = preprocessor.transform(full_raw), preprocessor.label_encoder.transform(full_labels)
+        preprocessor.save(preprocessor_path)
+        joblib.dump(preprocessor.scaler, scaler_path)
+        if lake_records_used:
+            X_lake_normal = transform_lake_telemetry_batch(lake_normal_df, preprocessor)
         final_classifier = get_classifier(classifier_type, **best_params)
         if getattr(final_classifier, "is_deep_learning", False):
             final_classifier.fit(X, y, plot_dir=output_dir)
@@ -544,10 +633,14 @@ def run_training_pipeline(
 
         # Refit Anomaly Detector tren toan bo mau Normal
         normal_mask_all = (y == normal_idx)
-        X_all_normal = X[normal_mask_all] if normal_mask_all.sum() > 0 else X[:max(50, len(X)//4)]
-        if lake_records_used > 0 and 'X_lake_normal' in locals():
+        X_all_normal = X[normal_mask_all]
+        if data_source == "data-lake" and lake_records_used:
+            X_all_normal = X_lake_normal
+        elif lake_records_used > 0 and not lake_labeled_records_used and 'X_lake_normal' in locals():
             X_all_normal = np.vstack([X_all_normal, X_lake_normal])
         anomaly_detector.fit(X_all_normal)
+        normal_scores = anomaly_detector.score_samples(X_all_normal)
+        score_min, score_max = float(np.percentile(normal_scores, 2)), float(np.percentile(normal_scores, 98))
         joblib.dump(anomaly_detector, iso_path)
     else:
         final_classifier = primary_classifier
@@ -565,15 +658,24 @@ def run_training_pipeline(
 
     # Xuất Metadata
     meta_path = os.path.join(output_dir, "model_metadata.json")
+    if traffic_mode == "encrypted":
+        # ESP32 TinyML sử dụng hàm sigmoid chuẩn hóa anomaly score trong khoảng [0, 1]
+        threshold_val = 0.55
+    else:
+        threshold_val = float((score_min + score_max) / 2.0)
     metadata = {
         "timestamp": int(time.time()),
+        "artifact_id": uuid.uuid4().hex,
+        "traffic_mode": traffic_mode,
+        "profile": ESP32_PACKET_PROFILE if traffic_mode == "encrypted" else "edgeiiot-packet-v1",
         "features_count": len(feature_names),
         "features": feature_names,
         "labels_count": len(label_names),
         "labels": label_names,
         "classifier_type": classifier_type,
         "anomaly_detector_type": anomaly_type,
-        "data_source": data_source,
+        "data_source": "ustc-tfc2016" if traffic_mode == "encrypted" else data_source,
+        "dataset_quality": raw_X.attrs.get("data_quality", {}),
         "data_lake_records_used": lake_records_used,
         "data_lake_labeled_records_used": lake_labeled_records_used,
         "sample_ratio": sample_ratio,
@@ -581,18 +683,24 @@ def run_training_pipeline(
         "refit_full": refit_full,
         "train_samples": int(X_train.shape[0]),
         "test_samples": int(X_test.shape[0]) if X_test is not None else 0,
-        "classifier_accuracy": round(test_acc, 4),
+        "classifier_accuracy": round(test_acc, 4) if test_acc is not None else None,
         "classifier_accuracy_cv": round(mean_acc, 4),
         "classifier_accuracy_std": round(std_acc, 4),
-        "classifier_macro_f1": round(test_f1, 4),
+        "classifier_macro_f1": round(test_f1, 4) if test_f1 is not None else None,
         "classifier_macro_f1_cv": round(mean_f1, 4),
         "classifier_macro_f1_std": round(std_f1, 4),
-        "classifier_weighted_f1": round(test_weighted_f1, 4),
+        "classifier_weighted_f1": round(test_weighted_f1, 4) if test_weighted_f1 is not None else None,
         "cv_strategy": cv_name,
         "cv_folds": cv,
         "classification_report": test_report_dict,
-        "anomaly_test_roc_auc": round(test_ano_auc, 4) if test_ano_auc > 0 else None,
-        "anomaly_test_f1": round(test_ano_f1, 4) if test_ano_f1 > 0 else 0.95,
+        "anomaly_test_roc_auc": round(test_ano_auc, 4) if test_ano_auc is not None else None,
+        "anomaly_test_f1": round(test_ano_f1, 4) if test_ano_f1 is not None else None,
+        "anomaly_evaluation_error": anomaly_evaluation_error,
+        "preprocessing_version": 1 if traffic_mode == "encrypted" else 2,
+        "feature_semantics": ESP32_PACKET_PROFILE if traffic_mode == "encrypted" else "edgeiiot-packet-v1",
+        "holdout_scope": "benchmark_packets_only; no field-data generalization claim",
+        "deployment_refit_uses_holdout": bool(refit_full and X_test is not None),
+        "anomaly_threshold": round(threshold_val, 4),
         "isolation_score_min": score_min,
         "isolation_score_max": score_max,
         "loss_curve_path": getattr(final_classifier, "plot_path", None),
@@ -609,32 +717,68 @@ def run_training_pipeline(
         json.dump(metadata, f, indent=2, ensure_ascii=False)
     print(f"  -> [Artifact] Da xuat Model Metadata tai: {meta_path}")
 
-    # Xuất TinyML C Header toàn diện (Hỗ trợ TẤT CẢ các bộ Classifier và Anomaly Detector)
-    h_out = os.path.join(output_dir, "tinyml_model.h")
-    export_model_to_c_header(
-        classifier_model=final_classifier,
-        anomaly_model=anomaly_detector,
-        output_header_path=h_out,
-        feature_names=feature_names,
-        label_names=label_names,
-        preprocessor=preprocessor,
-        metadata=metadata
-    )
-    print(f"  -> [TinyML C Header] Da xuat C Header: {h_out}")
+    # Xuất C Header cho thiết bị biên ESP32
+    if traffic_mode == "encrypted":
+        h_out = os.path.join(output_dir, "esp32_packet_model.h")
+        try:
+            export_packet_model(
+                classifier=final_classifier,
+                anomaly=anomaly_detector,
+                scaler=preprocessor.scaler,
+                labels=label_names,
+                metadata=metadata,
+                path=Path(h_out)
+            )
+            print(f"  -> [ESP32 Packet C Header] Da xuat C Header: {h_out}")
 
-    # Đồng bộ C Header trực tiếp sang firmware/esp32_probe/
-    firmware_h = os.path.join(ROOT_DIR, "firmware", "esp32_probe", "tinyml_model.h")
-    if os.path.exists(os.path.dirname(firmware_h)):
+            # Lưu vector kiểm thử parity nếu có test set
+            if X_test is not None and hasattr(final_classifier, "predict_proba"):
+                try:
+                    ref_sample = anomaly_detector.score_samples(X_test) if hasattr(anomaly_detector, "score_samples") else np.zeros(len(X_test))
+                    np.savez(
+                        os.path.join(output_dir, "parity_vectors.npz"),
+                        raw=raw_test.values if hasattr(raw_test, "values") else np.asarray(raw_test),
+                        scaled=X_test,
+                        probabilities=final_classifier.predict_proba(X_test),
+                        classes=final_classifier.classes_,
+                        score_samples=ref_sample
+                    )
+                except Exception:
+                    pass
+
+            firmware_h = os.path.join(ROOT_DIR, "firmware", "esp32_probe", "esp32_packet_model.h")
+            if os.path.exists(os.path.dirname(firmware_h)):
+                shutil.copy2(h_out, firmware_h)
+                print(f"  -> [Firmware] Da dong bo esp32_packet_model.h truc tiep sang firmware: {firmware_h}")
+        except Exception as e:
+            print(f"  -> [Export Warning] Khong the xuat esp32_packet_model.h: {e}")
+    else:
+        # Xuất TinyML C Header toàn diện cho chế độ giải mã (56 đặc trưng)
+        h_out = os.path.join(output_dir, "tinyml_model.h")
         export_model_to_c_header(
             classifier_model=final_classifier,
             anomaly_model=anomaly_detector,
-            output_header_path=firmware_h,
+            output_header_path=h_out,
             feature_names=feature_names,
             label_names=label_names,
             preprocessor=preprocessor,
             metadata=metadata
         )
-        print(f"  -> [Firmware] Da dong bo C Header truc tiep sang firmware: {firmware_h}")
+        print(f"  -> [TinyML C Header] Da xuat C Header: {h_out}")
+
+        # Đồng bộ C Header trực tiếp sang firmware/esp32_probe/
+        firmware_h = os.path.join(ROOT_DIR, "firmware", "esp32_probe", "tinyml_model.h")
+        if os.path.exists(os.path.dirname(firmware_h)):
+            export_model_to_c_header(
+                classifier_model=final_classifier,
+                anomaly_model=anomaly_detector,
+                output_header_path=firmware_h,
+                feature_names=feature_names,
+                label_names=label_names,
+                preprocessor=preprocessor,
+                metadata=metadata
+            )
+            print(f"  -> [Firmware] Da dong bo C Header truc tiep sang firmware: {firmware_h}")
 
     # Xuất thêm TFLite Suite nếu là Deep Learning
     if classifier_type in ("pytorch_deep", "dnn") or anomaly_type in ("deep_autoencoder", "autoencoder"):
@@ -656,22 +800,63 @@ def run_training_pipeline(
     print("\n" + "=" * 80)
     print(f" [OK] QUY TRINH HUAN LUYEN HOAN TAT TRONG {elapsed_total:.2f}s!")
     print(f"  * Artifacts mo hinh luu tai : {output_dir}")
-    print(f"  * Test Macro F1 Score       : {test_f1*100:.2f}% (Holdout Unseen Test)")
+    if test_f1 is not None:
+        print(f"  * Test Macro F1 Score       : {test_f1*100:.2f}% (Holdout Unseen Test)")
     print(f"  * CV Macro F1 Score         : {mean_f1*100:.2f}% ± {std_f1*100:.2f}% ({cv}-Fold CV)")
     if use_timeseries:
         print(f"  * Che do Time-Series        : BAT (Cua so truot W={window_size} buoc thoi gian)")
-    print(" [SAN SANG] Phien run_system.py gio day co the khoi dong ngay lap tuc!")
+    print(" [Artifact] Packet model exported; window probes require a separate compatible model.")
     print("=" * 80 + "\n")
+
+
+def train_wgan_subroutine(epochs: int = 20, output_dir: str = "ml_engine/models/adversarial_wgan"):
+    """Subroutine huấn luyện WGAN-GP đối kháng tích hợp trong train.py."""
+    try:
+        from ml_engine.adversarial.train_gan import load_sliding_window_data, train_wgan_adversarial
+        dataset_csv = os.path.join(ROOT_DIR, "ml_engine", "datasets", "synthetic_traffic_dataset.csv")
+        if not os.path.exists(dataset_csv):
+            print(f"[WGAN-GP Warning] Khong tim thay file {dataset_csv}, bo qua train GAN.")
+            return
+        X_benign, X_attack, _, _, feat_names = load_sliding_window_data(dataset_csv)
+        train_wgan_adversarial(
+            X_benign=X_benign,
+            X_attack=X_attack,
+            feature_names=feat_names,
+            epochs=epochs,
+            output_dir=output_dir
+        )
+    except Exception as e:
+        print(f"[WGAN-GP Error] Loi khi huan luyen WGAN-GP: {e}")
+
+
+def train_rl_subroutine(episodes: int = 200, output_path: str = "digital_twin/models/rl_defense_policy.json"):
+    """Subroutine huấn luyện RL Cyber Defense Agent trong Digital Twin Sandbox."""
+    try:
+        from digital_twin.rl_agent import train_rl_agent
+        print("\n" + "=" * 80)
+        print("      HUẤN LUYỆN RL CYBER DEFENSE AGENT TRONG DIGITAL TWIN SANDBOX       ")
+        print("=" * 80)
+        train_rl_agent(episodes=episodes, save_path=output_path, use_dqn=False)
+    except Exception as e:
+        print(f"[RL Agent Error] Loi khi huan luyen RL Agent: {e}")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Master Training Pipeline: HPO (Optuna) + Train/Test Split + Full Refit + TinyML Export"
+        description="Master Training Pipeline: HPO (Optuna) + Train/Test Split + Full Refit + TinyML + WGAN-GP + RL"
+    )
+    parser.add_argument(
+        "--traffic-mode", "--traffic",
+        dest="traffic_mode",
+        default="decrypted",
+        choices=["decrypted", "encrypted"],
+        help="Che do phan tich luu luong: 'decrypted' (Edge-IIoTset 56 dac trung cho Host/Gateway DPI), 'encrypted' (USTC-TFC2016 10 dac trung L2-4 cho ESP32 Sniffer)"
     )
     parser.add_argument("--classifier", default="decision_tree", help="Loai classifier: decision_tree, random_forest, extra_trees, xgboost, lightgbm, catboost, pytorch_deep, dnn, ensemble_voting")
     parser.add_argument("--anomaly-model", default="isolation_forest", help="Loai anomaly detector: isolation_forest, one_class_svm, elliptic_envelope, lof, deep_autoencoder")
     parser.add_argument("--data-source", default="hybrid", choices=["edge-iiotset", "data-lake", "hybrid"], help="Nguon du lieu: 'hybrid' (benchmark + data lake thuc te), 'data-lake' (uu tien du lieu thuc te), 'edge-iiotset' (thuan tap chuan)")
-    parser.add_argument("--dataset", default=None, help="Duong dan den dataset CSV Edge-IIoTset")
+    parser.add_argument("--dataset", default=None, help="Duong dan den dataset CSV Edge-IIoTset hoac thu muc USTC-TFC2016")
+    parser.add_argument("--invalid-rows", choices=["error", "drop"], default="error", help="Reject malformed benchmark fields, or explicitly exclude affected rows before splitting")
     parser.add_argument("--sample-ratio", type=float, default=1.0, help="Ti le lay mau phan tang can bang cac lop (0.01 den 1.0, mac dinh 1.0 = 100%% du lieu)")
     parser.add_argument("--test-size", type=float, default=0.2, help="Ti le phan chia tap danh gia doc lap Holdout Test (mac dinh: 0.2 = 20%% du lieu)")
     parser.add_argument("--refit-full", action="store_true", help="Fit lai mo hinh tren toan bo 100%% du lieu sau khi da do Test Metrics, truoc khi xuat C Header cho ESP32")
@@ -680,11 +865,18 @@ def main():
     parser.add_argument("--n-trials", type=int, default=15, help="So luong trial cho Optuna HPO (mac dinh: 15)")
     parser.add_argument("--cv", type=int, default=5, help="So luong fold cho Cross-Validation (mac dinh: 5)")
     parser.add_argument("--pruner", default="median", choices=["median", "percentile", "hyperband", "none"], help="Thuat toan cat tia som: median, percentile, hyperband, none")
-    parser.add_argument("--timeseries", action="store_true", help="Kich hoat Time-Series Formulation (Sliding Window & Temporal Dynamics)")
+    parser.add_argument("--timeseries", action="store_true", help="Currently blocked pending session-based splits and runtime/export parity")
     parser.add_argument("--window-size", type=int, default=10, help="Do dai cua so truot W (so buoc thoi gian, mac dinh: 10)")
     parser.add_argument("--pull-remote", action="store_true", help="Tu dong keo cac tep Parquet moi nhat tu Cloudflare R2 / S3 ve truoc khi train")
     parser.add_argument("--list-models", action="store_true", help="Liet ke cac thuat toan duoc ho tro roi thoat")
     parser.add_argument("--output-dir", default=None, help="Thu muc xuat artifacts")
+
+    # Cac flag mo rong cho Adversarial WGAN va Reinforcement Learning
+    parser.add_argument("--train-gan", "--gan", dest="train_gan", action="store_true", help="Kich hoat huan luyen WGAN-GP Adversarial Evasion Model")
+    parser.add_argument("--gan-epochs", type=int, default=20, help="So epoch cho WGAN-GP (mac dinh: 20)")
+    parser.add_argument("--train-rl", "--rl", dest="train_rl", action="store_true", help="Kich hoat huan luyen RL Cyber Defense Agent trong Digital Twin Sandbox")
+    parser.add_argument("--rl-episodes", type=int, default=200, help="So episodes cho RL Agent (mac dinh: 200)")
+    parser.add_argument("--train-all", action="store_true", help="Kich hoat huan luyen toan dien 1-Click: Classifier + Anomaly + WGAN-GP + RL Policy")
 
     args = parser.parse_args()
 
@@ -692,20 +884,30 @@ def main():
         print_supported_models()
         sys.exit(0)
 
+    # 1. Neu chi yeu cau huan luyen WGAN-GP
+    if args.train_gan and not args.train_all:
+        train_wgan_subroutine(epochs=args.gan_epochs)
+        sys.exit(0)
+
+    # 2. Neu chi yeu cau huan luyen RL Agent
+    if args.train_rl and not args.train_all:
+        train_rl_subroutine(episodes=args.rl_episodes)
+        sys.exit(0)
+
     # Đảm bảo sample_ratio hợp lệ
     ratio = args.sample_ratio
     if ratio <= 0.0 or ratio > 1.0:
-        print(f"[Canh bao] --sample-ratio={ratio} khong hop le. Dat lai ve 1.0 (100% data).")
-        ratio = 1.0
+        parser.error("--sample-ratio must be in (0, 1]")
 
     test_sz = args.test_size
     if test_sz < 0.0 or test_sz >= 1.0:
-        print(f"[Canh bao] --test-size={test_sz} khong hop le. Dat lai ve 0.2 (20% holdout test).")
-        test_sz = 0.2
+        parser.error("--test-size must be in [0, 1)")
 
+    # Huấn luyện mô hình Master (Classifier + Anomaly Detector)
     run_training_pipeline(
         classifier_type=args.classifier,
         anomaly_type=args.anomaly_model,
+        traffic_mode=args.traffic_mode,
         data_source=args.data_source,
         dataset_path=args.dataset,
         sample_ratio=ratio,
@@ -719,8 +921,20 @@ def main():
         output_dir=args.output_dir,
         use_timeseries=args.timeseries,
         window_size=args.window_size,
-        pull_remote=args.pull_remote
+        pull_remote=args.pull_remote,
+        invalid_rows=args.invalid_rows
     )
+
+    # 3. Neu la che do --train-all: Huan luyen tiep WGAN-GP va RL Defense
+    if args.train_all:
+        print("\n" + "=" * 80)
+        print(" [TRAIN-ALL] HUẤN LUYỆN TIẾP TRỤ CỘT ĐỐI KHÁNG WGAN-GP & HỌC TĂNG CƯỜNG RL...")
+        print("=" * 80)
+        train_wgan_subroutine(epochs=args.gan_epochs)
+        train_rl_subroutine(episodes=args.rl_episodes)
+        print("\n" + "=" * 80)
+        print(" [XONG TOÀN BỘ] HỆ SINH THÁI ĐÃ ĐƯỢC HUẤN LUYỆN TOÀN DIỆN (CLASSIFIER + DETECTOR + GAN + RL)!")
+        print("=" * 80 + "\n")
 
 
 if __name__ == "__main__":

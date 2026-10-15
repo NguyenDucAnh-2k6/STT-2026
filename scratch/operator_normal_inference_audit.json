@@ -1,0 +1,44 @@
+{
+  "eligibility": {
+    "accepted": 328569,
+    "rejected": 4475,
+    "reasons": {
+      "duplicate_identity": 0,
+      "malformed_numeric_features": 0,
+      "unlabeled_or_incompatible": 4475
+    }
+  },
+  "labels": {
+    "Normal": 310091,
+    "DDoS_TCP": 6121,
+    "DDoS_UDP": 3392,
+    "DDoS_HTTP": 2718,
+    "XSS": 2711,
+    "SQL_injection": 2608,
+    "Uploading": 928
+  },
+  "one_udp_packet_prediction": {
+    "inference_status": "ok",
+    "error": null,
+    "anomaly_score": 0.3989,
+    "is_anomaly": false,
+    "threat_type": "Normal",
+    "class_probabilities": {
+      "Backdoor": 0.0,
+      "DDoS_HTTP": 0.0,
+      "DDoS_ICMP": 0.0,
+      "DDoS_TCP": 0.0,
+      "DDoS_UDP": 0.5432,
+      "Fingerprinting": 0.0,
+      "MITM": 0.0,
+      "Normal": 0.0004,
+      "Password": 0.0,
+      "Port_Scanning": 0.0,
+      "Ransomware": 0.0,
+      "SQL_injection": 0.0,
+      "Uploading": 0.4564,
+      "Vulnerability_scanner": 0.0,
+      "XSS": 0.0
+    }
+  }
+}

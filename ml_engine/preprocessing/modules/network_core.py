@@ -9,7 +9,7 @@ Quản lý các đặc trưng thuộc tầng liên kết dữ liệu và điều
 from typing import Dict, Any, List
 import pandas as pd
 import numpy as np
-from .base import BaseSubPreprocessor
+from .base import BaseSubPreprocessor, numeric_series
 
 NETWORK_CORE_FEATURES: List[str] = [
     "arp.opcode",
@@ -31,31 +31,11 @@ class NetworkCorePreprocessor(BaseSubPreprocessor):
         out = pd.DataFrame(index=df.index)
         for col in self.feature_names:
             if col in df.columns:
-                out[col] = pd.to_numeric(df[col], errors="coerce").fillna(self.learned_baselines_.get(col, 0.0))
+                out[col] = numeric_series(df[col]).fillna(self.learned_baselines_.get(col, 0.0))
             else:
                 out[col] = self.learned_baselines_.get(col, 0.0)
         return out
 
-    def extract_from_telemetry(self, telemetry: Dict[str, Any]) -> Dict[str, float]:
-        res = {}
-        for feat in self.feature_names:
-            if feat in telemetry:
-                try:
-                    res[feat] = float(telemetry[feat])
-                except (ValueError, TypeError):
-                    res[feat] = self.learned_baselines_.get(feat, 0.0)
-            else:
-                res[feat] = self.learned_baselines_.get(feat, 0.0)
-
-        # Trích xuất đo đạc lưu lượng thực tế nếu có
-        proto = str(telemetry.get("protocol", "")).upper()
-        icmp_r = float(telemetry.get("icmp_ratio", 0.0))
-        pkt_rate = float(telemetry.get("packet_rate", 0.0))
-
-        if icmp_r > 0.0 or "ICMP" in proto:
-            if "icmp.checksum" not in telemetry:
-                res["icmp.checksum"] = float(telemetry.get("checksum", 1.0))
-            if "icmp.seq_le" not in telemetry and pkt_rate > 0:
-                res["icmp.seq_le"] = float(pkt_rate)
-
-        return res
+    def extract_from_telemetry(self, telemetry: Dict[str, Any]) -> Dict[str, Any]:
+        """Keep measured canonical values; never fabricate packet fields from windows."""
+        return {feat: telemetry[feat] for feat in self.feature_names if feat in telemetry}
