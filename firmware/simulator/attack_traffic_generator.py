@@ -1,12 +1,14 @@
 """
 Attack Traffic Generator Module
 ===============================
-Module phát sinh các đợt tấn công mạng thật 100% qua socket (TCP/UDP/IP):
-1. Port Scanning: Quét hàng trăm cổng TCP SYN (tăng unique_dst_ports, syn_ratio).
+Module phát sinh traffic thử nghiệm qua socket tới target lab cấu hình tường minh.
+Các pattern chưa được xác minh tái hiện attack của benchmark; nhãn UI là context.
+1. Port Scanning: TCP connect scan, không phải SYN-only scan.
 2. DDoS UDP Flood: Bắn hàng nghìn gói UDP dung lượng cao liên tục (tăng packet_rate, byte_rate, udp_ratio).
-3. DDoS TCP SYN Flood: Gửi dồn dập gói tin TCP SYN tới cổng dịch vụ (tăng syn_ratio, packet_rate).
-4. Vulnerability Scanner: Quét các cổng dịch vụ web và quản trị đặc thù.
-5. Uploading (Data Exfiltration): Truyền tải luồng dữ liệu TCP dung lượng lớn.
+3. DDoS TCP legacy: TCP connect workload, chưa xác minh SYN flood.
+4. Vulnerability Scanner legacy: Port probes, chưa xác minh vulnerability.
+5. Uploading legacy: UDP workload, chưa khớp web upload trong paper.
+6. DDoS HTTP: bounded local HTTP workload, chưa xác minh DoS impact.
 
 Đặc tính:
 - Bắn duy trì liên tục (Sustained Continuous Attack Flow) khi kích hoạt kịch bản,
@@ -24,9 +26,49 @@ import json
 import socket
 import random
 import threading
+import uuid
+import http.client
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 import paho.mqtt.client as mqtt
+from digital_twin.lab.flows import FlowRecorder, lab_socket
+from firmware.simulator.scenarios import require_implemented
+from firmware.simulator.lab_config import configured_target, validate_lab_target, http_port
+from firmware.simulator.http_variants import HttpVariantGenerator
+
+LOG = logging.getLogger(__name__)
+
+
+def _send_http_request(target_ip: str, target_port: int, request: bytes,
+                       recorder: Optional[FlowRecorder] = None,
+                       request_context: Optional[dict[str, str]] = None) -> bool:
+    """Finish a bounded HTTP exchange before closing; success means transport only."""
+    validate_lab_target(target_ip)
+    connection = lab_socket(socket.AF_INET, socket.SOCK_STREAM, recorder)
+    response = None
+    try:
+        connection.settimeout(2)
+        connection.connect((target_ip, target_port))
+        if recorder and request_context:
+            recorder.annotate_request(connection.getsockname(), (target_ip, target_port), "tcp", request_context)
+        connection.sendall(request)
+        response = http.client.HTTPResponse(connection)
+        response.begin()
+        if response.length is not None and response.length > 65536:
+            raise ValueError("Lab HTTP response exceeds 64 KiB limit")
+        if len(response.read(65537)) > 65536:
+            raise ValueError("Lab HTTP response exceeds 64 KiB limit")
+        if response.length not in (None, 0):
+            raise ValueError("Lab HTTP response ended before Content-Length")
+        return True
+    except (OSError, http.client.HTTPException, ValueError) as error:
+        LOG.debug("Lab HTTP exchange failed: %s", type(error).__name__)
+        return False
+    finally:
+        if response is not None:
+            response.close()
+        connection.close()
 
 # Đảm bảo UTF-8 an toàn cho Windows console
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
@@ -37,61 +79,8 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
 
 
 def detect_target_ip() -> str:
-    """Tự động xác định chính xác IP Default Gateway thực tế trên hệ thống."""
-    env_target = os.getenv("ATTACK_TARGET_IP")
-    if env_target and env_target.strip():
-        return env_target.strip()
-
-    # 1. Hệ điều hành Windows: Quét trực tiếp card Wi-Fi hoặc route print
-    if sys.platform == "win32":
-        try:
-            import subprocess, re
-            out_if = subprocess.check_output("netsh wlan show interfaces", shell=True, text=True, stderr=subprocess.DEVNULL)
-            m_iface = re.search(r"^\s*Name\s*:\s*(.+)$", out_if, re.M)
-            iface = m_iface.group(1).strip() if m_iface else "Wi-Fi"
-            out_addr = subprocess.check_output(f'netsh interface ipv4 show addresses "{iface}"', shell=True, text=True, stderr=subprocess.DEVNULL)
-            m_gw = re.search(r"Default Gateway:\s*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)", out_addr)
-            if m_gw:
-                return m_gw.group(1).strip()
-        except Exception:
-            pass
-
-        try:
-            import subprocess
-            out = subprocess.check_output("route print 0.0.0.0", shell=True, text=True, stderr=subprocess.DEVNULL)
-            for line in out.splitlines():
-                line = line.strip()
-                if line.startswith("0.0.0.0"):
-                    parts = line.split()
-                    if len(parts) >= 3 and parts[2] not in ("On-link", "0.0.0.0", "127.0.0.1"):
-                        return parts[2]
-        except Exception:
-            pass
-
-    # 2. Hệ điều hành Linux / macOS: Quét bảng định tuyến default
-    try:
-        import subprocess
-        out = subprocess.check_output("ip route show default", shell=True, text=True, stderr=subprocess.DEVNULL)
-        for line in out.splitlines():
-            if "default via" in line:
-                return line.split()[2]
-    except Exception:
-        pass
-
-    # 3. Fallback: Lấy local IP và suy đoán gateway hoặc fallback DNS
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
-        s.close()
-        if not local_ip.startswith("127."):
-            parts = local_ip.split(".")
-            if len(parts) == 4:
-                return f"{parts[0]}.{parts[1]}.{parts[2]}.1"
-    except Exception:
-        pass
-
-    return "8.8.8.8"
+    """Use explicit lab configuration; never infer an attack target."""
+    return configured_target()
 
 
 def get_broadcast_ip(ip_str: str) -> str:
@@ -106,9 +95,9 @@ def get_broadcast_ip(ip_str: str) -> str:
     return "255.255.255.255"
 
 
-def burst_udp_flood(target_ip: str, target_port: int = 9999, packets: int = 1500, esp32_ip: Optional[str] = None) -> int:
-    """Bắn 1 burst UDP tốc độ cao qua socket thật (~1500 pkts/burst), hướng vào Gateway, Broadcast và ESP32."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+def burst_udp_flood(target_ip: str, target_port: int = 9999, packets: int = 1500, esp32_ip: Optional[str] = None, cancel_event: Optional[threading.Event] = None, recorder: Optional[FlowRecorder] = None) -> int:
+    """Send a UDP workload only to the configured lab target."""
+    s = lab_socket(socket.AF_INET, socket.SOCK_DGRAM, recorder)
     try:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     except Exception:
@@ -116,13 +105,12 @@ def burst_udp_flood(target_ip: str, target_port: int = 9999, packets: int = 1500
 
     payload = b"EDGEGUARD_AI_ATTACK_SIM_UDP_PAYLOAD_" * 16  # ~608 bytes
     sent = 0
-    bcast_ip = get_broadcast_ip(target_ip)
 
-    targets = [target_ip, bcast_ip, "255.255.255.255"]
-    if esp32_ip and esp32_ip != target_ip:
-        targets.append(esp32_ip)
+    targets = [target_ip]
 
     for i in range(packets):
+        if cancel_event is not None and cancel_event.is_set():
+            break
         try:
             dest = targets[i % len(targets)]
             s.sendto(payload, (dest, target_port))
@@ -136,131 +124,104 @@ def burst_udp_flood(target_ip: str, target_port: int = 9999, packets: int = 1500
     return sent
 
 
-def burst_port_scan(target_ip: str, num_ports: int = 350, esp32_ip: Optional[str] = None) -> int:
-    """Bắn 1 burst quét cổng TCP SYN phân tán qua socket thật, kết hợp UDP broadcast port probing để ESP32 sniffer bắt được."""
+def burst_port_scan(target_ip: str, num_ports: int = 350, esp32_ip: Optional[str] = None, cancel_event: Optional[threading.Event] = None, recorder: Optional[FlowRecorder] = None, ports: Optional[list[int]] = None) -> int:
+    """TCP connect scan; no unrelated UDP broadcast traffic."""
     def probe_tcp(target, port):
+        if cancel_event is not None and cancel_event.is_set():
+            return
+        s = None
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s = lab_socket(socket.AF_INET, socket.SOCK_STREAM, recorder)
             s.settimeout(0.03)
             s.connect_ex((target, port))
             s.close()
         except Exception:
             pass
+        finally:
+            if s is not None:
+                s.close()
 
     start_port = random.randint(20, 1000)
-    ports = list(range(start_port, start_port + num_ports))
+    ports = ports if ports is not None else list(range(start_port, start_port + num_ports))
 
     # 1. Quét TCP tới target_ip
     with ThreadPoolExecutor(max_workers=40) as ex:
         ex.map(lambda p: probe_tcp(target_ip, p), ports)
 
-    # 2. Nếu có ESP32 IP: Thăm dò một tập cổng trên ESP32 để kích hoạt cờ SYN trên chip
-    if esp32_ip and esp32_ip != target_ip:
-        esp_ports = random.sample(ports, min(30, len(ports)))
-        with ThreadPoolExecutor(max_workers=15) as ex:
-            ex.map(lambda p: probe_tcp(esp32_ip, p), esp_ports)
 
-    # 3. Phát tán các gói UDP thăm dò cổng tới địa chỉ Broadcast để mọi thiết bị sniffer Over-the-air nhận diện được
-    bcast_ip = get_broadcast_ip(target_ip)
-    try:
-        s_bcast = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s_bcast.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        for p in random.sample(ports, min(50, len(ports))):
-            s_bcast.sendto(b"SCAN_PROBE", (bcast_ip, p))
-            s_bcast.sendto(b"SCAN_PROBE", ("255.255.255.255", p))
-        s_bcast.close()
-    except Exception:
-        pass
 
     return num_ports
 
 
-def burst_tcp_syn_flood(target_ip: str, target_port: int = 80, count: int = 600, esp32_ip: Optional[str] = None) -> int:
-    """Bắn 1 burst TCP SYN flood dồn dập qua socket thật tới target và ESP32."""
+def burst_tcp_syn_flood(target_ip: str, target_port: int = 80, count: int = 600, esp32_ip: Optional[str] = None, cancel_event: Optional[threading.Event] = None, recorder: Optional[FlowRecorder] = None) -> int:
+    """Legacy TCP connection workload; not verified half-open SYN flooding."""
     def send_syn(target):
+        if cancel_event is not None and cancel_event.is_set():
+            return
+        s = None
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s = lab_socket(socket.AF_INET, socket.SOCK_STREAM, recorder)
             s.settimeout(0.03)
             s.connect_ex((target, target_port))
             s.close()
         except Exception:
             pass
+        finally:
+            if s is not None:
+                s.close()
 
     with ThreadPoolExecutor(max_workers=50) as ex:
         ex.map(lambda _: send_syn(target_ip), range(count))
 
-    # Bắn SYN tới ESP32 nếu có
-    if esp32_ip and esp32_ip != target_ip:
-        with ThreadPoolExecutor(max_workers=20) as ex:
-            ex.map(lambda _: send_syn(esp32_ip), range(min(60, count)))
 
-    # Đồng thời phát các gói UDP flood ngụy trang tăng tải vô tuyến Over-The-Air
-    bcast_ip = get_broadcast_ip(target_ip)
-    try:
-        s_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s_udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        syn_payload = b"TCP_SYN_FLOOD_SIMULATED_PACKET_BURST" * 10
-        for _ in range(120):
-            s_udp.sendto(syn_payload, (bcast_ip, target_port))
-            s_udp.sendto(syn_payload, ("255.255.255.255", target_port))
-        s_udp.close()
-    except Exception:
-        pass
 
     return count
 
 
-def burst_vulnerability_scan(target_ip: str, esp32_ip: Optional[str] = None) -> int:
+def burst_vulnerability_scan(target_ip: str, esp32_ip: Optional[str] = None, cancel_event: Optional[threading.Event] = None, recorder: Optional[FlowRecorder] = None, ports: Optional[list[int]] = None) -> int:
     """Bắn 1 burst quét thăm dò các cổng dịch vụ tiêu biểu trên toàn mạng."""
     common_vuln_ports = [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 1433, 1521, 3306, 3389, 5432, 5900, 8000, 8080, 8443, 9000]
 
     def probe_service(target, port):
+        if cancel_event is not None and cancel_event.is_set():
+            return
+        s = None
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s = lab_socket(socket.AF_INET, socket.SOCK_STREAM, recorder)
             s.settimeout(0.04)
             s.connect_ex((target, port))
             s.close()
         except Exception:
             pass
+        finally:
+            if s is not None:
+                s.close()
 
-    ports_to_probe = common_vuln_ports * 4
+    ports_to_probe = (ports if ports is not None else common_vuln_ports) * 4
     with ThreadPoolExecutor(max_workers=30) as ex:
         ex.map(lambda p: probe_service(target_ip, p), ports_to_probe)
 
-    if esp32_ip and esp32_ip != target_ip:
-        with ThreadPoolExecutor(max_workers=15) as ex:
-            ex.map(lambda p: probe_service(esp32_ip, p), common_vuln_ports)
 
-    bcast_ip = get_broadcast_ip(target_ip)
-    try:
-        s_b = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s_b.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        for p in common_vuln_ports:
-            s_b.sendto(b"VULN_PROBE", (bcast_ip, p))
-        s_b.close()
-    except Exception:
-        pass
 
     return len(ports_to_probe)
 
 
-def burst_uploading(target_ip: str, target_port: int = 443, count: int = 1200, esp32_ip: Optional[str] = None) -> int:
+def burst_uploading(target_ip: str, target_port: int = 443, count: int = 1200, esp32_ip: Optional[str] = None, cancel_event: Optional[threading.Event] = None, recorder: Optional[FlowRecorder] = None) -> int:
     """Bắn luồng truyền tải dữ liệu TCP/UDP dung lượng lớn (Data Exfiltration / Uploading)."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s = lab_socket(socket.AF_INET, socket.SOCK_DGRAM, recorder)
     try:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     except Exception:
         pass
 
     data_chunk = b"EXFILTRATION_DATA_STREAM_CHUNK_" * 45  # ~1400 bytes (MTU size)
-    bcast_ip = get_broadcast_ip(target_ip)
     sent = 0
 
-    destinations = [target_ip, bcast_ip]
-    if esp32_ip and esp32_ip != target_ip:
-        destinations.append(esp32_ip)
+    destinations = [target_ip]
 
     for i in range(count):
+        if cancel_event is not None and cancel_event.is_set():
+            break
         try:
             dest = destinations[i % len(destinations)]
             s.sendto(data_chunk, (dest, target_port))
@@ -269,6 +230,91 @@ def burst_uploading(target_ip: str, target_port: int = 443, count: int = 1200, e
             pass
     s.close()
     return sent
+
+
+def burst_adversarial_evasion(target_ip: str, target_port: int = 80, count: int = 250, esp32_ip: Optional[str] = None, cancel_event: Optional[threading.Event] = None, recorder: Optional[FlowRecorder] = None) -> int:
+    """
+    Legacy random UDP workload, not GAN-generated or validated model evasion:
+    - Kỹ thuật Low & Slow: giảm đột biến packet_rate, chèn độ trễ ngẫu nhiên (jitter 5-25ms).
+    - Biến thiên kích thước payload (dummy padding 40-520 bytes).
+    - Does not create or manipulate TCP ACK flags.
+    """
+    s = lab_socket(socket.AF_INET, socket.SOCK_DGRAM, recorder)
+    try:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    except Exception:
+        pass
+
+    destinations = [target_ip]
+
+    sent = 0
+    for i in range(count):
+        if cancel_event is not None and cancel_event.is_set():
+            break
+        try:
+            rand_size = random.randint(40, 520)
+            payload = os.urandom(rand_size)
+            dest = destinations[i % len(destinations)]
+            s.sendto(payload, (dest, target_port))
+            sent += 1
+            if i % 10 == 0:
+                time.sleep(random.uniform(0.005, 0.025))
+        except Exception:
+            pass
+    s.close()
+    return sent
+
+
+def burst_sql_injection(target_ip: str, target_port: int = 8000, count: int = 35, cancel_event: Optional[threading.Event] = None, recorder: Optional[FlowRecorder] = None, variant_generator: Optional[HttpVariantGenerator] = None) -> int:
+    """Bounded SQLi grammar requests for lab; transport completion is not exploit success."""
+    variants = variant_generator or HttpVariantGenerator(random.SystemRandom().getrandbits(63))
+    sent = 0
+    hosts_to_target = [target_ip]
+    for i in range(count):
+        if cancel_event is not None and cancel_event.is_set():
+            break
+        h = hosts_to_target[i % len(hosts_to_target)]
+        variant = variants.next("SQL_injection")
+        sent += int(_send_http_request(h, target_port, variant.wire_request(h, target_port), recorder, request_context=variant.context()))
+    return sent
+
+
+def burst_xss_attack(target_ip: str, target_port: int = 8000, count: int = 35, cancel_event: Optional[threading.Event] = None, recorder: Optional[FlowRecorder] = None, variant_generator: Optional[HttpVariantGenerator] = None) -> int:
+    """Bounded XSS grammar requests for lab; content is not executed by the target."""
+    variants = variant_generator or HttpVariantGenerator(random.SystemRandom().getrandbits(63))
+    sent = 0
+    hosts_to_target = [target_ip]
+    for i in range(count):
+        if cancel_event is not None and cancel_event.is_set():
+            break
+        h = hosts_to_target[i % len(hosts_to_target)]
+        variant = variants.next("XSS")
+        sent += int(_send_http_request(h, target_port, variant.wire_request(h, target_port), recorder, request_context=variant.context()))
+    return sent
+
+
+def burst_http_load(target_ip: str, target_port: int, count: int = 20, cancel_event: Optional[threading.Event] = None, recorder: Optional[FlowRecorder] = None) -> int:
+    """Bounded HTTP workload; records successful transactions, not claimed DoS impact."""
+    validate_lab_target(target_ip)
+    completed = 0
+    for _ in range(count):
+        if cancel_event is not None and cancel_event.is_set():
+            break
+        connection = http.client.HTTPConnection(target_ip, target_port, timeout=0.2)
+        try:
+            started_ms = int(time.time() * 1000)
+            connection.connect()
+            if recorder:
+                recorder.record(connection.sock.getsockname(), (target_ip, target_port), "tcp", started_ms)
+            connection.request("GET", "/health")
+            response = connection.getresponse()
+            response.read(4096)
+            completed += 1
+        except (OSError, http.client.HTTPException):
+            pass
+        finally:
+            connection.close()
+    return completed
 
 
 class AttackTrafficController:
@@ -280,7 +326,7 @@ class AttackTrafficController:
     """
 
     def __init__(self, target_ip: str, broker_host: str = "127.0.0.1", broker_port: int = 1883, cycle_interval: float = 12.0):
-        self.target_ip = target_ip
+        self.target_ip = validate_lab_target(target_ip)
         self.gateway_ip = target_ip
         self.esp32_ip: Optional[str] = None
         self.broker_host = broker_host
@@ -292,34 +338,60 @@ class AttackTrafficController:
         self.is_attacking = False
         self.attack_start_time = 0.0
         self.max_attack_duration = 60.0  # Tự động ngắt an toàn sau 60s
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
+        self.cancel_event = threading.Event()
+        self.cycle_wakeup = threading.Event()
+        self.command_id: Optional[str] = None
+        self.seen_commands: list[str] = []
+        self.experiment_id: Optional[str] = None
+        self.last_error: Optional[str] = None
+        self.failure_status = "UNSUPPORTED"
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="AttackTrafficGenerator")
 
     def publish_status(self):
         """Báo cáo trạng thái hiện tại lên MQTT để Dashboard và Sniffer nắm bắt."""
         try:
             payload = {
-                "status": "ATTACKING" if self.is_attacking else "IDLE",
+                "status": self.failure_status if self.last_error else "ATTACKING" if self.is_attacking else "IDLE",
                 "scenario": self.current_scenario,
                 "target_ip": self.target_ip,
                 "auto_cycle": self.auto_cycle,
-                "timestamp": int(time.time() * 1000)
+                "timestamp": int(time.time() * 1000),
+                "experiment_id": self.experiment_id,
+                "expires_at_ms": int((self.attack_start_time + self.max_attack_duration) * 1000) if self.is_attacking else int(time.time() * 1000),
+                "implementation_status": "traffic_pattern_unverified",
+                "label_verified": False,
+                "error": self.last_error,
+                "command_id": self.command_id
             }
-            self.mqtt_client.publish("edge/attack/status", json.dumps(payload), retain=True)
+            self.mqtt_client.publish("edge/attack/status", json.dumps(payload), qos=1, retain=True)
         except Exception:
             pass
 
-    def set_scenario(self, scenario: str):
+    def set_scenario(self, scenario: str) -> None:
         """Kích hoạt kịch bản tấn công duy trì liên tục hoặc đưa về Normal."""
         with self.lock:
-            s_upper = scenario.upper()
-            if "NORMAL" in s_upper or "STOP" in s_upper:
+            self.cancel_event.set()
+            self.cancel_event = threading.Event()
+            try:
+                scenario = require_implemented(scenario)
+            except ValueError as exc:
+                self.is_attacking = False
+                self.current_scenario = scenario
+                self.experiment_id = None
+                self.last_error = str(exc)
+                self.failure_status = "UNSUPPORTED"
+                self.publish_status()
+                return
+            self.last_error = None
+            if scenario == "Normal":
                 self.is_attacking = False
                 self.current_scenario = "Normal"
                 print(f"[AttackGenerator] [NORMAL] Da dung tan cong, luu luong tro ve binh thuong.")
             else:
                 self.is_attacking = True
                 self.current_scenario = scenario
+                self.experiment_id = uuid.uuid4().hex
                 self.attack_start_time = time.time()
                 print(f"\n[AttackGenerator] >>> KICH HOAT TAN CONG LIEN TUC: [{scenario}] qua Wi-Fi toi {self.target_ip} <<<")
 
@@ -332,66 +404,84 @@ class AttackTrafficController:
         """
         burst_count = 0
         while self.running:
-            if self.is_attacking and self.current_scenario != "Normal":
-                # Kiểm tra timeout an toàn
-                if time.time() - self.attack_start_time > self.max_attack_duration:
-                    print("[AttackGenerator] [Timeout] Tu dong dung dot tan cong sau 60s an toan.")
+            with self.lock:
+                if self.is_attacking and time.time() - self.attack_start_time > self.max_attack_duration:
                     self.set_scenario("Normal")
-                    continue
-
                 sc = self.current_scenario.upper()
+                attacking = self.is_attacking
+                cancel_event = self.cancel_event
+                effective_target = self.target_ip
+                esp_target = self.esp32_ip
+            if attacking and sc != "NORMAL":
                 t0 = time.perf_counter()
 
-                effective_target = self.gateway_ip if (self.esp32_ip and self.target_ip == self.esp32_ip) else self.target_ip
-                esp_target = self.esp32_ip
-
                 try:
-                    if "UDP" in sc:
-                        burst_udp_flood(effective_target, target_port=9999, packets=1500, esp32_ip=esp_target)
-                    elif "PORT" in sc:
-                        burst_port_scan(effective_target, num_ports=180, esp32_ip=esp_target)
-                    elif "TCP" in sc or "SYN" in sc:
-                        burst_tcp_syn_flood(effective_target, target_port=80, count=300, esp32_ip=esp_target)
-                    elif "VULN" in sc:
-                        burst_vulnerability_scan(effective_target, esp32_ip=esp_target)
-                    elif "UPLOAD" in sc or "EXFIL" in sc:
-                        burst_uploading(effective_target, target_port=443, count=600, esp32_ip=esp_target)
+                    if sc == "DDOS_HTTP":
+                        completed = burst_http_load(effective_target, http_port(), cancel_event=cancel_event)
+                        if not completed and not cancel_event.is_set():
+                            raise RuntimeError("HTTP lab service unavailable; start lab_http_service first")
+                    elif sc == "DDOS_UDP":
+                        burst_udp_flood(effective_target, target_port=9999, packets=1500, esp32_ip=esp_target, cancel_event=cancel_event)
+                    elif sc == "PORT_SCANNING":
+                        burst_port_scan(effective_target, num_ports=180, esp32_ip=esp_target, cancel_event=cancel_event)
+                    elif sc == "DDOS_TCP":
+                        burst_tcp_syn_flood(effective_target, target_port=80, count=300, esp32_ip=esp_target, cancel_event=cancel_event)
+                    elif sc == "SQL_INJECTION":
+                        burst_sql_injection(effective_target, target_port=http_port(), count=40, cancel_event=cancel_event)
+                    elif sc == "XSS":
+                        burst_xss_attack(effective_target, target_port=http_port(), count=40, cancel_event=cancel_event)
+                    elif sc == "VULNERABILITY_SCANNER":
+                        burst_vulnerability_scan(effective_target, esp32_ip=esp_target, cancel_event=cancel_event)
+                    elif sc == "UPLOADING":
+                        burst_uploading(effective_target, target_port=443, count=600, esp32_ip=esp_target, cancel_event=cancel_event)
+                    elif sc == "ADVERSARIAL":
+                        burst_adversarial_evasion(effective_target, target_port=80, count=250, esp32_ip=esp_target, cancel_event=cancel_event)
                     else:
-                        burst_udp_flood(effective_target, target_port=9999, packets=1500, esp32_ip=esp_target)
+                        raise ValueError("Unsupported scenario; no fallback traffic generated")
                 except Exception as e:
-                    print(f"[AttackGenerator] Loi khi ban burst socket ({self.current_scenario}): {e}")
+                    with self.lock:
+                        if self.cancel_event is cancel_event:
+                            cancel_event.set()
+                            self.is_attacking = False
+                            self.failure_status = "ERROR"
+                            self.last_error = str(e)
+                            self.publish_status()
+                    print(f"[AttackGenerator] Loi khi ban burst socket ({sc}): {e}")
 
                 burst_count += 1
                 if burst_count % 4 == 0:
                     esp_info = f" + ESP32 {esp_target}" if esp_target else ""
-                    print(f"  -> [AttackSim] Dang phat luong [{self.current_scenario}] qua Wi-Fi toi {effective_target}{esp_info}...")
+                    if not cancel_event.is_set():
+                        print(f"  -> [AttackSim] Dang phat luong [{sc}] qua Wi-Fi toi {effective_target}{esp_info}...")
 
                 elapsed = time.perf_counter() - t0
                 sleep_time = max(0.05, 0.65 - elapsed)
-                time.sleep(sleep_time)
+                cancel_event.wait(sleep_time)
             else:
                 burst_count = 0
                 time.sleep(0.2)
 
-    def auto_cycle_worker(self):
-        """Thread tự động xoay tua các kịch bản sau mỗi cycle_interval (khi bật Auto-Cycle)."""
+    def auto_cycle_worker(self) -> None:
+        """Manual commands wake the cycle and invalidate its pending transition."""
         scenarios = ["Port_Scanning", "DDoS_UDP", "DDoS_TCP", "Vulnerability_scanner", "Uploading"]
         idx = 0
         while self.running:
-            if self.auto_cycle:
-                # 1. Bật tấn công kịch bản trong 10 giây
-                scenario = scenarios[idx]
-                idx = (idx + 1) % len(scenarios)
-                print(f"\n[AutoCycle] Chuyen sang kich ban: {scenario} (chay trong 10s)...")
-                self.set_scenario(scenario)
-                time.sleep(10.0)
-
-                # 2. Nghỉ về Normal 8 giây để người dùng thấy biểu đồ hạ xuống
-                print(f"[AutoCycle] Nghi 8s ve trang thai Normal...")
+            with self.lock:
+                self.cycle_wakeup.clear()
+                enabled = self.auto_cycle
+                if enabled:
+                    self.set_scenario(scenarios[idx % len(scenarios)])
+                    idx += 1
+            if not enabled:
+                self.cycle_wakeup.wait(1.0)
+                continue
+            if self.cycle_wakeup.wait(10.0):
+                continue
+            with self.lock:
+                if not self.auto_cycle:
+                    continue
                 self.set_scenario("Normal")
-                time.sleep(8.0)
-            else:
-                time.sleep(1.0)
+            self.cycle_wakeup.wait(8.0)
 
     def on_mqtt_message(self, client, userdata, msg):
         """Xử lý lệnh điều khiển nhận từ Web Dashboard và cập nhật trạng thái node."""
@@ -413,11 +503,21 @@ class AttackTrafficController:
                         self.publish_status()
                 return
 
+            if getattr(msg, "retain", False):
+                return  # A retained command must never start a fresh workload.
+            command_id = payload.get("command_id")
+            if command_id and command_id in self.seen_commands:
+                self.publish_status()
+                return
+            if command_id:
+                self.seen_commands.append(command_id)
+                self.seen_commands = self.seen_commands[-128:]
+            self.command_id = command_id
             cmd = payload.get("command", "").upper()
             mode = payload.get("mode", "Normal")
             target = payload.get("target_ip")
             if target and str(target).strip() and str(target).strip().lower() != "null":
-                candidate = str(target).strip()
+                candidate = validate_lab_target(str(target).strip())
                 if self.esp32_ip and candidate == self.esp32_ip:
                     self.target_ip = self.gateway_ip
                     print(f"\n[AttackGenerator] [Bao ve ESP32] Chuyen target tu ESP32 sang Gateway ({self.target_ip}) de ESP32 sniffer khong bi ngat ket noi.")
@@ -425,17 +525,24 @@ class AttackTrafficController:
                     self.target_ip = candidate
 
             if cmd in ("TRIGGER", "INJECT_MODE"):
+                with self.lock:
+                    self.auto_cycle = False
+                    self.cycle_wakeup.set()
                 effective = self.gateway_ip if (self.esp32_ip and self.target_ip == self.esp32_ip) else self.target_ip
                 print(f"\n[AttackGenerator] Nhan lenh tu Web UI: Kich hoat [{mode}] tren song Wi-Fi toi {effective}")
                 self.set_scenario(mode)
 
             elif cmd == "STOP":
                 print("\n[AttackGenerator] Nhan lenh tu Web UI: DUNG TAN CONG (Normal)")
-                self.auto_cycle = False
-                self.set_scenario("Normal")
+                with self.lock:
+                    self.auto_cycle = False
+                    self.cycle_wakeup.set()
+                    self.set_scenario("Normal")
 
             elif cmd == "AUTO_CYCLE":
-                self.auto_cycle = bool(payload.get("enabled", True))
+                with self.lock:
+                    self.auto_cycle = bool(payload.get("enabled", True))
+                    self.cycle_wakeup.set()
                 state_str = "BAT" if self.auto_cycle else "TAT"
                 print(f"\n[AttackGenerator] Che do Tu dong xoay tua: {state_str}")
                 if not self.auto_cycle:
@@ -450,8 +557,8 @@ class AttackTrafficController:
     def on_mqtt_connect(self, client, userdata, flags, rc, properties=None):
         if rc == 0:
             print(f"  -> Attack Traffic Generator da ket noi MQTT Broker tai {self.broker_host}:{self.broker_port}")
-            client.subscribe("edge/attack/control")
-            client.subscribe("edge/simulator/control")
+            client.subscribe("edge/attack/control", qos=1)
+            client.subscribe("edge/simulator/control", qos=1)
             client.subscribe("edge/nodes/status")
             client.subscribe("edge/telemetry/traffic")
             self.publish_status()
@@ -500,6 +607,10 @@ class AttackTrafficController:
             print("\n[AttackGenerator] Dung tien trinh phat sinh tan cong.")
         finally:
             self.running = False
+            self.cancel_event.set()
+            self.cycle_wakeup.set()
+            t_runner.join(timeout=5.0)
+            t_auto.join(timeout=2.0)
             self.mqtt_client.loop_stop()
             self.mqtt_client.disconnect()
 

@@ -74,7 +74,7 @@ EDGE_IIOTSET_FEATURES: List[str] = [
     "mbtcp.unit_id"
 ]
 
-# 8 chỉ số thống kê rút gọn từ luồng gói tin trong cửa sổ thời gian (sliding window):
+# 8 chỉ số thống kê rút gọn cơ sở từ luồng gói tin trong cửa sổ thời gian (sliding window):
 SLIDING_WINDOW_FEATURES: List[str] = [
     "packet_rate",
     "byte_rate",
@@ -86,7 +86,62 @@ SLIDING_WINDOW_FEATURES: List[str] = [
     "unique_dst_ports"
 ]
 
-# Mặc định sử dụng bộ đặc trưng đầy đủ 61 đặc trưng đầu vào
+# Tập đặc trưng mở rộng toàn diện (L3/L4 Extended Features Pool - Theo khuyến nghị GPT):
+# Khắc phục thiếu sót về: endpoint diversity, TCP flags, semantic state, packet distribution, IAT và entropy
+SLIDING_WINDOW_EXTENDED_FEATURES: List[str] = [
+    # 1. Thể tích & Lưu lượng cơ sở (Traffic Volume)
+    "packet_rate",
+    "byte_rate",
+    "avg_packet_size",
+    "packet_size_std",
+    # 2. Phân bố giao thức tầng mạng (Protocol Distribution)
+    "tcp_ratio",
+    "udp_ratio",
+    "icmp_ratio",
+    # 3. Trạng thái và cờ TCP chi tiết (Detailed TCP Flags & Connection State)
+    "syn_ratio",
+    "ack_ratio",
+    "rst_ratio",
+    "fin_ratio",
+    "syn_completion_ratio",
+    # 4. Độ đa dạng địa chỉ và cổng (Endpoint Diversity - Phản ánh "D" trong DDoS & Quét mạng)
+    "unique_src_ports",
+    "unique_dst_ports",
+    "unique_src_ips",
+    "unique_dst_ips",
+    "src_dst_pair_count",
+    # 5. Động lực học thời gian & Khoảng cách giữa các gói (Temporal Dynamics & IAT - Bắt Low & Slow)
+    "mean_iat",
+    "std_iat",
+    # 6. Entropy cổng dịch vụ (Port Scanning & Vulnerability Recognition)
+    "dst_port_entropy"
+]
+
+# ==============================================================================
+# DANH MỤC CỘT METADATA & NHÃN CẤM RÒ RỈ VÀO TẬP ĐẶC TRƯNG HUẤN LUYỆN (DATA LEAKAGE PREVENTION)
+# ==============================================================================
+DATA_LEAKAGE_METADATA_COLUMNS: List[str] = [
+    "session_id",
+    "timestamp",
+    "datetime_iso",
+    "probe_type",
+    "sniffer_mode",
+    "channel",
+    "ground_truth_scenario",
+    "is_attack",
+    "label",
+    "Attack_label",
+    "Attack_type",
+    "predicted_threat",
+    "anomaly_score",
+    "confidence",
+    "edge_prediction",
+    "edge_flag",
+    "attack_scenario",
+    "attack_status"
+]
+
+# Mặc định sử dụng bộ đặc trưng đầy đủ 56 đặc trưng đầu vào của Edge-IIoTset
 FEATURE_NAMES: List[str] = EDGE_IIOTSET_FEATURES
 
 # ==============================================================================
@@ -147,6 +202,30 @@ class FeatureVector(TypedDict):
     unique_dst_ports: float
 
 
+class ExtendedFeatureVector(TypedDict, total=False):
+    """Cấu trúc dữ liệu đặc trưng mở rộng (L3/L4 Extended Feature Set)."""
+    packet_rate: float
+    byte_rate: float
+    avg_packet_size: float
+    packet_size_std: float
+    tcp_ratio: float
+    udp_ratio: float
+    icmp_ratio: float
+    syn_ratio: float
+    ack_ratio: float
+    rst_ratio: float
+    fin_ratio: float
+    syn_completion_ratio: float
+    unique_src_ports: int
+    unique_dst_ports: int
+    unique_src_ips: int
+    unique_dst_ips: int
+    src_dst_pair_count: int
+    mean_iat: float
+    std_iat: float
+    dst_port_entropy: float
+
+
 class TelemetryPayload(TypedDict, total=False):
     """Cấu trúc gói tin Telemetry gửi từ cảm biến/Simulator qua MQTT."""
     device_id: str
@@ -154,11 +233,24 @@ class TelemetryPayload(TypedDict, total=False):
     packet_rate: float
     byte_rate: float
     avg_packet_size: float
+    packet_size_std: float
     syn_ratio: float
     ack_ratio: float
+    rst_ratio: float
+    fin_ratio: float
+    syn_completion_ratio: float
+    tcp_ratio: float
     udp_ratio: float
     icmp_ratio: float
-    unique_dst_ports: float
+    unique_src_ports: int
+    unique_dst_ports: int
+    unique_src_ips: int
+    unique_dst_ips: int
+    src_dst_pair_count: int
+    mean_iat: float
+    std_iat: float
+    dst_port_entropy: float
     tcp_packets: int
     udp_packets: int
     icmp_packets: int
+

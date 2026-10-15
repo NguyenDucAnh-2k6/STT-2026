@@ -10,6 +10,8 @@ Cung cấp các luồng dịch vụ chạy ngầm:
 import time
 import socket
 import json
+import logging
+import threading
 from .network import auto_detect_wifi_credentials, update_env_file, sync_env_to_firmware
 
 # Biến toàn cục lưu IP LAN máy tính phục vụ UDP Beacon và Roaming
@@ -67,53 +69,69 @@ def network_roaming_watcher_worker(root_dir: str):
                 ACTIVE_LAN_IP = curr_ip
 
                 if curr_ssid and curr_pwd and curr_ip:
-                    update_env_file(root_dir, curr_ssid, curr_pwd, curr_ip)
+                    # Keep explicit .env values intact. A changed SSID requires a new build/flash.
                     sync_env_to_firmware(root_dir)
         except Exception:
             pass
 
 
-def serial_telemetry_bridge_worker(com_port: str, broker_port: int = 1883):
+def serial_telemetry_bridge_worker(com_port: str, broker_port: int = 1883,
+                                   broker_host: str = "127.0.0.1",
+                                   stop_event: threading.Event | None = None) -> None:
     """
-    Cầu nối Telemetry dự phòng qua cáp USB Serial (Dual-Transport High Availability).
-    Khi ESP32 cắm qua cổng USB, luồng này liên tục lắng nghe các gói tin JSON từ Serial.
-    Nếu Wi-Fi bị ngắt do chuyển mạng hoặc router có AP Isolation, dữ liệu từ ESP32
-    vẫn được truyền thẳng vào MQTT Broker cục bộ (127.0.0.1:1883) mà không bị gián đoạn 1 giây nào!
+    Forward bounded radio frames and windows; MQTT/USB identities are deduplicated downstream.
     """
     try:
         import serial
         import paho.mqtt.client as mqtt
-    except ImportError:
+    except ImportError as exc:
+        logging.getLogger(__name__).error("USB bridge unavailable: install pyserial and paho-mqtt (%s)", exc.name)
         return
-
+    stop = stop_event if stop_event is not None else threading.Event()
     mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="ESP32-USB-Serial-Bridge")
+    mqtt_client.max_queued_messages_set(128)
     try:
-        mqtt_client.connect("127.0.0.1", broker_port, keepalive=60)
+        mqtt_client.connect(broker_host, broker_port, keepalive=60)
         mqtt_client.loop_start()
     except Exception as e:
-        print(f"[SerialBridge] Khong the ket noi MQTT 127.0.0.1: {e}")
+        print(f"[SerialBridge] Khong the ket noi MQTT: {type(e).__name__}")
+        mqtt_client.disconnect()
         return
 
     print(f"  [SerialBridge] Da kich hoat cau noi USB Serial Telemetry tren {com_port} (115200 baud).")
-    print(f"                 (Dam bao luu luong van truyen 100% ve Web Dashboard ke ca khi mat ket noi Wi-Fi!)")
-
-    last_forwarded_ts = 0.0
-    while True:
-        try:
-            with serial.Serial(com_port, 115200, timeout=2.0) as ser:
-                while True:
-                    line = ser.readline().decode("utf-8", errors="ignore").strip()
-                    if line.startswith("ESP32_TELEMETRY:"):
-                        json_str = line[len("ESP32_TELEMETRY:"):].strip()
-                        # Kiểm tra tính toàn vẹn cú pháp JSON trước khi forward sang MQTT
-                        if json_str.startswith("{") and json_str.endswith("}"):
-                            try:
-                                json.loads(json_str)  # Xác thực gói tin trọn vẹn
-                                now = time.time()
-                                if now - last_forwarded_ts >= 0.5:
-                                    mqtt_client.publish("edge/telemetry/traffic", json_str)
-                                    last_forwarded_ts = now
-                            except Exception:
-                                pass  # Bỏ qua dòng bị đọc dở hoặc rách frame do buffer Serial
-        except Exception:
-            time.sleep(2.0)
+    try:
+        while not stop.is_set():
+            try:
+                with serial.Serial(com_port, 115200, timeout=0.5) as ser:
+                    while not stop.is_set():
+                        raw = ser.read_until(b"\n", size=8193)
+                        if len(raw) > 8192 or not raw.endswith(b"\n"):
+                            continue
+                        line = raw.decode("utf-8", errors="strict").strip()
+                        topic = "edge/telemetry/radio" if line.startswith("ESP32_RADIO:") else (
+                            "edge/telemetry/traffic" if line.startswith("ESP32_TELEMETRY:") else None)
+                        if topic is None:
+                            continue
+                        try:
+                            payload = json.loads(line.split(":", 1)[1], parse_constant=lambda value: (_ for _ in ()).throw(ValueError("Non-finite JSON")))
+                            if not isinstance(payload, dict) or not isinstance(payload.get("device_id"), str):
+                                raise ValueError("Invalid telemetry identity/shape")
+                            if topic == "edge/telemetry/radio":
+                                from firmware.esp32_probe.radio_capture import parse_radio_sample
+                                parse_radio_sample(payload, int(time.time() * 1000))
+                            encoded = json.dumps(payload, allow_nan=False)
+                            result = mqtt_client.publish(topic, encoded, qos=1, retain=False)
+                            if result.rc != mqtt.MQTT_ERR_SUCCESS:
+                                logging.getLogger(__name__).warning("USB bridge MQTT publish failed: rc=%s", result.rc)
+                            if topic == "edge/telemetry/traffic" and payload.get("radio_capture_version") == 1:
+                                window_result = mqtt_client.publish("edge/telemetry/window", encoded, qos=0, retain=False)
+                                if window_result.rc != mqtt.MQTT_ERR_SUCCESS:
+                                    logging.getLogger(__name__).warning("USB window publish failed: rc=%s", window_result.rc)
+                        except (ValueError, TypeError):
+                            logging.getLogger(__name__).warning("USB bridge rejected malformed telemetry")
+            except (serial.SerialException, OSError, UnicodeError):
+                logging.getLogger(__name__).warning("USB telemetry disconnected; retrying")
+                stop.wait(2)
+    finally:
+        mqtt_client.disconnect()
+        mqtt_client.loop_stop()

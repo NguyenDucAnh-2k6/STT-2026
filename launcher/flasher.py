@@ -181,9 +181,10 @@ def flash_esp32_cli(root_dir: str, com_port: Optional[str] = None) -> bool:
     print(f"   [CLI FLASH] DANG BIEN DICH VA NAP FIRMWARE ESP32 TAI CONG {port}...")
     print("=" * 70)
 
+    fqbn = "esp32:esp32:esp32:PartitionScheme=huge_app"
     # 1. Biên dịch
-    print(f"  [1/2] Biên dịch sketch {os.path.relpath(ino_path, root_dir)} (FQBN: esp32:esp32:esp32)...")
-    cmd_compile = [arduino_cli, "compile", "--fqbn", "esp32:esp32:esp32", ino_path]
+    print(f"  [1/2] Biên dịch sketch {os.path.relpath(ino_path, root_dir)} (FQBN: {fqbn})...")
+    cmd_compile = [arduino_cli, "compile", "--fqbn", fqbn, ino_path]
     try:
         ret_compile = subprocess.run(cmd_compile, capture_output=True, text=True)
         if ret_compile.returncode != 0:
@@ -196,7 +197,7 @@ def flash_esp32_cli(root_dir: str, com_port: Optional[str] = None) -> bool:
 
     # 2. Nạp code qua cổng COM
     print(f"  [2/2] Nạp firmware lên board ESP32 qua cổng {port}...")
-    cmd_upload = [arduino_cli, "upload", "-p", port, "--fqbn", "esp32:esp32:esp32", ino_path]
+    cmd_upload = [arduino_cli, "upload", "-p", port, "--fqbn", fqbn, ino_path]
     try:
         ret_upload = subprocess.run(cmd_upload, capture_output=True, text=True)
         if ret_upload.returncode != 0:

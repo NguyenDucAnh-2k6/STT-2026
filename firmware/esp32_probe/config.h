@@ -16,8 +16,15 @@
 #define MQTT_BROKER_HOST "192.168.1.100"
 #endif
 
+#ifndef MQTT_BROKER_PORT
 #define MQTT_BROKER_PORT 1883
+#endif
+#ifndef MQTT_CLIENT_ID
 #define MQTT_CLIENT_ID "ESP32-EdgeProbe-01"
+#endif
+#ifndef MQTT_AUTO_DISCOVERY
+#define MQTT_AUTO_DISCOVERY 0
+#endif
 
 // --- MQTT Topics ---
 #define TOPIC_TRAFFIC_TELEMETRY "edge/telemetry/traffic"
@@ -27,6 +34,12 @@
 // --- Telemetry & Sampling Settings ---
 // Cửa sổ lấy mẫu thống kê gói tin (milliseconds)
 #define SAMPLING_WINDOW_MS 2000
+
+// Bounded radio samples for host-side dissection (115200 baud USB budget).
+#define RADIO_FRAME_CAPACITY 4
+#define RADIO_FRAME_MAX_BYTES 2048
+#define RADIO_FRAME_INTERVAL_MS 750
+#define TOPIC_RADIO_FRAMES "edge/telemetry/radio"
 
 // --- Chế độ dò sóng mạng (Sniffer Mode) ---
 // SNIFFER_MODE_ALL_NETWORKS:
@@ -62,6 +75,7 @@
   -1 // Reset pin (-1 nếu dùng chung reset ESP32, hoặc GPIO 16 trên bo mạch
      // Heltec WiFi Kit 32)
 #define SCREEN_ADDRESS 0x3C // Địa chỉ I2C SSD1306 mặc định (0x3C hoặc 0x3D)
+#define OLED_I2C_ADDR SCREEN_ADDRESS // Bí danh tương thích
 
 // --- Sơ đồ chân I2C phần cứng trên ESP32 ---
 // Khớp chính xác với màu dây cắm thực tế của bạn:
@@ -71,6 +85,8 @@
 // - Xanh : ESP32 D21 -> OLED SDA
 #define PIN_I2C_SDA 21 // Chân SDA I2C OLED (GPIO 21 - Dây xanh)
 #define PIN_I2C_SCL 23 // Chân SCL/SCK I2C OLED (GPIO 23 - Dây vàng)
+#define PIN_OLED_SDA PIN_I2C_SDA // Bí danh tương thích
+#define PIN_OLED_SCL PIN_I2C_SCL // Bí danh tương thích
 
 #define PIN_RED_LED 4 // Đèn LED đỏ ngoại vi cảnh báo tấn công (GPIO 4)
 #define PIN_BUZZER 19 // Còi chíp Buzzer báo động âm thanh (GPIO 19)

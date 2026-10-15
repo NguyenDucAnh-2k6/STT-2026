@@ -71,7 +71,7 @@ export class LakehouseModalComponent {
       if (res.ok) {
         const s = await res.json();
         if (this.elRecords) this.elRecords.innerText = (s.total_records || 0).toLocaleString();
-        if (this.elSplit) this.elSplit.innerText = `Normal: ${(s.normal_records || 0).toLocaleString()} | Attack: ${(s.attack_records || 0).toLocaleString()}`;
+        if (this.elSplit) this.elSplit.innerText = `Normal: ${(s.normal_records || 0).toLocaleString()} | Attack: ${(s.attack_records || 0).toLocaleString()} | Unknown: ${(s.unknown_records || 0).toLocaleString()}`;
         if (this.elStorage) this.elStorage.innerText = `${(s.total_storage_kb || 0).toLocaleString()} KB`;
         if (this.elSessionsCount) this.elSessionsCount.innerText = `${s.total_sessions || 0} sessions Parquet`;
       }
@@ -136,8 +136,10 @@ export class LakehouseModalComponent {
       const sid = s.session_id || "unknown";
       const start = s.start_time ? new Date(s.start_time * 1000).toLocaleTimeString("vi-VN") : "--";
       const records = (s.records_count || 0).toLocaleString();
-      const scenario = s.attack_scenario || "Normal";
-      const isAttack = scenario !== "Normal";
+      const scenario = s.attack_scenario || "Unknown";
+      const isUnknown = scenario === "Unknown" || scenario === "Mixed";
+      const isAttack = !isUnknown && scenario !== "Normal";
+      const labelColor = isUnknown ? 'var(--amber-warning)' : isAttack ? 'var(--crimson-danger)' : 'var(--emerald-safe)';
       const synced = s.is_synced ? `<span style="color: var(--emerald-safe);">Đã Sync</span>` : `<span style="color: var(--amber-warning);">Chưa Sync</span>`;
 
       return `
@@ -146,7 +148,7 @@ export class LakehouseModalComponent {
           <td style="padding: 8px 12px; color: var(--text-muted);">${start}</td>
           <td style="padding: 8px 12px; color: var(--cyan-neon);">${records}</td>
           <td style="padding: 8px 12px;">
-            <span style="padding: 2px 6px; border-radius: 4px; background: ${isAttack ? 'rgba(255, 0, 85, 0.15)' : 'rgba(0, 255, 157, 0.15)'}; color: ${isAttack ? 'var(--crimson-danger)' : 'var(--emerald-safe)'}; border: 1px solid ${isAttack ? 'rgba(255, 0, 85, 0.3)' : 'rgba(0, 255, 157, 0.3)'};">
+            <span style="padding: 2px 6px; border-radius: 4px; color: ${labelColor}; border: 1px solid ${labelColor};">
               ${scenario}
             </span>
           </td>

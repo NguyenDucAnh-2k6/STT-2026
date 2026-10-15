@@ -1,0 +1,3117 @@
+{
+  "annotation_id": "b8b88438c979456b8ac417133f1c1fe8",
+  "basis": "operator_report_no_attacks",
+  "normal_rows": 304685,
+  "skipped_lab_unknown": 4475,
+  "files": [
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000000.parquet",
+      "normal_rows": 261
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000001.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000002.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000003.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000004.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000005.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000006.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000007.parquet",
+      "normal_rows": 496
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000008.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000009.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000010.parquet",
+      "normal_rows": 449
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000011.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000012.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000013.parquet",
+      "normal_rows": 435
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000014.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000015.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000016.parquet",
+      "normal_rows": 411
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000017.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000018.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000019.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000020.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000021.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000022.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000023.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000024.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000025.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000026.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000027.parquet",
+      "normal_rows": 474
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000028.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000029.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000030.parquet",
+      "normal_rows": 458
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000031.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000032.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000033.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000034.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000035.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000036.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000037.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000038.parquet",
+      "normal_rows": 30
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000039.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000040.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000041.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000042.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000043.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000044.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000045.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000046.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000047.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000048.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000049.parquet",
+      "normal_rows": 436
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000050.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000051.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000052.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000053.parquet",
+      "normal_rows": 79
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000054.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000055.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000056.parquet",
+      "normal_rows": 454
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000057.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000058.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000059.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000060.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000061.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000062.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000063.parquet",
+      "normal_rows": 483
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000064.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000065.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000066.parquet",
+      "normal_rows": 455
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000067.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000068.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000069.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000070.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000071.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000072.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000073.parquet",
+      "normal_rows": 454
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000074.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000075.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000076.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000077.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000078.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000079.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000080.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000081.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000082.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000083.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000084.parquet",
+      "normal_rows": 458
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000085.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000086.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000087.parquet",
+      "normal_rows": 434
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000088.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000089.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000090.parquet",
+      "normal_rows": 387
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000091.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000092.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000093.parquet",
+      "normal_rows": 383
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000094.parquet",
+      "normal_rows": 484
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000095.parquet",
+      "normal_rows": 454
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000096.parquet",
+      "normal_rows": 471
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000097.parquet",
+      "normal_rows": 141
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000098.parquet",
+      "normal_rows": 488
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000099.parquet",
+      "normal_rows": 442
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000100.parquet",
+      "normal_rows": 463
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000101.parquet",
+      "normal_rows": 475
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000102.parquet",
+      "normal_rows": 482
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000103.parquet",
+      "normal_rows": 105
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000104.parquet",
+      "normal_rows": 408
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000105.parquet",
+      "normal_rows": 440
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000106.parquet",
+      "normal_rows": 339
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000107.parquet",
+      "normal_rows": 438
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000108.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000109.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000110.parquet",
+      "normal_rows": 68
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000111.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000112.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000113.parquet",
+      "normal_rows": 425
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000114.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000115.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000116.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000117.parquet",
+      "normal_rows": 260
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000118.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000119.parquet",
+      "normal_rows": 463
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000120.parquet",
+      "normal_rows": 462
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000121.parquet",
+      "normal_rows": 477
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000122.parquet",
+      "normal_rows": 476
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000123.parquet",
+      "normal_rows": 478
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000124.parquet",
+      "normal_rows": 481
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000125.parquet",
+      "normal_rows": 478
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000126.parquet",
+      "normal_rows": 461
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000127.parquet",
+      "normal_rows": 476
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000128.parquet",
+      "normal_rows": 420
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000129.parquet",
+      "normal_rows": 447
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000130.parquet",
+      "normal_rows": 465
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000131.parquet",
+      "normal_rows": 467
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000132.parquet",
+      "normal_rows": 58
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000133.parquet",
+      "normal_rows": 429
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000134.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000135.parquet",
+      "normal_rows": 319
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000136.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000137.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000138.parquet",
+      "normal_rows": 221
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000139.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000140.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000141.parquet",
+      "normal_rows": 112
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000142.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000143.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000144.parquet",
+      "normal_rows": 323
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000145.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000146.parquet",
+      "normal_rows": 486
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000147.parquet",
+      "normal_rows": 191
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000148.parquet",
+      "normal_rows": 398
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000149.parquet",
+      "normal_rows": 462
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000150.parquet",
+      "normal_rows": 233
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000151.parquet",
+      "normal_rows": 396
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000152.parquet",
+      "normal_rows": 472
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000153.parquet",
+      "normal_rows": 381
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000154.parquet",
+      "normal_rows": 463
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000155.parquet",
+      "normal_rows": 488
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000156.parquet",
+      "normal_rows": 399
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000157.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000158.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000159.parquet",
+      "normal_rows": 269
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000160.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000161.parquet",
+      "normal_rows": 100
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000162.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000163.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000164.parquet",
+      "normal_rows": 110
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000165.parquet",
+      "normal_rows": 469
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000166.parquet",
+      "normal_rows": 470
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000167.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000168.parquet",
+      "normal_rows": 483
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000169.parquet",
+      "normal_rows": 477
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000170.parquet",
+      "normal_rows": 241
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000171.parquet",
+      "normal_rows": 462
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000172.parquet",
+      "normal_rows": 466
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000173.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000174.parquet",
+      "normal_rows": 497
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000175.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000176.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000177.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000178.parquet",
+      "normal_rows": 437
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000179.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000180.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000181.parquet",
+      "normal_rows": 411
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000182.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000183.parquet",
+      "normal_rows": 496
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000184.parquet",
+      "normal_rows": 236
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000185.parquet",
+      "normal_rows": 490
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000186.parquet",
+      "normal_rows": 462
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000187.parquet",
+      "normal_rows": 481
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000188.parquet",
+      "normal_rows": 483
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000189.parquet",
+      "normal_rows": 441
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000190.parquet",
+      "normal_rows": 150
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000191.parquet",
+      "normal_rows": 476
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000192.parquet",
+      "normal_rows": 437
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000193.parquet",
+      "normal_rows": 484
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000194.parquet",
+      "normal_rows": 57
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000195.parquet",
+      "normal_rows": 425
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000196.parquet",
+      "normal_rows": 455
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000197.parquet",
+      "normal_rows": 333
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000198.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000199.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000200.parquet",
+      "normal_rows": 283
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000201.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000202.parquet",
+      "normal_rows": 485
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000203.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000204.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000205.parquet",
+      "normal_rows": 261
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000206.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000207.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000208.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000209.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000210.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000211.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000212.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000213.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000214.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000215.parquet",
+      "normal_rows": 451
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000216.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000217.parquet",
+      "normal_rows": 421
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000218.parquet",
+      "normal_rows": 433
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000219.parquet",
+      "normal_rows": 354
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000220.parquet",
+      "normal_rows": 388
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000221.parquet",
+      "normal_rows": 443
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000222.parquet",
+      "normal_rows": 293
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000223.parquet",
+      "normal_rows": 402
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000224.parquet",
+      "normal_rows": 464
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000225.parquet",
+      "normal_rows": 483
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000226.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000227.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000228.parquet",
+      "normal_rows": 203
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000229.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000230.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000231.parquet",
+      "normal_rows": 433
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000232.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000233.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000234.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000235.parquet",
+      "normal_rows": 65
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000236.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000237.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000238.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000239.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000240.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000241.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_1ed7a99502fd4f07b1431e8f6f8297c9_batch_000242.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000000.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000001.parquet",
+      "normal_rows": 223
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000002.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000003.parquet",
+      "normal_rows": 283
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000004.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000005.parquet",
+      "normal_rows": 332
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000006.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000007.parquet",
+      "normal_rows": 214
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000008.parquet",
+      "normal_rows": 449
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000009.parquet",
+      "normal_rows": 216
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000010.parquet",
+      "normal_rows": 431
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000011.parquet",
+      "normal_rows": 116
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000012.parquet",
+      "normal_rows": 429
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000013.parquet",
+      "normal_rows": 151
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000014.parquet",
+      "normal_rows": 491
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000015.parquet",
+      "normal_rows": 238
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000016.parquet",
+      "normal_rows": 449
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000017.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000018.parquet",
+      "normal_rows": 127
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000019.parquet",
+      "normal_rows": 495
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000020.parquet",
+      "normal_rows": 84
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000021.parquet",
+      "normal_rows": 389
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000022.parquet",
+      "normal_rows": 216
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000023.parquet",
+      "normal_rows": 453
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000024.parquet",
+      "normal_rows": 284
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000025.parquet",
+      "normal_rows": 465
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000026.parquet",
+      "normal_rows": 380
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000027.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000028.parquet",
+      "normal_rows": 224
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000029.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000030.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000031.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000032.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000033.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000034.parquet",
+      "normal_rows": 137
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000035.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000036.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000037.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000038.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000039.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000040.parquet",
+      "normal_rows": 8
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000041.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000042.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000043.parquet",
+      "normal_rows": 81
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000044.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000045.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000046.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000047.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000048.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000049.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000050.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000051.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000052.parquet",
+      "normal_rows": 71
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000053.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000054.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000055.parquet",
+      "normal_rows": 70
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000056.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000057.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000058.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000059.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000060.parquet",
+      "normal_rows": 394
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000061.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000062.parquet",
+      "normal_rows": 465
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000063.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000064.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000065.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000066.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000067.parquet",
+      "normal_rows": 481
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000068.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000069.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000070.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000071.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000072.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000073.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000074.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000075.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000076.parquet",
+      "normal_rows": 15
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000077.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000078.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000079.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000080.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000081.parquet",
+      "normal_rows": 496
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000082.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000083.parquet",
+      "normal_rows": 476
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000084.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000085.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000086.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000087.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000088.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000089.parquet",
+      "normal_rows": 102
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000090.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000091.parquet",
+      "normal_rows": 496
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000092.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000093.parquet",
+      "normal_rows": 498
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000094.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000095.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000096.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000097.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000098.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000099.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000100.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000101.parquet",
+      "normal_rows": 464
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000102.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000103.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000104.parquet",
+      "normal_rows": 82
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000105.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000106.parquet",
+      "normal_rows": 491
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000107.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000108.parquet",
+      "normal_rows": 308
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000109.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000110.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000111.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000112.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000113.parquet",
+      "normal_rows": 469
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000114.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000115.parquet",
+      "normal_rows": 482
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000116.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000117.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000118.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000119.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000120.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000121.parquet",
+      "normal_rows": 20
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000122.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000123.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000124.parquet",
+      "normal_rows": 37
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000125.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000126.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000127.parquet",
+      "normal_rows": 141
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000128.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000129.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000130.parquet",
+      "normal_rows": 43
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000131.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000132.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000133.parquet",
+      "normal_rows": 244
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000134.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000135.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000136.parquet",
+      "normal_rows": 205
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000137.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000138.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000139.parquet",
+      "normal_rows": 95
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000140.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000141.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000142.parquet",
+      "normal_rows": 141
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000143.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000144.parquet",
+      "normal_rows": 471
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000145.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000146.parquet",
+      "normal_rows": 391
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000147.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000148.parquet",
+      "normal_rows": 307
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000149.parquet",
+      "normal_rows": 432
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000150.parquet",
+      "normal_rows": 313
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000151.parquet",
+      "normal_rows": 413
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000152.parquet",
+      "normal_rows": 355
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000153.parquet",
+      "normal_rows": 432
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000154.parquet",
+      "normal_rows": 443
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000155.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000156.parquet",
+      "normal_rows": 242
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000157.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000158.parquet",
+      "normal_rows": 477
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000159.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000160.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000161.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000162.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000163.parquet",
+      "normal_rows": 109
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000164.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000165.parquet",
+      "normal_rows": 420
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000166.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000167.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000168.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000169.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000170.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000171.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000172.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000173.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000174.parquet",
+      "normal_rows": 46
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000175.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000176.parquet",
+      "normal_rows": 491
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000177.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000178.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000179.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000180.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000181.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000182.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000183.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000184.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000185.parquet",
+      "normal_rows": 35
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000186.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000187.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000188.parquet",
+      "normal_rows": 146
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000189.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000190.parquet",
+      "normal_rows": 493
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000191.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000192.parquet",
+      "normal_rows": 458
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000193.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000194.parquet",
+      "normal_rows": 436
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000195.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000196.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000197.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000198.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000199.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000200.parquet",
+      "normal_rows": 17
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000201.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000202.parquet",
+      "normal_rows": 441
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000203.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000204.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000205.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000206.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000207.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000208.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000209.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000210.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000211.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000212.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000213.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000214.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000215.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000216.parquet",
+      "normal_rows": 491
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000217.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000218.parquet",
+      "normal_rows": 478
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000219.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000220.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000221.parquet",
+      "normal_rows": 73
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000222.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000223.parquet",
+      "normal_rows": 406
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000224.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000225.parquet",
+      "normal_rows": 410
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000226.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000227.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000228.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000229.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000230.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000231.parquet",
+      "normal_rows": 170
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000232.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000233.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000234.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000235.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000236.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000237.parquet",
+      "normal_rows": 83
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000238.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000239.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000240.parquet",
+      "normal_rows": 21
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000241.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000242.parquet",
+      "normal_rows": 497
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000243.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000244.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000245.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000246.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000247.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000248.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000249.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000250.parquet",
+      "normal_rows": 487
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000251.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000252.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000253.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000254.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000255.parquet",
+      "normal_rows": 383
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000256.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000257.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000258.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000259.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000260.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000261.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000262.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000263.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000264.parquet",
+      "normal_rows": 26
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000265.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000266.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000267.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000268.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000269.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000270.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000271.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000272.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000273.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000274.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000275.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000276.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000277.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000278.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000279.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000280.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000281.parquet",
+      "normal_rows": 413
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000282.parquet",
+      "normal_rows": 415
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000283.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000284.parquet",
+      "normal_rows": 430
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000285.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000286.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000287.parquet",
+      "normal_rows": 6
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000288.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000289.parquet",
+      "normal_rows": 482
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000290.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000291.parquet",
+      "normal_rows": 495
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000292.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000293.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000294.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000295.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000296.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000297.parquet",
+      "normal_rows": 55
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000298.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000299.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000300.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000301.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000302.parquet",
+      "normal_rows": 472
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000303.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000304.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000305.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000306.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000307.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000308.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000309.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000310.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000311.parquet",
+      "normal_rows": 90
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000312.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000313.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000314.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000315.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000316.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000317.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000318.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000319.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000320.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000321.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000322.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000323.parquet",
+      "normal_rows": 2
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000324.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000325.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000326.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000327.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000328.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000329.parquet",
+      "normal_rows": 24
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000330.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000331.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000332.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000333.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000334.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000335.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000336.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000337.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000338.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000339.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000340.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000341.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000342.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000343.parquet",
+      "normal_rows": 431
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000344.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000345.parquet",
+      "normal_rows": 447
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000346.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000347.parquet",
+      "normal_rows": 351
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000348.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000349.parquet",
+      "normal_rows": 439
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000350.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000351.parquet",
+      "normal_rows": 378
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000352.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000353.parquet",
+      "normal_rows": 415
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000354.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000355.parquet",
+      "normal_rows": 470
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000356.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000357.parquet",
+      "normal_rows": 441
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000358.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000359.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000360.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000361.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000362.parquet",
+      "normal_rows": 492
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000363.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000364.parquet",
+      "normal_rows": 481
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000365.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000366.parquet",
+      "normal_rows": 427
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000367.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000368.parquet",
+      "normal_rows": 499
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000369.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000370.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000371.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000372.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000373.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000374.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000375.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000376.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000377.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000378.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000379.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000380.parquet",
+      "normal_rows": 67
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000381.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000382.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000383.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000384.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000385.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000386.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000387.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000388.parquet",
+      "normal_rows": 432
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000389.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000390.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000391.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000392.parquet",
+      "normal_rows": 340
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000393.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000394.parquet",
+      "normal_rows": 361
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000395.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000396.parquet",
+      "normal_rows": 271
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000397.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000398.parquet",
+      "normal_rows": 285
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000399.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000400.parquet",
+      "normal_rows": 362
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000401.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000402.parquet",
+      "normal_rows": 482
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000403.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000404.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000405.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000406.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000407.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000408.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000409.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000410.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000411.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000412.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000413.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000414.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000415.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000416.parquet",
+      "normal_rows": 439
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000417.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000418.parquet",
+      "normal_rows": 478
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000419.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000420.parquet",
+      "normal_rows": 411
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000421.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000422.parquet",
+      "normal_rows": 431
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000423.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000424.parquet",
+      "normal_rows": 454
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000425.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000426.parquet",
+      "normal_rows": 478
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000427.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000428.parquet",
+      "normal_rows": 407
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000429.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000430.parquet",
+      "normal_rows": 480
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000431.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000432.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000433.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000434.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000435.parquet",
+      "normal_rows": 439
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000436.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000437.parquet",
+      "normal_rows": 483
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000438.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000439.parquet",
+      "normal_rows": 472
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000440.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000441.parquet",
+      "normal_rows": 401
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000442.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000443.parquet",
+      "normal_rows": 433
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000444.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000445.parquet",
+      "normal_rows": 424
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000446.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000447.parquet",
+      "normal_rows": 382
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000448.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000449.parquet",
+      "normal_rows": 464
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000450.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000451.parquet",
+      "normal_rows": 439
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000452.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000453.parquet",
+      "normal_rows": 383
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000454.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000455.parquet",
+      "normal_rows": 489
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000456.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000457.parquet",
+      "normal_rows": 417
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000458.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000459.parquet",
+      "normal_rows": 419
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000460.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000461.parquet",
+      "normal_rows": 388
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000462.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000463.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000464.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000465.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000466.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000467.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000468.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000469.parquet",
+      "normal_rows": 451
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000470.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000471.parquet",
+      "normal_rows": 495
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000472.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000473.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000474.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000475.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000476.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000477.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000478.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000479.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000480.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000481.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000482.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000483.parquet",
+      "normal_rows": 41
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000484.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000485.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000486.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000487.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000488.parquet",
+      "normal_rows": 308
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000489.parquet",
+      "normal_rows": 455
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000490.parquet",
+      "normal_rows": 76
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000491.parquet",
+      "normal_rows": 433
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000492.parquet",
+      "normal_rows": 56
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000493.parquet",
+      "normal_rows": 421
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000494.parquet",
+      "normal_rows": 56
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000495.parquet",
+      "normal_rows": 436
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000496.parquet",
+      "normal_rows": 273
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000497.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000498.parquet",
+      "normal_rows": 83
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000499.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000500.parquet",
+      "normal_rows": 307
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000501.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000502.parquet",
+      "normal_rows": 294
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000503.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000504.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000505.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000506.parquet",
+      "normal_rows": 260
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000507.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000508.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000509.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_969dab31db9e41cb9e18253004f5157a_batch_000510.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000000.parquet",
+      "normal_rows": 176
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000001.parquet",
+      "normal_rows": 377
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000002.parquet",
+      "normal_rows": 399
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000003.parquet",
+      "normal_rows": 397
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000004.parquet",
+      "normal_rows": 1
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000005.parquet",
+      "normal_rows": 470
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000006.parquet",
+      "normal_rows": 197
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000007.parquet",
+      "normal_rows": 393
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000008.parquet",
+      "normal_rows": 375
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000009.parquet",
+      "normal_rows": 495
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000010.parquet",
+      "normal_rows": 342
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000011.parquet",
+      "normal_rows": 184
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000012.parquet",
+      "normal_rows": 214
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000013.parquet",
+      "normal_rows": 483
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000014.parquet",
+      "normal_rows": 76
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000015.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000016.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000017.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000018.parquet",
+      "normal_rows": 207
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000019.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000020.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000021.parquet",
+      "normal_rows": 500
+    },
+    {
+      "path": "date=2026-10-12\\session_sess_afb62a0967624e42abf3d5056bce404b_batch_000022.parquet",
+      "normal_rows": 500
+    }
+  ],
+  "applied": false
+}

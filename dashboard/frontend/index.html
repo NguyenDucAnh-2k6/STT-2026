@@ -48,6 +48,7 @@
           <h1>
             EdgeGuard AI
             <span class="badge-edge">ESP32 &bull; TinyML</span>
+            <span id="brand-traffic-mode-pill" style="font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-family: var(--font-mono); background: rgba(143, 211, 185, 0.15); color: var(--cyan-neon); border: 1px solid rgba(143, 211, 185, 0.4);">L2-4 ENCRYPTED</span>
           </h1>
           <p class="brand-subtitle">
             Hệ thống Edge AI Phát Hiện Bất Thường Lưu Lượng Mạng Thời Gian Thực
@@ -56,6 +57,9 @@
       </div>
 
       <div class="header-actions">
+        <div class="system-status-indicator" id="traffic-domain-indicator" title="Traffic Domain: Encrypted L2-4 Headers vs Decrypted L7 DPI">
+          <span id="traffic-domain-badge" class="badge-traffic-mode badge-traffic-encrypted">🔒 MÃ HÓA (USTC-TFC2016 • 10 L2-4)</span>
+        </div>
         <button
           id="btn-audio-toggle"
           class="btn-cyber"
@@ -239,57 +243,379 @@
             >
               <polygon points="5 3 19 12 5 21 5 3" />
             </svg>
-            <span style="font-weight: 600; letter-spacing: 0.5px;">Bắn Gói Tin Mạng Thật (Real Socket Packet Injection):</span>
-            <span class="badge-edge" style="background: rgba(168, 85, 247, 0.2); border-color: var(--purple-accent); color: var(--purple-accent);">100% Raw Socket</span>
+            <span style="font-weight: 600; letter-spacing: 0.5px;">Phòng Thí Nghiệm &amp; Kịch Bản Lưu Lượng:</span>
+            <span id="control-domain-badge" class="badge-traffic-mode badge-traffic-encrypted">🔒 USTC-TFC2016 (Mã Hóa L2-4)</span>
           </div>
           <div style="display: flex; align-items: center; gap: 12px; font-size: 12px;">
+            <div style="display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 8px;">
+              <button id="tab-btn-encrypted-scenarios" class="btn-cyber active" style="font-size: 11px; padding: 3px 8px; border-color: var(--cyan-neon);">Mã Hóa (USTC-TFC2016)</button>
+              <button id="tab-btn-decrypted-scenarios" class="btn-cyber" style="font-size: 11px; padding: 3px 8px; border-color: var(--border-subtle); color: var(--text-muted);">Giải Mã (Edge-IIoTset)</button>
+            </div>
             <span style="color: var(--text-secondary);">Mục tiêu: <span id="attack-target-display" class="mono-text" style="color: var(--cyan-neon);">127.0.0.1</span></span>
             <span id="attack-status-display" style="padding: 3px 10px; border-radius: 20px; border: 1px solid var(--emerald-safe); color: var(--emerald-safe); background: rgba(0, 255, 157, 0.12); font-weight: 500;">
-              🟢 SẴN SÀNG (Lưu lượng bình thường)
+              Sẵn sàng — chưa thu thí nghiệm
             </span>
-            <button id="btn-auto-cycle" class="btn-cyber" style="padding: 3px 10px; font-size: 11px; border-color: var(--border-glass);">
+            <label>Thời lượng <input id="experiment-duration" type="number" min="1" max="60" value="15" style="width: 52px"> giây</label>
+            <button id="btn-stop-experiment" class="btn-cyber" disabled>Dừng &amp; lưu</button>
+            <button id="btn-auto-cycle" class="btn-cyber" disabled hidden style="display:none">
               🔄 Auto-Cycle: TẮT
             </button>
           </div>
         </div>
 
-        <div class="control-buttons-group">
-          <button
-            class="btn-cyber btn-attack btn-safe-mode active-scenario"
-            data-attack="Normal"
-          >
-            &#x25CF; Normal (Bình thường)
+        <!-- Encrypted Traffic Mode Scenarios (USTC-TFC2016 Malware Families) -->
+        <div id="encrypted-scenarios-group" class="control-buttons-group">
+          <button class="btn-cyber btn-attack btn-safe-mode active-scenario" data-attack="Normal">
+            &#x25CF; Normal (Lưu lượng sạch L2-4)
           </button>
-          <button
-            class="btn-cyber btn-attack btn-attack-danger"
-            data-attack="Port_Scanning"
-          >
-            &#x26A0; Port_Scanning (Quét cổng TCP SYN)
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Cridex">
+            🦠 Cridex (Banking Trojan)
           </button>
-          <button
-            class="btn-cyber btn-attack btn-attack-danger"
-            data-attack="Vulnerability_scanner"
-          >
-            &#x26A0; Vulnerability_scanner (Quét lỗ hổng)
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Geodo">
+            🦠 Geodo (Emotet/Spambot)
           </button>
-          <button
-            class="btn-cyber btn-attack btn-attack-danger"
-            data-attack="DDoS_TCP"
-          >
-            &#x26A0; DDoS_TCP (SYN Flood)
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Htbot">
+            🦠 Htbot (Backdoor Trojan)
           </button>
-          <button
-            class="btn-cyber btn-attack btn-attack-danger"
-            data-attack="DDoS_UDP"
-          >
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Miuref">
+            🦠 Miuref (ClickFraud/Adware)
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Neris">
+            🦠 Neris (IRC Spambot)
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Nsis-ay">
+            🦠 Nsis-ay (Dropper/Downloader)
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Shifu">
+            🦠 Shifu (Banking Trojan)
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Tinba">
+            🦠 Tinba (Tiny Financial Banker)
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Virut">
+            🦠 Virut (Polymorphic Virus)
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Zeus">
+            🦠 Zeus (Credential Stealer)
+          </button>
+        </div>
+
+        <!-- Decrypted Traffic Mode Scenarios (Edge-IIoTset Cleartext Classes) -->
+        <div id="decrypted-scenarios-group" class="control-buttons-group" style="display: none;">
+          <button class="btn-cyber btn-attack btn-safe-mode" data-attack="Normal">
+            &#x25CF; Normal — Thu HTTP GET/POST
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Port_Scanning">
+            &#x26A0; Port_Scanning (Nhiều cổng open/closed)
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Vulnerability_scanner">
+            &#x26A0; Vulnerability_scanner (HTTP endpoint probes)
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="DDoS_TCP">
+            &#x26A0; DDoS_TCP (SYN-only, cần Linux raw socket)
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="DDoS_UDP">
             &#x26A0; DDoS_UDP (Volumetric Flood)
           </button>
-          <button
-            class="btn-cyber btn-attack btn-attack-danger"
-            data-attack="Uploading"
-          >
-            &#x26A0; Uploading (Data Exfiltration)
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Uploading">
+            &#x26A0; Uploading (Multipart HTTP, file lab)
           </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="SQL_Injection" style="border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
+            &#x26A0; SQL_Injection (L7 Textual Attack)
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="DDoS_HTTP">
+            &#x26A0; DDoS_HTTP (HTTP lab workload)
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="XSS">
+            &#x26A0; XSS (Injection/reflection lab)
+          </button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="DDoS_ICMP">&#x26A0; DDoS_ICMP (Echo burst)</button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Password">&#x26A0; Password (Login attempts lab)</button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Fingerprinting">&#x26A0; Fingerprinting (TCP/ICMP lab probes)</button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="MITM">&#x26A0; MITM (DNS diversion lab)</button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Backdoor">&#x26A0; Backdoor (Reverse fixture channel)</button>
+          <button class="btn-cyber btn-attack btn-attack-danger" data-attack="Ransomware">&#x26A0; Ransomware (AES-GCM fixture lab)</button>
+        </div>
+
+        <!-- Adaptive L7 DPI / Encrypted Transport Detection Alert Box -->
+        <div id="l7-dpi-alert-box" style="display: none; align-items: center; justify-content: space-between; background: rgba(239, 68, 68, 0.12); border: 1px solid var(--crimson-danger); border-radius: 8px; padding: 8px 14px; font-size: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span id="l7-dpi-badge" class="badge-edge" style="background: rgba(239, 68, 68, 0.25); border-color: var(--crimson-danger); color: var(--crimson-danger); font-weight: 700;">🚨 PHÁT HIỆN ĐE DỌA</span>
+            <span style="color: #fff; font-weight: 600;">Họ tấn công / Mã độc: <span id="l7-dpi-threat-type" style="color: var(--crimson-danger);">Zeus</span></span>
+            <span style="color: var(--text-muted);">&bull;</span>
+            <span id="l7-dpi-clue-label" style="color: var(--text-secondary);">Đặc trưng phát hiện: <code id="l7-dpi-snippet" class="mono-text" style="color: #38bdf8; background: rgba(0, 0, 0, 0.4); padding: 2px 6px; border-radius: 4px;">Len: 1420 | Flags: 0x18 | Ack: 19842 | Csum: 0xA4F2</code></span>
+          </div>
+          <span id="l7-dpi-engine" style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">Engine: TinyML L2-4</span>
+        </div>
+      </section>
+
+      <!-- Digital Twin & RL Autonomous Defense Experimentation Lab Section -->
+      <section class="glass-panel digital-twin-section">
+        <!-- Section Header -->
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 14px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; margin: 0; color: #fff;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan-neon)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+              Sơ Đồ Đồ Thị Mạng Bản Sao Số (Digital Twin Topology) & Phòng Thí Nghiệm Tác Tử RL
+              <span class="badge-edge" style="font-size: 11px; background: rgba(0, 240, 255, 0.12); border-color: var(--cyan-neon); color: var(--cyan-neon);">CSMA/CA Physics &bull; Q-Policy &bull; NIST D3FEND</span>
+            </h2>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0 0;">
+              Mô phỏng vật lý vô tuyến 802.11 thời gian thực, trực quan hóa luồng dữ liệu & Thử nghiệm đóng vòng tác tử học tăng cường (RL Autonomous Defense Studio).
+            </p>
+            <p id="twin-status-toast" role="status" style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 0 0;"></p>
+          </div>
+
+          <!-- Channel Airtime Gauge & Control Tools -->
+          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.7); padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.2);">
+              <span style="font-size: 11.5px; color: var(--text-secondary);">WiFi Airtime:</span>
+              <div style="width: 80px; height: 7px; background: rgba(255, 255, 255, 0.1); border-radius: 4px; overflow: hidden;">
+                <div id="twin-airtime-bar" style="width: 25%; height: 100%; background: var(--cyan-neon); transition: width 0.3s ease;"></div>
+              </div>
+              <span id="twin-airtime-val" class="mono-text" style="font-size: 12px; font-weight: 700; color: var(--cyan-neon);">25.0%</span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.7); padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.2);">
+              <span style="font-size: 11.5px; color: var(--text-secondary);">Xung đột sóng (Collision):</span>
+              <span id="twin-collision-val" class="mono-text" style="font-size: 12px; font-weight: 700; color: var(--amber-warning);">1.2%</span>
+            </div>
+
+            <button id="btn-reset-topology-sim" class="btn-cyber" style="padding: 6px 14px; font-size: 12px; border-color: var(--border-glass);">
+              🔄 Reset Topology
+            </button>
+          </div>
+        </div>
+
+        <!-- 1. Sơ đồ đồ thị mạng tương tác TOÀN DIỆN (Full-Width Interactive Canvas Topology Graph) -->
+        <div class="topology-canvas-card">
+          <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
+            <span style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+              <span class="status-dot" style="background: var(--emerald-safe);"></span>
+              Đồ Thị Cấu Trúc Mạng & Luồng Hạt Tấn Công / Phòng Thủ Thời Gian Thực
+            </span>
+            <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
+              Nhấp chuột vào bất kỳ Node nào để soi chiếu chi tiết
+            </span>
+          </div>
+
+          <!-- Canvas Container (460px thoáng đãng) -->
+          <div class="topology-canvas-wrapper">
+            <canvas id="twinTopologyCanvas"></canvas>
+          </div>
+
+          <!-- Legend & Inspector Footer -->
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 11.5px; padding: 10px 6px 4px 6px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--text-muted);">
+              <span>🌐 Gateway Router</span>
+              <span>🛡️ EdgeGuard Host SOC</span>
+              <span>📡 ESP32 Sniffer</span>
+              <span>💻 Benign IoT</span>
+              <span>🦹 Rogue Attacker</span>
+              <span>🍯 Honeypot</span>
+              <span style="color: var(--cyan-neon);">🛡️ Cyber Firewall Barrier</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); color: var(--cyan-neon); background: rgba(15, 23, 42, 0.6); padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(0, 240, 255, 0.2);">
+              <span>Node: <strong id="inspect-node-role" style="color: #fff;">Rogue Attacker</strong></span>
+              <span>IP: <strong id="inspect-node-ip">192.168.1.199</strong></span>
+              <span>Rate: <strong id="inspect-node-rate">3500 pkts/s</strong></span>
+              <span>Loss: <strong id="inspect-node-loss">0.0%</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Studio Thử Nghiệm Tác Tử RL & Sandbox Dry-Run (2 Cột Cân Đối, Thoáng Đãng) -->
+        <div class="twin-studio-grid">
+          <!-- Cột Trái: Bảng Thử Nghiệm Tác Tử Học Tăng Cường (RL Decision & XAI Studio) -->
+          <div class="lab-panel-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 10px;">
+              <span style="font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan-neon)" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                Thử Nghiệm Tác Tử Học Tăng Cường (RL Policy Inference & XAI)
+              </span>
+              <span class="badge-edge" style="font-size: 10px; border-color: var(--cyan-neon); color: var(--cyan-neon);">Q-Learning Model</span>
+            </div>
+
+            <div class="lab-content-panel">
+              <div class="lab-form-row">
+                <label style="color: var(--text-secondary); font-weight: 500;">Kịch bản tấn công giả lập:</label>
+                <select id="rl-test-scenario-select" class="lab-select" style="width: 200px;">
+                  <option value="DDoS_TCP">DDoS_TCP (SYN Flood)</option>
+                  <option value="DDoS_UDP">DDoS_UDP (Volumetric)</option>
+                  <option value="Port_Scanning">Port_Scanning (SYN Scan)</option>
+                  <option value="SQL_Injection">SQL_Injection (L7 App Attack)</option>
+                  <option value="Vulnerability_scanner">Vulnerability Scanner</option>
+                  <option value="Uploading">Uploading (Data Exfil)</option>
+                  <option value="Normal">Normal (Lưu lượng sạch)</option>
+                </select>
+              </div>
+
+              <div class="lab-form-row">
+                <label style="color: var(--text-secondary); font-weight: 500;">Chỉ số Anomaly Score giả lập:</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <input type="range" id="rl-test-anomaly-slider" min="0.1" max="1.0" step="0.05" value="0.88" style="width: 110px; accent-color: var(--crimson-danger);" oninput="document.getElementById('rl-test-anomaly-val').textContent = this.value;">
+                  <span id="rl-test-anomaly-val" class="mono-text" style="font-size: 12px; font-weight: 700; color: var(--crimson-danger); width: 34px;">0.88</span>
+                </div>
+              </div>
+
+              <div class="lab-form-row">
+                <label style="color: var(--text-secondary); font-weight: 500;">Tốc độ gói tin (pkts/s):</label>
+                <input type="number" id="rl-test-packet-rate" class="lab-input" style="width: 140px;" value="3800" min="10" max="25000" step="100">
+              </div>
+
+              <div class="lab-form-row" style="align-items: flex-start;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <label style="color: var(--text-secondary); font-weight: 500;">Mục tiêu IP can thiệp:</label>
+                  <span style="font-size: 10.5px; color: var(--text-muted);">Mặc định: Kẻ tấn công</span>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                  <input type="text" id="rl-test-target-ip" class="lab-input" style="width: 180px;" value="192.168.1.199">
+                  <div style="display: flex; gap: 6px;">
+                    <button type="button" id="btn-target-rogue" class="quick-target-btn">🎯 Kẻ tấn công (192.168.1.199)</button>
+                    <button type="button" id="btn-target-whitelist" class="quick-target-btn">🛡️ Thử Whitelist Probe (192.168.1.101)</button>
+                  </div>
+                </div>
+              </div>
+
+              <button id="btn-test-rl-decision" class="btn-lab-action" style="margin-top: 4px;">
+                ⚡ Chạy Thử Nghiệm Tác Tử RL (Run RL Decision Inference)
+              </button>
+
+              <!-- Kết quả suy luận & Explainable AI (XAI) -->
+              <div style="background: rgba(12, 16, 25, 0.85); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 11.5px; color: var(--text-secondary);">Tác tử RL đề xuất (RL Proposed):</span>
+                  <span id="rl-result-proposed" class="mono-text" style="font-size: 13px; font-weight: 700; color: var(--emerald-safe);">BLOCK_IP_FIREWALL</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 11.5px; color: var(--text-secondary);">Kiểm định an toàn (Safety Controller):</span>
+                  <span id="rl-result-safety" style="font-size: 11.5px; font-weight: 600; color: var(--emerald-safe);">APPROVED (Phê duyệt an toàn)</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 11.5px; color: var(--text-secondary);">Quyết định thực thi cuối (Enacted Action):</span>
+                  <span id="rl-result-action" class="mono-text" style="font-size: 12px; font-weight: 700; color: var(--cyan-neon);">BLOCK_IP_FIREWALL</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 11.5px; color: var(--text-secondary);">Độ tin cậy chính sách:</span>
+                  <span id="rl-result-conf" class="mono-text" style="font-size: 12px; color: var(--cyan-neon);">95.4%</span>
+                </div>
+                <div style="border-top: 1px dashed rgba(255, 255, 255, 0.08); padding-top: 8px; margin-top: 2px;">
+                  <span style="font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Giải thích XAI (Explainable AI Rationale):</span>
+                  <p id="rl-result-xai" style="font-size: 11.5px; color: #cbd5e1; margin: 4px 0 0 0; line-height: 1.45;">
+                    Phát hiện tấn công SYN Flood với Anomaly Score 0.88. Q(BLOCK_IP_FIREWALL) đạt điểm cao nhất (+101.9). Safety Controller duyệt: mục tiêu không thuộc Whitelist, thiệt hại phụ &lt; 15%.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cột Phải: Đồ Thị Điểm Thưởng Q-Value & Sandbox Dry-Run (What-If Analysis) -->
+          <div class="lab-panel-card">
+            <!-- Tabs chuyển đổi giữa Q-Chart và Dry-Run -->
+            <div class="lab-tabs">
+              <button id="tab-btn-rl-chart" class="lab-tab-btn active">
+                📊 Đồ Thị Phân Phối Q-Values E(s, a)
+              </button>
+              <button id="tab-btn-dry-run" class="lab-tab-btn">
+                🚀 Sandbox Dry-Run (What-If Analysis)
+              </button>
+            </div>
+
+            <!-- Panel 1: Đồ thị Q-Values Bar Chart -->
+            <div id="lab-panel-qchart" class="lab-content-panel">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 11.5px; color: var(--text-muted);">
+                  Phân bố điểm thưởng kỳ vọng Bellman trên 6 hành động phòng thủ:
+                </span>
+                <span class="badge-edge" style="font-size: 10px; border-color: var(--emerald-safe); color: var(--emerald-safe);">NIST D3FEND</span>
+              </div>
+              <div style="height: 220px; position: relative;">
+                <canvas id="rlQValuesChart"></canvas>
+              </div>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0; line-height: 1.4;">
+                Cột phát sáng màu xanh lục thể hiện hành động có điểm kỳ vọng cao nhất (<span class="mono-text" style="color: var(--emerald-safe);">argmax Q</span>) mà Agent chọn để dập tắt đe dọa.
+              </p>
+            </div>
+
+            <!-- Panel 2: Thử nghiệm Sandbox Dry-Run (What-If) -->
+            <div id="lab-panel-dry-run" class="lab-content-panel" style="display: none;">
+              <div class="lab-form-row">
+                <label style="color: var(--text-secondary); font-weight: 500;">Mục tiêu can thiệp (IP/MAC):</label>
+                <input type="text" id="dryrun-target-input" class="lab-input" style="width: 180px;" value="192.168.1.199">
+              </div>
+
+              <div class="lab-form-row">
+                <label style="color: var(--text-secondary); font-weight: 500;">Hành động thử nghiệm:</label>
+                <select id="dryrun-action-select" class="lab-select" style="width: 190px;">
+                  <option value="BLOCK_MAC">BLOCK_IP_FIREWALL (Chặn tường lửa)</option>
+                  <option value="RATE_LIMIT_IP">RATE_LIMIT_IP (Giới hạn tốc độ)</option>
+                  <option value="SWITCH_CHANNEL">SWITCH_CHANNEL (Đổi kênh vô tuyến)</option>
+                  <option value="ISOLATE_NODE">ISOLATE_MAC_DEAUTH (Cách ly L2)</option>
+                </select>
+              </div>
+
+              <button id="btn-run-sandbox-dryrun" class="btn-lab-action" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(59, 130, 246, 0.35)); border-color: var(--purple-accent);">
+                🚀 Kích Hoạt Sandbox Dry-Run (What-If)
+              </button>
+
+              <!-- Chỉ số đánh giá Dry-Run -->
+              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 4px;">
+                <div class="lab-metric-tile">
+                  <span style="font-size: 11px; color: var(--text-muted);">Triệt tiêu tấn công:</span>
+                  <span id="dryrun-attack-suppressed" class="mono-text" style="font-size: 16px; font-weight: 700; color: var(--emerald-safe);">96.5%</span>
+                </div>
+                <div class="lab-metric-tile">
+                  <span style="font-size: 11px; color: var(--text-muted);">Thiệt hại ngoài ý muốn:</span>
+                  <span id="dryrun-collateral-damage" class="mono-text" style="font-size: 16px; font-weight: 700; color: var(--amber-warning);">2.1%</span>
+                </div>
+                <div class="lab-metric-tile">
+                  <span style="font-size: 11px; color: var(--text-muted);">Điểm sức khỏe mạng ảo:</span>
+                  <span id="dryrun-health-score" class="mono-text" style="font-size: 16px; font-weight: 700; color: var(--cyan-neon);">95.2%</span>
+                </div>
+                <div class="lab-metric-tile">
+                  <span style="font-size: 11px; color: var(--text-muted);">Phán quyết Sandbox:</span>
+                  <span id="dryrun-verdict-badge" class="threat-status-tag threat-NORMAL" style="font-size: 11px; padding: 3px 8px; margin-top: 2px;">SAFE_TO_ENFORCE</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Bảng lịch sử hành động phòng thủ đóng vòng (Closed-Loop Defense Audit Feed) -->
+        <div style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <span style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--cyan-neon)" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              Nhật Ký Quyết Định Phòng Thủ Tự Động (Closed-Loop Defense Audit Trail - MQTT: edge/defense/action)
+            </span>
+            <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
+              Hệ thống tự động thực thi & giải thích theo thời gian thực
+            </span>
+          </div>
+
+          <div style="max-height: 150px; overflow-y: auto; border: 1px solid var(--border-glass); border-radius: 8px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; text-align: left; font-family: var(--font-mono);">
+              <thead style="background: rgba(30, 41, 59, 0.85); position: sticky; top: 0; color: var(--text-secondary);">
+                <tr>
+                  <th style="padding: 8px 12px;">Thời Gian</th>
+                  <th style="padding: 8px 12px;">Mục Tiêu IP</th>
+                  <th style="padding: 8px 12px;">Đe Dọa Phát Hiện</th>
+                  <th style="padding: 8px 12px;">Hành Động Đề Xuất (RL)</th>
+                  <th style="padding: 8px 12px;">Phán Quyết An Toàn</th>
+                </tr>
+              </thead>
+              <tbody id="defense-audit-table-body">
+                <tr class="no-records-row">
+                  <td colspan="5" style="padding: 14px; text-align: center; color: var(--text-muted);">
+                    Chưa có sự kiện can thiệp phòng thủ. Đang giám sát luồng lưu lượng đóng vòng...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -313,7 +639,7 @@
               </svg>
               Lưu Lượng Gói Tin & Băng Thông Thời Gian Thực
             </h3>
-            <span class="chart-legend-badge">ESP32 Promiscuous Stream</span>
+            <span class="chart-legend-badge">Measured Traffic Windows</span>
           </div>
           <div class="chart-canvas-wrapper">
             <canvas id="trafficRateChart"></canvas>
@@ -426,7 +752,7 @@
 
             <!-- Dual AI Decision & Probability Distribution Widget -->
             <div id="prob-distribution-card" style="width: 100%; margin-top: 14px; padding: 12px 14px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(148, 163, 184, 0.15); border-radius: 8px; display: flex; flex-direction: column; gap: 10px;">
-              
+
               <!-- Khối 1: Phán Quyết Tại Biên (Edge TinyML trên ESP32) -->
               <div style="padding: 8px 10px; background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; flex-direction: column; gap: 2px;">
@@ -546,8 +872,8 @@
               </svg>
               Live Packet & Flow Inspector (Wireshark-Style Capture)
             </h3>
-            <span class="chart-legend-badge"
-              >ESP32 Sniffer / PC Probe &bull; CoAP &bull; TCP/UDP Flow Dynamics</span
+            <span class="chart-legend-badge" id="packet-inspector-badge"
+              >ESP32 Sniffer &bull; L2-4 Header Features (Mã hóa) &bull; TCP/UDP Flow Dynamics</span
             >
           </div>
           <div class="inspector-controls">
@@ -567,7 +893,7 @@
                 <th style="width: 175px">Destination IP:Port</th>
                 <th style="width: 85px">Protocol</th>
                 <th style="width: 75px">Length</th>
-                <th style="width: 220px">8 Flow Dynamics</th>
+                <th style="width: 220px" id="th-flow-metrics">L2-4 Headers (Mã hóa)</th>
                 <th style="width: 165px">AI Threat Diagnosis</th>
                 <th>Info / Payload</th>
               </tr>
@@ -672,6 +998,6 @@
     </div>
 
     <!-- Modular ES Components Application JS -->
-    <script type="module" src="/static/js/main.js?v=3.1"></script>
+    <script type="module" src="/static/js/main.js?v=3.2"></script>
   </body>
 </html>

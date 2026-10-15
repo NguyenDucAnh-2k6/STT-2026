@@ -1,0 +1,11 @@
+{
+  "vectors": 120,
+  "features": 56,
+  "rtol": 2e-06,
+  "atol": 2e-06,
+  "maximum_scaling_error": 2.812498678395059e-08,
+  "maximum_anomaly_score_error": 2.9439841675582556e-08,
+  "header_sha256": "c92be1cea8db01aa7b75f7cbce922ed6aec25aadf8b4b8fefb0085eda537c7a0",
+  "native_executable": ".esp32_validation_env\\native\\esp32_model_esp32_rf_if_56_demo.exe",
+  "hardware_validated": false
+}

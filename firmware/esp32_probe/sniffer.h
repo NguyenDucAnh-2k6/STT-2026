@@ -17,7 +17,22 @@ struct TrafficWindowStats {
   volatile uint32_t syn_packets;
   volatile uint32_t ack_packets;
   volatile uint32_t unique_ports_count;
+  uint32_t radio_queue_dropped;
+  uint32_t radio_sample_skipped;
 };
+
+// Owned copies; payload excludes the four-byte FCS. No driver pointers escape.
+struct RadioFrame {
+  uint32_t sequence;
+  uint32_t uptime_ms;
+  uint16_t original_length;
+  uint16_t captured_length;
+  int8_t rssi;
+  uint8_t channel;
+  uint8_t payload[RADIO_FRAME_MAX_BYTES];
+};
+
+bool popRadioFrame(RadioFrame* output);
 
 // Cấu trúc mạng Wi-Fi phát hiện được qua sóng over-the-air
 struct DetectedWifiNetwork {
@@ -37,7 +52,6 @@ TrafficWindowStats captureAndResetStats();
 void handleChannelHopping(uint8_t* inoutChannel, unsigned long* inoutLastHopTime);
 
 // Truy xuất danh sách các mạng Wi-Fi phát hiện được
-const DetectedWifiNetwork* getDetectedWifiNetworks();
-uint8_t getDetectedWifiCount();
+uint8_t copyDetectedWifiNetworks(DetectedWifiNetwork* output, uint8_t capacity);
 
 #endif // SNIFFER_H

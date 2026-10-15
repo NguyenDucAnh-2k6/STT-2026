@@ -1,194 +1,138 @@
-#!/usr/bin/env python3
-"""
-Data Lake Ingestion Collector Daemon
-====================================
-Tiến trình nền lắng nghe luồng telemetry từ MQTT và ghi nhận vào kho Data Lakehouse:
-- Lắng nghe 'edge/telemetry/traffic': Lưu trữ đặc trưng mạng thời gian thực.
-- Lắng nghe 'edge/attack/status': Đồng bộ chính xác Ground-Truth (Normal vs Loại tấn công đang diễn ra).
-- Lắng nghe 'edge/telemetry/prediction': Lưu trữ phán quyết của ML model để đánh giá chất lượng mô hình sau này.
-"""
-
+"""MQTT ingestion with packet identity deduplication and verified labels only."""
 import json
-import time
+import logging
+import math
 import threading
-from typing import Optional, Dict, Any
-import paho.mqtt.client as mqtt
+from collections import OrderedDict
+from typing import Any, Optional
 
+import paho.mqtt.client as mqtt
 from .lakehouse import DataLakeManager, get_lakehouse_manager
+from .scenario_context import ScenarioContext
+
+LOG = logging.getLogger(__name__)
 
 
 class DataLakeCollector:
-    """
-    Tiến trình Daemon thu nhận luồng dữ liệu mạng thời gian thực từ MQTT.
-    """
-
-    def __init__(
-        self,
-        broker_host: str = "127.0.0.1",
-        broker_port: int = 1883,
-        probe_type: str = "esp32",
-        sniffer_mode: str = "all-networks",
-        lake_manager: Optional[DataLakeManager] = None,
-        buffer_size: int = 50,
-        flush_interval: float = 5.0
-    ):
-        self.broker_host = broker_host
-        self.broker_port = broker_port
-        self.probe_type = probe_type
-        self.sniffer_mode = sniffer_mode
+    def __init__(self, broker_host: str = "127.0.0.1", broker_port: int = 1883,
+                 probe_type: str = "host", sniffer_mode: str = "host-interface",
+                 lake_manager: Optional[DataLakeManager] = None, buffer_size: int = 500,
+                 flush_interval: float = 5.0) -> None:
+        self.broker_host, self.broker_port = broker_host, broker_port
+        self.probe_type, self.sniffer_mode = probe_type, sniffer_mode
         self.lake = lake_manager or get_lakehouse_manager()
-        self.buffer_size = buffer_size
+        self.lake.flush_threshold = buffer_size
         self.flush_interval = flush_interval
-
-        if hasattr(self.lake, "flush_threshold"):
-            self.lake.flush_threshold = buffer_size
-
-        self.current_scenario: str = "Normal"
-        self.is_attack_active: bool = False
-        self.latest_prediction: Optional[Dict[str, Any]] = None
-
         self.running = False
-        self.mqtt_client = mqtt.Client(
-            mqtt.CallbackAPIVersion.VERSION2,
-            client_id="EdgeAI-DataLake-Collector"
-        )
-        self._flush_thread: Optional[threading.Thread] = None
+        self._stop = threading.Event()
+        self._connected = threading.Event()
+        self._subscribed = threading.Event()
+        self._seen = OrderedDict()
+        self._flush_thread = None
+        self.latest_prediction = None
+        self.scenario_context = ScenarioContext()
+        self._subscription_mids: set[int] = set()
+        self._subscription_failed = False
+        self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="EdgeAI-DataLake-Collector")
 
     @property
     def session_id(self) -> Optional[str]:
-        """Tra ve session ID hien tai cua Data Lakehouse."""
-        return self.lake.current_session_id if self.lake else None
+        return self.lake.current_session_id
 
-    def _on_connect(self, client, userdata, flags, rc, properties=None):
+    def _on_connect(self, client: Any, userdata: Any, flags: Any, rc: Any, properties: Any = None) -> None:
         if rc == 0:
-            print(f"[DataLakeCollector] Da ket noi MQTT Broker tai {self.broker_host}:{self.broker_port}")
-            client.subscribe("edge/telemetry/traffic")
-            client.subscribe("edge/attack/status")
-            client.subscribe("edge/telemetry/prediction")
-            print("[DataLakeCollector] Da subscribe cac topic telemetry de luu kho.")
-        else:
-            print(f"[DataLakeCollector] Ket noi MQTT that bai (rc={rc})")
+            self._connected.set()
+            self._subscribed.clear()
+            self._subscription_mids.clear()
+            self._subscription_failed = False
+            for topic in ("edge/telemetry/traffic", "edge/attack/status"):
+                result, mid = client.subscribe(topic, qos=1)
+                if result != mqtt.MQTT_ERR_SUCCESS:
+                    self._subscription_failed = True
+                    LOG.error("Data lake subscription request failed: %s", topic)
+                    return
+                self._subscription_mids.add(mid)
 
-    def _on_message(self, client, userdata, msg):
-        topic = msg.topic
-        try:
-            payload = json.loads(msg.payload.decode("utf-8"))
-        except Exception:
+    def _on_subscribe(self, client: Any, userdata: Any, mid: int, reasons: Any, properties: Any = None) -> None:
+        if any(getattr(reason, "is_failure", False) for reason in reasons):
+            self._subscription_failed = True
+            LOG.error("Data lake topic subscription denied")
             return
+        self._subscription_mids.discard(mid)
+        if not self._subscription_mids and not self._subscription_failed:
+            self._subscribed.set()
 
-        if topic == "edge/attack/status":
-            scenario = payload.get("scenario", "Normal")
-            status = str(payload.get("status", "IDLE")).upper()
-            is_active = status in ["ACTIVE", "RUNNING", "ATTACKING"]
-            
-            canonical_map = {
-                "normal": "Normal", "ddos_udp": "DDoS_UDP", "ddos_icmp": "DDoS_ICMP",
-                "sql_injection": "SQL_injection", "vulnerability_scanner": "Vulnerability_scanner",
-                "ddos_tcp": "DDoS_TCP", "ddos_http": "DDoS_HTTP", "uploading": "Uploading",
-                "backdoor": "Backdoor", "port_scanning": "Port_Scanning", "xss": "XSS",
-                "ransomware": "Ransomware", "password": "Password", "fingerprinting": "Fingerprinting",
-                "mitm": "MITM"
-            }
-            clean_sc = canonical_map.get(str(scenario).strip().lower(), scenario)
-            self.current_scenario = clean_sc if (is_active and clean_sc != "Normal") else "Normal"
-            self.is_attack_active = bool(is_active and clean_sc != "Normal")
+    def _on_message(self, client: Any, userdata: Any, msg: Any) -> None:
+        if msg.topic not in ("edge/telemetry/traffic", "edge/attack/status"):
+            return
+        try:
+            if len(msg.payload) > 1_000_000:
+                raise ValueError("Payload too large")
+            payload = json.loads(msg.payload.decode("utf-8"), parse_constant=lambda value: (_ for _ in ()).throw(ValueError("Non-finite JSON")))
+            if msg.topic == "edge/attack/status":
+                if not isinstance(payload, dict):
+                    raise ValueError("Invalid scenario payload")
+                self.scenario_context.update(payload)
+                self.lake.annotate_pending_scenarios(self.scenario_context.annotate)
+                return
+            if not isinstance(payload, dict) or not payload.get("device_id"):
+                raise ValueError("Missing device identity")
+            if not isinstance(payload.get("timestamp"), (int, float)) or not math.isfinite(payload["timestamp"]):
+                raise ValueError("Invalid timestamp")
+            identity = (payload["device_id"], payload.get("boot_id"),
+                        payload.get("packet_id", payload.get("sequence", payload["timestamp"])))
+            if identity in self._seen:
+                return
+            payload.update(self.scenario_context.annotate(payload))
+            ground_truth = "Unknown"
+            if payload.get("label_source") in ("manual_review", "controlled_flow"):
+                from ml_engine.config.schema import LABEL_NAMES
+                if payload.get("ground_truth_scenario") in LABEL_NAMES:
+                    ground_truth = payload["ground_truth_scenario"]
+            self.lake.record_telemetry(telemetry=payload, ground_truth=ground_truth)
+            self._seen[identity] = None
+            if len(self._seen) > 8192:
+                self._seen.popitem(last=False)
+        except Exception:
+            LOG.exception("Telemetry ingestion failed; persistence buffer retained")
 
-        elif topic == "edge/telemetry/prediction":
-            self.latest_prediction = payload
-
-        elif topic == "edge/telemetry/traffic":
-            ground_truth = self.current_scenario
-            if ground_truth == "Normal" and payload.get("attack_scenario") and payload.get("attack_scenario") != "Normal":
-                ground_truth = payload.get("attack_scenario")
-
-            canonical_map = {
-                "normal": "Normal", "ddos_udp": "DDoS_UDP", "ddos_icmp": "DDoS_ICMP",
-                "sql_injection": "SQL_injection", "vulnerability_scanner": "Vulnerability_scanner",
-                "ddos_tcp": "DDoS_TCP", "ddos_http": "DDoS_HTTP", "uploading": "Uploading",
-                "backdoor": "Backdoor", "port_scanning": "Port_Scanning", "xss": "XSS",
-                "ransomware": "Ransomware", "password": "Password", "fingerprinting": "Fingerprinting",
-                "mitm": "MITM"
-            }
-            clean_gt = canonical_map.get(str(ground_truth).strip().lower(), ground_truth)
-            self.lake.record_telemetry(
-                telemetry=payload,
-                ground_truth=clean_gt,
-                prediction=self.latest_prediction
-            )
-
-    def _periodic_flush_loop(self):
-        while self.running:
-            time.sleep(self.flush_interval)
+    def _periodic_flush_loop(self) -> None:
+        while not self._stop.wait(self.flush_interval):
             try:
-                with self.lake._lock:
-                    if len(self.lake.buffer) > 0:
-                        self.lake._flush_locked()
+                self.lake.flush()
             except Exception:
-                pass
+                LOG.exception("Data lake flush failed; buffered rows retained")
 
-    def start(self):
-        """Khởi động collector và bắt đầu phiên ghi mới."""
-        self.running = True
-        self.lake.start_session(
-            probe_type=self.probe_type,
-            sniffer_mode=self.sniffer_mode
-        )
-
+    def start(self) -> None:
+        self.lake.start_session(self.probe_type, self.sniffer_mode)
         self.mqtt_client.on_connect = self._on_connect
         self.mqtt_client.on_message = self._on_message
-
-        # Kết nối MQTT với cơ chế retry
-        connected = False
-        for _ in range(5):
-            try:
-                self.mqtt_client.connect(self.broker_host, self.broker_port, keepalive=60)
-                connected = True
-                break
-            except Exception:
-                time.sleep(1.0)
-
-        if not connected:
-            print(f"  [Canh bao DataLake] Khong the ket noi broker {self.broker_host}:{self.broker_port}")
-
-        self.mqtt_client.loop_start()
-
-        self._flush_thread = threading.Thread(target=self._periodic_flush_loop, daemon=True)
-        self._flush_thread.start()
-
-    def stop(self) -> Dict[str, Any]:
-        """Dừng collector và đóng phiên an toàn."""
-        self.running = False
+        self.mqtt_client.on_subscribe = self._on_subscribe
         try:
-            self.mqtt_client.loop_stop()
-            self.mqtt_client.disconnect()
+            self.mqtt_client.connect(self.broker_host, self.broker_port, keepalive=60)
+            self.mqtt_client.loop_start()
+            if not self._subscribed.wait(5):
+                raise RuntimeError("Data lake MQTT subscription was not acknowledged")
+            self.running = True
+            self._flush_thread = threading.Thread(target=self._periodic_flush_loop, name="lake-flush")
+            self._flush_thread.start()
         except Exception:
-            pass
+            self.mqtt_client.disconnect()
+            self.mqtt_client.loop_stop()
+            self.lake.close_session()
+            raise
 
+    def stop(self) -> dict[str, Any]:
+        self.running = False
+        self.mqtt_client.disconnect()
+        self.mqtt_client.loop_stop()
+        self._stop.set()
+        if self._flush_thread:
+            self._flush_thread.join(timeout=10)
         return self.lake.close_session()
 
 
-_collector_instance: Optional[DataLakeCollector] = None
-
-
-def start_lake_collector(
-    broker_host: str = "127.0.0.1",
-    broker_port: int = 1883,
-    probe_type: str = "esp32",
-    sniffer_mode: str = "all-networks",
-    buffer_size: int = 50,
-    flush_interval: float = 5.0,
-    lake_manager: Optional[DataLakeManager] = None
-) -> DataLakeCollector:
-    global _collector_instance
-    if _collector_instance is None or not _collector_instance.running:
-        _collector_instance = DataLakeCollector(
-            broker_host=broker_host,
-            broker_port=broker_port,
-            probe_type=probe_type,
-            sniffer_mode=sniffer_mode,
-            lake_manager=lake_manager,
-            buffer_size=buffer_size,
-            flush_interval=flush_interval
-        )
-        _collector_instance.start()
-    return _collector_instance
+def start_lake_collector(**kwargs: Any) -> DataLakeCollector:
+    collector = DataLakeCollector(**kwargs)
+    collector.start()
+    return collector

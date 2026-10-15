@@ -5,9 +5,15 @@
  */
 
 export class ApiService {
+  static async getExperimentStatus() {
+    const response = await fetch("/api/experiments/status", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error(`Không đọc được trạng thái Twin (HTTP ${response.status})`);
+    return await response.json();
+  }
   static async getStatus() {
     try {
-      const res = await fetch("/api/status");
+      const res = await fetch("/api/status", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
       console.error("[ApiService] Failed to fetch status:", err);
@@ -27,12 +33,13 @@ export class ApiService {
 
   static async triggerAttack(attackType, targetIp = null) {
     try {
-      const res = await fetch("/api/attack/trigger", {
+      const res = await fetch("/api/experiments/start", {
+        signal: AbortSignal.timeout(8000),
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          attack_type: attackType,
-          target_ip: targetIp
+          scenario: attackType,
+          duration_sec: Number(document.getElementById("experiment-duration")?.value || 15)
         })
       });
       return await res.json();
@@ -44,7 +51,8 @@ export class ApiService {
 
   static async stopAttack() {
     try {
-      const res = await fetch("/api/attack/stop", {
+      const res = await fetch("/api/experiments/stop", {
+        signal: AbortSignal.timeout(8000),
         method: "POST",
         headers: { "Content-Type": "application/json" }
       });
@@ -58,6 +66,7 @@ export class ApiService {
   static async toggleAutoCycle(enabled = true) {
     try {
       const res = await fetch("/api/attack/auto-cycle", {
+        signal: AbortSignal.timeout(8000),
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled })

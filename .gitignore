@@ -43,3 +43,8 @@ Thumbs.db
 *.db
 # Large datasets
 Edge-IIoTset dataset/
+*.parquet
+*.pcap
+*.csv
+data_lake/experiments/
+data_lake/label_backups/

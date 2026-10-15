@@ -15,8 +15,18 @@ export class HeaderComponent {
     this.btnAudioToggle = document.getElementById("btn-audio-toggle");
     this.dataLakeBadge = document.getElementById("data-lake-badge");
     this.btnCloudSync = document.getElementById("btn-cloud-sync");
+    this.trafficDomainBadge = document.getElementById("traffic-domain-badge");
+    this.brandPill = document.getElementById("brand-traffic-mode-pill");
+    this.captureHealthBadge = document.createElement("span");
+    this.captureHealthBadge.id = "capture-health-badge";
+    this.captureHealthBadge.className = "system-status-indicator";
+    this.captureHealthBadge.textContent = "Capture: chờ bộ đếm";
+    this.dataLakeBadge?.parentElement?.insertAdjacentElement("afterend", this.captureHealthBadge);
+    eventBus.on("trafficWindowReceived", data => this.renderCaptureHealth(data));
+    eventBus.on("trafficModeUpdated", () => this.renderTrafficDomainBadge());
 
     this.initEventListeners();
+    this.renderTrafficDomainBadge();
     this.pollDataLake();
     setInterval(() => this.pollDataLake(), 5000);
   }
@@ -28,13 +38,22 @@ export class HeaderComponent {
       if (res.ok) {
         const data = await res.json();
         const total = data.total_records || 0;
-        const kb = data.total_storage_kb || 0;
+        const kb = Number(data.total_storage_kb || 0).toFixed(1);
         this.dataLakeBadge.innerText = `Data Lake: ${total.toLocaleString()} rows (${kb} KB)`;
-        this.dataLakeBadge.title = `Sessions: ${data.total_sessions} | Normal: ${data.normal_records.toLocaleString()} | Attacks: ${data.attack_records.toLocaleString()} | Storage: ${kb} KB`;
+        this.dataLakeBadge.title = `Đã ghi Parquet: ${total.toLocaleString()} | Buffer: ${data.buffered_records ?? "?"} | Phiên hiện tại: ${data.current_session_records ?? "?"} | Sessions: ${data.total_sessions}`;
       }
     } catch (e) {
       // Ignore network errors during reconnection
     }
+  }
+
+  renderCaptureHealth(data) {
+    if (!Number.isFinite(data.captured_packets)) return;
+    const dropped = data.dropped ?? 0;
+    const percent = data.captured_packets > 0 ? 100 * dropped / data.captured_packets : 0;
+    this.captureHealthBadge.textContent = `Capture: ${data.captured_packets.toLocaleString()} | Drop: ${percent.toFixed(1)}%`;
+    this.captureHealthBadge.style.color = dropped > 0 ? "var(--crimson-danger)" : "var(--emerald-safe)";
+    this.captureHealthBadge.title = `Phiên capture: ${data.capture_id ?? "?"} | Interface: ${(data.capture_interfaces ?? []).join(", ") || "?"} | MQTT PUBACK: ${data.published ?? "?"} | Queue drop: ${dropped} | Failed/timeout: ${data.failed ?? "?"} | Rejected: ${data.rejected_packets ?? "?"} | Queue: ${data.publish_queue_depth ?? "?"}/${data.publish_queue_capacity ?? "?"}. PUBACK chưa xác nhận đã ghi Parquet.`;
   }
 
   initEventListeners() {
@@ -98,6 +117,40 @@ export class HeaderComponent {
     this.btnAudioToggle.style.color = enabled ? "var(--cyan-neon)" : "var(--text-muted)";
   }
 
+  renderTrafficDomainBadge() {
+    if (!this.trafficDomainBadge) {
+      this.trafficDomainBadge = document.getElementById("traffic-domain-badge");
+    }
+    if (!this.brandPill) {
+      this.brandPill = document.getElementById("brand-traffic-mode-pill");
+    }
+    const isEncrypted = state.trafficMode === "encrypted";
+    if (this.trafficDomainBadge) {
+      if (isEncrypted) {
+        this.trafficDomainBadge.className = "badge-traffic-mode badge-traffic-encrypted";
+        this.trafficDomainBadge.innerHTML = `🔒 MÃ HÓA (${state.datasetName || "USTC-TFC2016"} • 10 L2-4)`;
+        this.trafficDomainBadge.title = "Chế độ lưu lượng mã hóa: Phân tích 10 trường Header L2-4 (USTC-TFC2016), phát hiện 10 họ mã độc mà không cần giải mã L7 DPI.";
+      } else {
+        this.trafficDomainBadge.className = "badge-traffic-mode badge-traffic-decrypted";
+        this.trafficDomainBadge.innerHTML = `🔓 GIẢI MÃ (${state.datasetName || "Edge-IIoTset"} • 56 L7)`;
+        this.trafficDomainBadge.title = "Chế độ lưu lượng giải mã: Phân tích 56 đặc trưng L7 Deep Packet Inspection (Edge-IIoTset).";
+      }
+    }
+    if (this.brandPill) {
+      if (isEncrypted) {
+        this.brandPill.innerText = "L2-4 ENCRYPTED";
+        this.brandPill.style.color = "var(--cyan-neon)";
+        this.brandPill.style.borderColor = "rgba(143, 211, 185, 0.4)";
+        this.brandPill.style.background = "rgba(143, 211, 185, 0.15)";
+      } else {
+        this.brandPill.innerText = "L7 DECRYPTED DPI";
+        this.brandPill.style.color = "var(--purple-accent)";
+        this.brandPill.style.borderColor = "rgba(185, 167, 219, 0.4)";
+        this.brandPill.style.background = "rgba(185, 167, 219, 0.15)";
+      }
+    }
+  }
+
   render() {
     // Trạng thái kết nối WebSocket
     if (this.connectionStatus && this.statusDot) {
@@ -119,5 +172,6 @@ export class HeaderComponent {
     }
 
     this.renderAudioButton();
+    this.renderTrafficDomainBadge();
   }
 }

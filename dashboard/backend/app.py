@@ -12,10 +12,12 @@ import os
 import sys
 import asyncio
 from contextlib import asynccontextmanager
+from typing import Awaitable, Callable
+from pathlib import Path
+import re
 
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, Response, HTMLResponse
 
 # Đảm bảo thư mục gốc dự án luôn nằm trong sys.path
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -23,9 +25,11 @@ if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 from dashboard.backend.config import WEB_PORT, FRONTEND_DIR
+from dashboard.backend.assets import DashboardAssets
 from dashboard.backend.mqtt_bridge import start_mqtt_bridge, stop_mqtt_bridge
 from dashboard.backend.routers.api import router as api_router
 from dashboard.backend.routers.ws import router as ws_router
+from dashboard.backend.experiment_runtime import start_runtime, stop_runtime
 
 
 @asynccontextmanager
@@ -33,8 +37,12 @@ async def lifespan(app: FastAPI):
     # Khởi động MQTT Bridge trong event loop
     loop = asyncio.get_running_loop()
     start_mqtt_bridge(loop)
-    yield
-    stop_mqtt_bridge()
+    start_runtime(loop)
+    try:
+        yield
+    finally:
+        await stop_runtime()
+        stop_mqtt_bridge()
 
 
 app = FastAPI(
@@ -48,9 +56,20 @@ app = FastAPI(
 app.include_router(api_router)
 app.include_router(ws_router)
 
+
+@app.middleware("http")
+async def revalidate_dashboard_assets(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    """Revalidate mutable dashboard modules after local source updates."""
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
+        if "Cache-Control" not in response.headers:
+            response.headers["Cache-Control"] = "no-cache"
+    return response
+
 # Phục vụ Static Files cho Frontend
 if os.path.exists(FRONTEND_DIR):
-    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+    dashboard_assets = DashboardAssets(directory=FRONTEND_DIR)
+    app.mount("/static", dashboard_assets, name="static")
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -76,7 +95,10 @@ async def serve_favicon_svg():
 async def serve_index():
     index_file = os.path.join(FRONTEND_DIR, "index.html")
     if os.path.exists(index_file):
-        return FileResponse(index_file)
+        source = await asyncio.to_thread(Path(index_file).read_text, encoding="utf-8")
+        source = re.sub(r'/static/js/main\.js(?:\?v=[^"\s]*)?',
+                        f'/static/js/main.js?v={dashboard_assets.revision}', source)
+        return HTMLResponse(source, headers={"Cache-Control": "no-store"})
     return {"message": "Frontend index.html not found"}
 
 

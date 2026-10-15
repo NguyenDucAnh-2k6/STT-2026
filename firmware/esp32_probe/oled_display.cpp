@@ -10,8 +10,8 @@ static bool oledReady = false;
 
 bool initOledDisplay() {
 #if ENABLE_OLED
-  Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
-  if (display.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDR)) {
+  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+  if (display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     oledReady = true;
     display.clearDisplay();
     display.display();

@@ -174,7 +174,9 @@ def optimize_hyperparameters(
     warmup_steps: int = 1,
     random_state: int = 42,
     use_timeseries: bool = False,
-    groups: Optional[np.ndarray] = None
+    groups: Optional[np.ndarray] = None,
+    raw_features: Optional[Any] = None,
+    raw_labels: Optional[Any] = None
 ) -> Tuple[Dict[str, Any], float, optuna.Study]:
     """
     Tìm kiếm bộ siêu tham số tối ưu bằng Optuna qua K-Fold Cross-Validation.
@@ -195,7 +197,7 @@ def optimize_hyperparameters(
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
     db_uri = f"sqlite:///{os.path.abspath(db_path).replace(os.sep, '/')}"
 
-    study_name = f"hpo_{model_type}"
+    study_name = f"hpo_v2_{model_type}_{int(time.time() * 1000)}"
     sampler = optuna.samplers.TPESampler(seed=random_state)
     pruner = create_pruner(pruner_type=pruner_type, startup_trials=startup_trials, warmup_steps=warmup_steps)
     
@@ -230,6 +232,12 @@ def optimize_hyperparameters(
 
         for step, (train_idx, val_idx) in enumerate(splits):
             X_tr, X_val = X[train_idx], X[val_idx]
+            if raw_features is not None:
+                from ml_engine.preprocessing import EdgeTrafficPreprocessor
+                fold_preprocessor = EdgeTrafficPreprocessor(feature_names=list(raw_features.columns))
+                fold_preprocessor.fit(raw_features.iloc[train_idx], raw_labels.iloc[train_idx])
+                X_tr = fold_preprocessor.transform(raw_features.iloc[train_idx])
+                X_val = fold_preprocessor.transform(raw_features.iloc[val_idx])
             y_tr, y_val = y[train_idx], y[val_idx]
 
             clf = get_classifier(model_type, **params)
@@ -335,7 +343,7 @@ def optimize_anomaly_hyperparameters(
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
     db_uri = f"sqlite:///{os.path.abspath(db_path).replace(os.sep, '/')}"
 
-    study_name = f"hpo_anomaly_{anomaly_type}"
+    study_name = f"hpo_anomaly_v2_{anomaly_type}_{int(time.time() * 1000)}"
     sampler = optuna.samplers.TPESampler(seed=random_state)
     study = optuna.create_study(
         study_name=study_name,

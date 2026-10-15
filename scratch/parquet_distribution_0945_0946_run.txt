@@ -1,0 +1,542 @@
+{
+  "boundary": "2026-10-12T09:46:00+07:00",
+  "before": {
+    "files": 24,
+    "rows": 8925,
+    "lab_8088_rows": 0,
+    "packet_start": "2026-10-12T09:44:52.864000+07:00",
+    "packet_end": "2026-10-12T09:45:44.954000+07:00",
+    "protocol": {
+      "TCP": 0.9881232492997198,
+      "TLSv1.2": 0.011876750700280112
+    },
+    "capture_backend": {
+      "tshark": 1.0
+    },
+    "labels": {
+      "Unknown": 1.0
+    },
+    "verified_rows": 0,
+    "sessions": {
+      "sess_0433d5a2c4e8463dbd9ab636056d69f5": 8925
+    },
+    "captures": {
+      "e3b1f1419b304483ae26f50e414d06e7": 8925
+    },
+    "loopback_endpoint_fraction": 1.0,
+    "tcp_payload_nonzero_fraction": 0.4993837535014006,
+    "frame_size": {
+      "0.0": 44.0,
+      "0.25": 44.0,
+      "0.5": 45.0,
+      "0.75": 45.0,
+      "0.95": 45.0,
+      "1.0": 8515.0
+    },
+    "tcp_len": {
+      "0.0": 0.0,
+      "0.5": 0.0,
+      "0.95": 1.0,
+      "1.0": 8471.0
+    },
+    "endpoint_groups": 41,
+    "top3_endpoint_share": 0.49478991596638655,
+    "sequence_coverage": 0.16156770456191166,
+    "sequence_span": 55240,
+    "constant_features": 45,
+    "malformed_rows": 0,
+    "duplicate_identity": 0,
+    "experiment_rows": 0
+  },
+  "after": {
+    "files": 68,
+    "rows": 29187,
+    "lab_8088_rows": 233,
+    "packet_start": "2026-10-12T09:46:24.591000+07:00",
+    "packet_end": "2026-10-12T09:48:00.267000+07:00",
+    "protocol": {
+      "TCP": 0.9900983314489328,
+      "TLSv1.2": 0.009901668551067257
+    },
+    "capture_backend": {
+      "tshark": 0.5402062562099564,
+      "pcap": 0.4597937437900435
+    },
+    "labels": {
+      "Unknown": 0.9932846815363005,
+      "Port_Scanning": 0.006715318463699592
+    },
+    "verified_rows": 0,
+    "sessions": {
+      "sess_5ddbce63ab1b4e41bc869f0f591dfff0": 15767,
+      "sess_97c7fbc7bcdf416f8dbdc2bd0e1bfb25": 13420
+    },
+    "captures": {
+      "c76edb4485334974b351293e656cc259": 15767,
+      "d49af70886804d3fbbb666ed2313aa97": 13420
+    },
+    "loopback_endpoint_fraction": 1.0,
+    "tcp_payload_nonzero_fraction": 0.4968993044848734,
+    "frame_size": {
+      "0.0": 44.0,
+      "0.25": 44.0,
+      "0.5": 44.0,
+      "0.75": 45.0,
+      "0.95": 45.0,
+      "1.0": 3635.0
+    },
+    "tcp_len": {
+      "0.0": 0.0,
+      "0.5": 0.0,
+      "0.95": 1.0,
+      "1.0": 3591.0
+    },
+    "endpoint_groups": 101,
+    "top3_endpoint_share": 0.4945695001199164,
+    "sequence_coverage": 0.2603076923076923,
+    "sequence_span": 112125,
+    "constant_features": 42,
+    "malformed_rows": 0,
+    "duplicate_identity": 0,
+    "experiment_rows": 13420
+  },
+  "protocol_tv": 0.001975082149212896,
+  "frame_size_ks": 0.002104712786543339,
+  "features": [
+    {
+      "feature": "tcp.srcport",
+      "metric": "KS",
+      "distance": 0.3455175076506088
+    },
+    {
+      "feature": "tcp.dstport",
+      "metric": "KS",
+      "distance": 0.3436618178980915
+    },
+    {
+      "feature": "tcp.ack_raw",
+      "metric": "KS",
+      "distance": 0.32559671293741055
+    },
+    {
+      "feature": "tcp.checksum",
+      "metric": "KS",
+      "distance": 0.30877775963916254
+    },
+    {
+      "feature": "tcp.ack",
+      "metric": "KS",
+      "distance": 0.13589888211426004
+    },
+    {
+      "feature": "tcp.seq",
+      "metric": "KS",
+      "distance": 0.13003642406700577
+    },
+    {
+      "feature": "tcp.payload",
+      "metric": "TV",
+      "distance": 0.015446418674366632
+    },
+    {
+      "feature": "tcp.options",
+      "metric": "TV",
+      "distance": 0.0025603778359940756
+    },
+    {
+      "feature": "tcp.len",
+      "metric": "KS",
+      "distance": 0.0024844490165271127
+    },
+    {
+      "feature": "tcp.connection.fin",
+      "metric": "KS",
+      "distance": 0.002261280707164137
+    },
+    {
+      "feature": "tcp.flags",
+      "metric": "KS",
+      "distance": 0.001719563763422971
+    },
+    {
+      "feature": "tcp.flags.ack",
+      "metric": "KS",
+      "distance": 0.0011991640113749272
+    },
+    {
+      "feature": "tcp.connection.syn",
+      "metric": "KS",
+      "distance": 0.0011991640113748758
+    },
+    {
+      "feature": "tcp.connection.synack",
+      "metric": "KS",
+      "distance": 0.0010871191934477276
+    },
+    {
+      "feature": "arp.opcode",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "arp.hw.size",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "icmp.checksum",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "icmp.seq_le",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "icmp.transmit_timestamp",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "icmp.unused",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "http.file_data",
+      "metric": "TV",
+      "distance": 0.0
+    },
+    {
+      "feature": "http.content_length",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "http.request.uri.query",
+      "metric": "TV",
+      "distance": 0.0
+    },
+    {
+      "feature": "http.request.method",
+      "metric": "TV",
+      "distance": 0.0
+    },
+    {
+      "feature": "http.referer",
+      "metric": "TV",
+      "distance": 0.0
+    },
+    {
+      "feature": "http.request.full_uri",
+      "metric": "TV",
+      "distance": 0.0
+    },
+    {
+      "feature": "http.request.version",
+      "metric": "TV",
+      "distance": 0.0
+    },
+    {
+      "feature": "http.response",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "http.tls_port",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "tcp.connection.rst",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "udp.port",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "udp.stream",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "udp.time_delta",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "dns.qry.name",
+      "metric": "TV",
+      "distance": 0.0
+    },
+    {
+      "feature": "dns.qry.name.len",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "dns.qry.qu",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "dns.qry.type",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "dns.retransmission",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "dns.retransmit_request",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "dns.retransmit_request_in",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.conack.flags",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.conflag.cleansess",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.conflags",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.hdrflags",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.len",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.msg_decoded_as",
+      "metric": "TV",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.msg",
+      "metric": "TV",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.msgtype",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.proto_len",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.protoname",
+      "metric": "TV",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.topic",
+      "metric": "TV",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.topic_len",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "mqtt.ver",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "mbtcp.len",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "mbtcp.trans_id",
+      "metric": "KS",
+      "distance": 0.0
+    },
+    {
+      "feature": "mbtcp.unit_id",
+      "metric": "KS",
+      "distance": 0.0
+    }
+  ],
+  "shared_packet_ids": 0,
+  "strict_0945_protocol_tv": 0.0014802583286752397,
+  "after_sources": {
+    "tshark": {
+      "files": 0,
+      "rows": 15767,
+      "lab_8088_rows": 37,
+      "packet_start": "2026-10-12T09:46:24.591000+07:00",
+      "packet_end": "2026-10-12T09:48:00.267000+07:00",
+      "protocol": {
+        "TCP": 0.9894716813598021,
+        "TLSv1.2": 0.010528318640197881
+      },
+      "capture_backend": {
+        "tshark": 1.0
+      },
+      "labels": {
+        "Unknown": 1.0
+      },
+      "verified_rows": 0,
+      "sessions": {
+        "sess_5ddbce63ab1b4e41bc869f0f591dfff0": 15767
+      },
+      "captures": {
+        "c76edb4485334974b351293e656cc259": 15767
+      },
+      "loopback_endpoint_fraction": 1.0,
+      "tcp_payload_nonzero_fraction": 0.5006025242595294,
+      "frame_size": {
+        "0.0": 44.0,
+        "0.25": 44.0,
+        "0.5": 45.0,
+        "0.75": 45.0,
+        "0.95": 45.0,
+        "1.0": 3635.0
+      },
+      "tcp_len": {
+        "0.0": 0.0,
+        "0.5": 1.0,
+        "0.95": 1.0,
+        "1.0": 3591.0
+      },
+      "endpoint_groups": 64,
+      "top3_endpoint_share": 0.5042176698167058,
+      "sequence_coverage": 0.15973861506509296,
+      "sequence_span": 98705,
+      "constant_features": 42,
+      "malformed_rows": 0,
+      "duplicate_identity": 0,
+      "experiment_rows": 0,
+      "protocol_tv_vs_before": 0.001348432060082257,
+      "frame_size_ks_vs_before": 0.0014598230996590855
+    },
+    "pcap": {
+      "files": 0,
+      "rows": 13420,
+      "lab_8088_rows": 196,
+      "packet_start": "2026-10-12T09:46:47.970000+07:00",
+      "packet_end": "2026-10-12T09:47:03.719000+07:00",
+      "protocol": {
+        "TCP": 0.9908345752608048,
+        "TLSv1.2": 0.009165424739195231
+      },
+      "capture_backend": {
+        "pcap": 1.0
+      },
+      "labels": {
+        "Unknown": 0.9853949329359165,
+        "Port_Scanning": 0.014605067064083458
+      },
+      "verified_rows": 0,
+      "sessions": {
+        "sess_97c7fbc7bcdf416f8dbdc2bd0e1bfb25": 13420
+      },
+      "captures": {
+        "d49af70886804d3fbbb666ed2313aa97": 13420
+      },
+      "loopback_endpoint_fraction": 1.0,
+      "tcp_payload_nonzero_fraction": 0.49254843517138597,
+      "frame_size": {
+        "0.0": 44.0,
+        "0.25": 44.0,
+        "0.5": 44.0,
+        "0.75": 45.0,
+        "0.95": 45.0,
+        "1.0": 848.0
+      },
+      "tcp_len": {
+        "0.0": 0.0,
+        "0.5": 0.0,
+        "0.95": 1.0,
+        "1.0": 804.0
+      },
+      "endpoint_groups": 90,
+      "top3_endpoint_share": 0.4832339791356185,
+      "sequence_coverage": 1.0,
+      "sequence_span": 13420,
+      "constant_features": 42,
+      "malformed_rows": 0,
+      "duplicate_identity": 0,
+      "experiment_rows": 13420,
+      "protocol_tv_vs_before": 0.0027113259610849006,
+      "frame_size_ks_vs_before": 0.003634401599686088
+    }
+  },
+  "attributed_workload": {
+    "files": 0,
+    "rows": 196,
+    "lab_8088_rows": 196,
+    "packet_start": "2026-10-12T09:46:48.199000+07:00",
+    "packet_end": "2026-10-12T09:47:02.777000+07:00",
+    "protocol": {
+      "TCP": 1.0
+    },
+    "capture_backend": {
+      "pcap": 1.0
+    },
+    "labels": {
+      "Port_Scanning": 1.0
+    },
+    "verified_rows": 0,
+    "sessions": {
+      "sess_97c7fbc7bcdf416f8dbdc2bd0e1bfb25": 196
+    },
+    "captures": {
+      "d49af70886804d3fbbb666ed2313aa97": 196
+    },
+    "loopback_endpoint_fraction": 1.0,
+    "tcp_payload_nonzero_fraction": 0.0,
+    "frame_size": {
+      "0.0": 44.0,
+      "0.25": 44.0,
+      "0.5": 44.0,
+      "0.75": 56.0,
+      "0.95": 56.0,
+      "1.0": 56.0
+    },
+    "tcp_len": {
+      "0.0": 0.0,
+      "0.5": 0.0,
+      "0.95": 0.0,
+      "1.0": 0.0
+    },
+    "endpoint_groups": 56,
+    "top3_endpoint_share": 0.061224489795918366,
+    "sequence_coverage": 0.016052416052416054,
+    "sequence_span": 12210,
+    "constant_features": 44,
+    "malformed_rows": 0,
+    "duplicate_identity": 0,
+    "experiment_rows": 196,
+    "frame_size_ks_vs_before": 0.27137254901960783
+  },
+  "changed_files": 0,
+  "identical_feature_distributions": 42
+}

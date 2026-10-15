@@ -99,7 +99,7 @@ class PyTorchDeepWrapper(BaseAttackClassifier):
 
     def __init__(
         self,
-        epochs: int = 25,
+        epochs: int = 10,
         batch_size: int = 256,
         lr: float = 1e-3,
         weight_decay: float = 1e-4,

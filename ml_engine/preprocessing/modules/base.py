@@ -11,13 +11,27 @@ import numpy as np
 import pandas as pd
 
 
+def numeric_series(series: pd.Series) -> pd.Series:
+    """Parse decimal numbers and explicit Wireshark hexadecimal scalars."""
+    def parse(value: Any) -> Any:
+        if isinstance(value, str) and value.strip().lower().startswith("0x"):
+            try:
+                return int(value.strip(), 16)
+            except ValueError:
+                return np.nan
+        return value
+    return pd.to_numeric(series.map(parse), errors="coerce").replace([np.inf, -np.inf], np.nan)
+
+
 def normalize_categorical_value(val: Any) -> str:
     """Chuẩn hóa giá trị phân loại về dạng chuỗi thống nhất, giải quyết triệt để 0 vs 0.0 vs hex rò rỉ."""
-    if val is None:
+    if val is None or pd.isna(val):
         return "0"
     s = str(val).strip()
     if s in ("0", "0.0", "0.000000", "0x0", "0x00000000", "", "nan", "None", "-"):
         return "0"
+    if isinstance(val, str):
+        return s  # Preserve leading zeroes and large digit-only payload strings.
     try:
         f = float(s)
         if f == 0.0:
@@ -48,7 +62,7 @@ class BaseSubPreprocessor(ABC):
         for feat in self.feature_names:
             if feat in df.columns:
                 series = df[feat]
-                if feat in self.cat_cols or series.dtype == "object":
+                if feat in self.cat_cols:
                     norm_series = series.map(normalize_categorical_value)
                     mode_val = norm_series.mode()
                     val = mode_val.iloc[0] if not mode_val.empty else "0"
@@ -57,7 +71,7 @@ class BaseSubPreprocessor(ABC):
                     except (ValueError, TypeError):
                         self.learned_baselines_[feat] = 0.0
                 else:
-                    num_series = pd.to_numeric(series, errors="coerce")
+                    num_series = numeric_series(series)
                     med = num_series.median()
                     self.learned_baselines_[feat] = float(med) if pd.notnull(med) else 0.0
             else:

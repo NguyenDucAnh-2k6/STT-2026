@@ -19,6 +19,7 @@ from .edge_iiotset_preprocessor import (
     load_and_preprocess_dataset,
     load_full_dataset
 )
+from .edge_iiotset_preprocessor import load_raw_dataset
 from .dataset_generator import (
     generate_synthetic_dataset,
     save_synthetic_dataset
@@ -39,11 +40,17 @@ from .modules import (
     HTTP_FEATURES,
     IOT_FEATURES
 )
+from .ustc_tfc2016_preprocessor import (
+    load_ustc_tfc2016_dataset,
+    EncryptedTrafficPreprocessor,
+    USTC_TFC2016_LABELS
+)
 
 __all__ = [
     "EdgeTrafficPreprocessor",
     "load_and_preprocess_dataset",
     "load_full_dataset",
+    "load_raw_dataset",
     "generate_synthetic_dataset",
     "save_synthetic_dataset",
     "TrafficFeaturePreprocessor",
@@ -57,5 +64,8 @@ __all__ = [
     "TCP_FEATURES",
     "UDP_FEATURES",
     "HTTP_FEATURES",
-    "IOT_FEATURES"
+    "IOT_FEATURES",
+    "load_ustc_tfc2016_dataset",
+    "EncryptedTrafficPreprocessor",
+    "USTC_TFC2016_LABELS"
 ]

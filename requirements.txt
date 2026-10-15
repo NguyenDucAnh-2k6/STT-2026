@@ -11,3 +11,8 @@ scapy
 psutil
 pyserial
 minio
+pandas
+pyarrow
+python-dotenv
+matplotlib
+seaborn

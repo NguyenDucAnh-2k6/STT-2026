@@ -5,7 +5,8 @@
  * Pipeline:
  *  1. Sniffer: Bắt gói tin WiFi thô ở chế độ Promiscuous Mode (khung 802.11).
  *  2. Feature Extraction: Trích xuất tốc độ gói, dung lượng byte, cờ TCP SYN/ACK, port count.
- *  3. Edge AI Inference: Suy luận trực tiếp trên chip qua TinyML / TFLite (56 đặc trưng Edge-IIoTset).
+ *  3. Local packet extraction -> exported scaling -> classifier/anomaly inference.
+ *     Optional host TShark dissection preserves the wider lake schema.
  *  4. Telemetry Uplink: Phát dữ liệu qua MQTT và USB Serial (JSON).
  *  5. Peripherals: Điều khiển LED Đỏ/Xanh, Còi Buzzer và màn hình OLED SSD1306.
  */
@@ -50,6 +51,7 @@ void setup() {
 }
 
 void loop() {
+  sendRadioFrame(); // Serialize owned samples outside the Wi-Fi callback.
   // A. Duy trì kết nối MQTT và lắng nghe điều khiển cấu hình từ xa
   maintainMqttLoop(SNIFFER_MODE_ALL_NETWORKS);
 
@@ -61,6 +63,8 @@ void loop() {
   if (now - lastSampleTime >= SAMPLING_WINDOW_MS) {
     float windowSeconds = (now - lastSampleTime) / 1000.0f;
     lastSampleTime = now;
+
+    if (isWiFiConnected() && !SNIFFER_MODE_ALL_NETWORKS) currentChannel = WiFi.channel();
 
     // 1. Thu thập snapshot số liệu thống kê từ Sniffer
     TrafficWindowStats snap = captureAndResetStats();
@@ -76,7 +80,7 @@ void loop() {
     float icmp_ratio = (snap.total_packets > 0) ? ((float)snap.icmp_packets / snap.total_packets) : 0.0f;
 
     // 3. Thực thi suy luận TinyML / TFLite trực tiếp trên chip
-    EdgeInferenceResult inf = runEdgeInference(snap, packet_rate, byte_rate, avg_packet_size);
+    EdgeInferenceResult inf = getLatestEdgeInference();
 
     // 4. Điều khiển ngoại vi: LED cảnh báo & Còi Buzzer
     setAlertState(inf.is_anomaly);
@@ -104,7 +108,8 @@ void loop() {
         udp_ratio,
         icmp_ratio,
         currentChannel,
-        inf
+        inf,
+        (uint32_t)(windowSeconds * 1000.0f)
     );
   }
 }
