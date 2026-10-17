@@ -134,17 +134,61 @@ Bảng dưới đây chuẩn hóa các chỉ số tài chính từ năm 2026 đ�
 * **2029 (Năm 4):** **11,80 tỷ** *(Scale-up & 1.500 thiết bị)*
 * **2030 (Năm 5):** **24,50 tỷ** *(Quy mô 3.000 thiết bị)*
 
-#### Cột Biểu đồ 2: LŨY KẾ LỢI NHUẬN RÒNG (Đơn vị: Tỷ VNĐ)
-* **2026 (Năm 1):** **–0,60 tỷ**
-* **2027 (Năm 2):** **–0,89 tỷ** *(Đáy dòng tiền đầu tư)*
-* **2028 (Năm 3):** **+0,61 tỷ** 🟢 *(CHÍNH THỨC DƯƠNG - HÒA VỐN ĐẦU NĂM 3)*
-* **2029 (Năm 4):** **+4,86 tỷ**
-* **2030 (Năm 5):** **+14,66 tỷ**
+#### Cột Biểu đồ 2: LŨY KẾ LỢI NHUẬN RÒNG (BIỂU ĐỒ ĐƯỜNG - LINE CHART)
 
-#### 3 Con số then chốt (Call-out Boxes) đặt góc dưới Slide 4:
-1. 🎯 **Điểm hòa vốn (Break-even):** **Q1 – Q2/2028 (Đầu năm thứ 3)** — Ứng với quy mô **~500 thiết bị hoạt động**.
+##### ⚠️ Nhận diện lỗi logic ở biểu đồ đường cũ của bạn trong team:
+* **Hiện trạng bạn đang vẽ:** Trục hoành chỉ có 5 tháng (`T11/2026`, `T12/2026`, `T1/2027`, `T2/2027`, `T3/2027`) nhưng đường vẽ lại nhảy vọt từ **–950 triệu** (T11/2026) lên **+350 triệu** (T12/2026) và cắm cờ *"Hoàn vốn vào Q4/2026"*.
+* **Vì sao thầy cô/ban giám khảo sẽ bắt lỗi ngay lập tức?**
+  1. Không có startup phần cứng + SaaS nào **chỉ sau 1 tháng (từ tháng 11 sang tháng 12)** đã tạo ra khoản lãi ròng +1,3 tỷ VNĐ để bù hết vốn đầu tư ban đầu cả.
+  2. Thời gian từ T11/2026 đến T3/2027 chỉ vỏn vẹn **5 tháng**, hoàn toàn không đủ chu kỳ bán hàng (sales cycle) của sản phẩm B2B cho doanh nghiệp.
+  3. Đề án của cả nhóm đã thống nhất: Điểm hòa vốn đạt được khi tích lũy đủ **500 – 550 thiết bị**, rơi vào **Quý 1 – Quý 2 của Năm thứ 3 (năm 2028)**.
+
+---
+
+##### 🛠️ CÁCH ÁP SỐ LIỆU MỚI VÀO BIỂU ĐỒ ĐƯỜNG (2 PHƯƠNG ÁN ĐỂ BẠN LỰA CHỌN):
+
+Bạn phụ trách làm slide có thể chọn 1 trong 2 cách sau tùy theo bố cục thiết kế:
+
+---
+
+#### 👉 PHƯƠNG ÁN 1 (KHUYÊN DÙNG NHẤT): Vẽ biểu đồ đường theo 5 Năm (Chuẩn đồ thị J-Curve kinh điển của Startup)
+* **Ý nghĩa:** Biểu đồ này đồng bộ 100% với trục hoành của Biểu đồ 1 (Doanh thu dự kiến 2026 – 2030), giúp slide trông cực kỳ cân đối và chuyên nghiệp.
+
+| Trục X (Thời gian) | Trục Y (Lũy kế Lợi nhuận ròng - Tỷ VNĐ) | Trạng thái / Ý nghĩa kinh tế |
+| :---: | :---: | :--- |
+| **2026** | **–0,60** *(–600 triệu)* | Giai đoạn Seed & Pilot: Đầu tư R&D, dòng tiền âm |
+| **2027** | **–0,89** *(–890 triệu)* | **Đáy dòng tiền đầu tư** (Maximum drawdown) |
+| **2028** | **+0,61** *(+610 triệu)* | 🟢 **VƯỢT ĐIỂM HÒA VỐN TẠI ĐẦU NĂM (Q1–Q2/2028)** |
+| **2029** | **+4,86** *(+4.860 triệu)* | Tăng tốc Scale-up nhờ doanh thu thuê bao ARR tích lũy |
+| **2030** | **+14,66** *(+14.660 triệu)* | Bùng nổ lợi nhuận từ 3.000 thiết bị hoạt động |
+
+* **Cách cắm cờ (Call-out Box):** Đặt mũi tên chỉ vào điểm đường cong cắt qua trục 0 (nằm giữa 2027 và 2028) với nhãn: **"Hoàn vốn vào Q1–Q2/2028 (Quy mô ~500 thiết bị)"**.
+
+---
+
+#### 👉 PHƯƠNG ÁN 2 (NẾU BẠN VẪN MUỐN VẼ THEO CÁC MỐC THÁNG/QUÝ CỤ THỂ):
+* **Ý nghĩa:** Thay vì lấy 5 tháng liên tiếp trong 1 quý, hãy trải đều 6 mốc thời gian phản ánh đúng tiến trình 3 năm đầu của dự án. Nhập chính xác các tọa độ $(X, Y)$ sau vào phần mềm vẽ biểu đồ (PowerPoint / Canva / Excel):
+
+| Điểm số | Tọa độ Trục X (Mốc thời gian) | Tọa độ Trục Y (Lũy kế LN - Triệu VNĐ) | Ghi chú vị trí trên biểu đồ |
+| :---: | :---: | :---: | :--- |
+| **Điểm 1** | **T10/2026** | **–400** | Bắt đầu giải ngân vốn R&D & thử nghiệm Prototype |
+| **Điểm 2** | **T4/2027** | **–600** | Kết thúc Giai đoạn 1 (Seed & Pilot 60 thiết bị) |
+| **Điểm 3** | **T12/2027** | **–890** | **Đáy thung lũng tài chính** (Mức lỗ tích lũy tối đa) |
+| **Điểm 4** | **T4/2028** | **0** 🎯 | 🟢 **ĐIỂM HÒA VỐN (BREAK-EVEN POINT)** |
+| **Điểm 5** | **T12/2028** | **+610** | Lũy kế lợi nhuận dương sau khi đạt 700 thiết bị |
+| **Điểm 6** | **T12/2029** | **+4.860** | Bùng nổ tăng trưởng dòng tiền thuê bao định kỳ |
+
+* **Cách cắm cờ (Call-out Box) trên biểu đồ:**
+  * Tại **Điểm 4 (T4/2028)**: Cắm cờ màu xanh đậm với nội dung:
+    > **"HÒA VỐN TẠI T4/2028 (Quy mô ~500 thiết bị)"** *(Thay thế dòng chữ cũ "Hoàn vốn vào Q4/2026")*
+
+---
+
+#### 3 Con số then chốt (Call-out Boxes) đặt ở khung dưới Slide 4:
+1. 🎯 **Điểm hòa vốn (Break-even):** **Q1 – Q2/2028 (Tháng thứ 26 – 28)** — Ứng với quy mô **~500 thiết bị hoạt động**.
 2. ⏱️ **Thời gian thu hồi vốn (Payback Period):** **26 – 28 tháng** kể từ thời điểm thương mại hóa.
-3. 📈 **Tỷ suất sinh lời ROI 5 năm:** **~ 4.8x** (Tính trên vốn đầu tư kêu gọi 2,5 tỷ VNĐ).
+3. 📈 **Tỷ suất hoàn vốn đầu tư (ROI tích lũy 4–5 năm):** **~ 2.74x – 4.8x** (Tính trên quy mô vốn kêu gọi ban đầu 2,5 tỷ VNĐ).
+   *(Giữ lại con số `ROI ~ 2.74` ở khung màu xanh dưới chân slide nếu tính cho kỳ đầu tư 4 năm, hoặc cập nhật `~ 4.8x` cho chu kỳ 5 năm đầy đủ).*
 
 ---
 
