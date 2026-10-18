@@ -142,6 +142,8 @@ class CatBoostWrapper(BaseAttackClassifier):
         thread_count: int = -1,
         **kwargs
     ):
+        if "random_state" in kwargs:
+            random_seed = kwargs.pop("random_state")
         from catboost import CatBoostClassifier
         self.model = CatBoostClassifier(
             iterations=iterations,
