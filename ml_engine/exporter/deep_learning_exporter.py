@@ -13,7 +13,7 @@ Chỉ dẫn module:
 
 from typing import List, Tuple, Dict, Any, Optional
 import numpy as np
-
+import tensorflow as tf
 try:
     import torch
     import torch.nn as nn
@@ -21,11 +21,7 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 
-try:
-    import tensorflow as tf
-    TF_AVAILABLE = True
-except ImportError:
-    TF_AVAILABLE = False
+TF_AVAILABLE = False  # Lazy loaded if needed
 
 
 def is_deep_learning_model(model: Any) -> bool:

@@ -19,3 +19,10 @@ struct PacketFeatures {
 // Input is a driver-independent 802.11 frame, excluding FCS. No heap/I/O/state.
 PacketFeatures extractPacketFeatures(const uint8_t* data, size_t capturedLength, size_t originalLength);
 const char* packetFeatureStatusName(PacketFeatureStatus status);
+
+// Tính toán Shannon Entropy của chuỗi byte payload (0.0 đến 8.0)
+float calculatePayloadEntropy(const uint8_t* payload, size_t length);
+
+// Trích xuất trực tiếp đặc trưng từ gói tin IPv4 thô (dành cho chế độ Gateway)
+PacketFeatures extractRawIpFeatures(const uint8_t* ipData, size_t length, float* outEntropy);
+

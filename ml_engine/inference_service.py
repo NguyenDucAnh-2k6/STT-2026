@@ -64,17 +64,13 @@ class AnomalyInferenceEngine:
         anomaly_threshold: float = DEFAULT_ANOMALY_THRESHOLD
     ):
         if models_dir is None or not (os.path.exists(os.path.join(models_dir, "attack_classifier.joblib")) and os.path.exists(os.path.join(models_dir, "isolation_forest.joblib"))):
-            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            base_models = os.path.join(root_dir, "ml_engine", "models")
-            if os.path.exists(base_models):
-                for entry in sorted(os.listdir(base_models)):
-                    subpath = os.path.join(base_models, entry)
-                    if os.path.isdir(subpath):
-                        if os.path.exists(os.path.join(subpath, "attack_classifier.joblib")) and os.path.exists(os.path.join(subpath, "isolation_forest.joblib")):
-                            models_dir = subpath
-                            break
-            if models_dir is None:
-                models_dir = base_models
+            from ml_engine.config.artifacts import resolve_artifact_dir
+            req_mode = os.getenv("AERO_TRAFFIC_MODE") or os.getenv("TRAFFIC_MODE") or "decrypted"
+            try:
+                models_dir, _ = resolve_artifact_dir(traffic_mode=req_mode, custom_dir=models_dir)
+            except Exception:
+                root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                models_dir = os.path.join(root_dir, "ml_engine", "models")
 
         self.models_dir: str = models_dir
         self.anomaly_threshold: float = anomaly_threshold
@@ -100,10 +96,19 @@ class AnomalyInferenceEngine:
         # Nạp scaler / preprocessor
         preprocessor_path = os.path.join(self.models_dir, "preprocessor.joblib")
         if os.path.exists(preprocessor_path):
-            self.preprocessor = EdgeTrafficPreprocessor.load(preprocessor_path)
+            try:
+                loaded = joblib.load(preprocessor_path)
+                if isinstance(loaded, dict) and "sub_preprocessors" in loaded:
+                    self.preprocessor = EdgeTrafficPreprocessor.load(preprocessor_path)
+                elif hasattr(loaded, "extract_features"):
+                    self.preprocessor = loaded
+                else:
+                    self.preprocessor = EdgeTrafficPreprocessor.load(preprocessor_path)
+            except Exception:
+                self.preprocessor = EdgeTrafficPreprocessor.load(preprocessor_path)
         else:
             raw_scaler = joblib.load(scaler_path)
-            if isinstance(raw_scaler, (TrafficFeaturePreprocessor, EdgeTrafficPreprocessor)):
+            if hasattr(raw_scaler, "extract_features") and hasattr(raw_scaler, "transform"):
                 self.preprocessor = raw_scaler
             else:
                 self.preprocessor = TrafficFeaturePreprocessor(scaler=raw_scaler)
@@ -214,15 +219,24 @@ class AnomalyInferenceEngine:
         # 1. PURE MACHINE LEARNING INFERENCE (100% SUY DIỄN TỪ MODEL ARTIFACTS)
         # -------------------------------------------------------------
         try:
-            if self.metadata.get("preprocessing_version") != 2:
-                raise ValueError("Model requires retraining with preprocessing version 2.")
+            profile = self.metadata.get("profile") or self.metadata.get("feature_semantics", "edgeiiot-packet-v1")
+            feat_semantics = telemetry.get("feature_semantics")
+
+            if profile == "edgeiiot-packet-v1":
+                if self.metadata.get("preprocessing_version") != 2:
+                    raise ValueError("Model requires retraining with preprocessing version 2.")
+                if feat_semantics != "edgeiiot-packet-v1":
+                    raise ValueError("Incompatible feature semantics for Edge-IIoTset packet model.")
+            elif feat_semantics and feat_semantics != profile:
+                raise ValueError(f"Incompatible feature semantics '{feat_semantics}' for model profile '{profile}'.")
+
             if telemetry.get("record_kind", "window") != "packet":
                 raise ValueError("Window telemetry is incompatible with this packet-feature model; train a window model separately.")
-            if telemetry.get("probe_type") == "esp32" and telemetry.get("radio_protected"):
+            if telemetry.get("probe_type") == "esp32" and telemetry.get("radio_protected") and profile != "awid3-wifi-v1":
                 raise ValueError("Encrypted Wi-Fi frame: canonical protocol features are unavailable.")
             raw_features = self.preprocessor.extract_features(telemetry)
             missing = [name for name in self.preprocessor.feature_names if name not in raw_features.columns]
-            if missing or telemetry.get("feature_semantics") != "edgeiiot-packet-v1":
+            if missing:
                 raise ValueError(f"Incomplete/incompatible packet features ({len(missing)} missing).")
             from ml_engine.preprocessing.validation import invalid_feature_counts
             if telemetry.get("missing_features") != [] or raw_features.isna().any().any():

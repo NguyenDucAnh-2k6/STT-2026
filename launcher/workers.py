@@ -107,9 +107,69 @@ def serial_telemetry_bridge_worker(com_port: str, broker_port: int = 1883,
                         raw = ser.read_until(b"\n", size=8193)
                         if len(raw) > 8192 or not raw.endswith(b"\n"):
                             continue
-                        line = raw.decode("utf-8", errors="strict").strip()
-                        topic = "edge/telemetry/radio" if line.startswith("ESP32_RADIO:") else (
-                            "edge/telemetry/traffic" if line.startswith("ESP32_TELEMETRY:") else None)
+                        line = raw.decode("utf-8", errors="replace").strip()
+                        if line.startswith("[Gateway"):
+                            print(f"  {line}")
+                            if line.startswith("[Gateway Monitor]"):
+                                try:
+                                    parts = line.split("|")
+                                    if len(parts) >= 4:
+                                        length = int(parts[0].split("Len:")[1].strip())
+                                        ports = parts[1].split("->")
+                                        src_p = int(ports[0].replace("Port", "").strip())
+                                        dst_p = int(ports[1].strip())
+                                        pred_part = parts[2].split("Pred:")[1].strip()
+                                        threat = pred_part.split("(")[0].strip()
+                                        conf_pct = float(pred_part.split("(")[1].split("%")[0].strip()) / 100.0
+                                        is_anom = threat != "Normal"
+                                        gw_pred = {
+                                            "device_id": "AERO-ESP32-Gateway",
+                                            "inference_status": "ok",
+                                            "inference_source": "esp32_gateway",
+                                            "anomaly_score": 0.85 if is_anom else 0.15,
+                                            "is_anomaly": is_anom,
+                                            "threat_type": threat,
+                                            "confidence": conf_pct,
+                                            "severity": "CRITICAL" if is_anom else "NORMAL",
+                                            "raw_telemetry": {
+                                                "record_kind": "packet",
+                                                "protocol": "TCP" if dst_p in (80, 443, 853) else "IP",
+                                                "src_port": src_p,
+                                                "dst_port": dst_p,
+                                                "frame_length": length
+                                            }
+                                        }
+                                        mqtt_client.publish("edge/telemetry/prediction", json.dumps(gw_pred), qos=0)
+                                        if is_anom:
+                                            gw_alert = {
+                                                "device_id": "AERO-ESP32-Gateway",
+                                                "threat_type": threat,
+                                                "severity": "CRITICAL",
+                                                "anomaly_score": 0.85,
+                                                "confidence": conf_pct,
+                                                "raw_telemetry": {
+                                                    "protocol": "TCP" if dst_p in (80, 443, 853) else "IP",
+                                                    "src_port": src_p,
+                                                    "dst_port": dst_p,
+                                                    "packet_length": length
+                                                }
+                                            }
+                                            mqtt_client.publish("edge/alerts/high_priority", json.dumps(gw_alert), qos=1)
+                                except Exception:
+                                    pass
+                            continue
+
+                        if line.startswith("ESP32_RADIO:"):
+                            topic = "edge/telemetry/radio"
+                        elif line.startswith("ESP32_TELEMETRY:"):
+                            topic = "edge/telemetry/traffic"
+                        elif line.startswith("ESP32_PREDICTION:"):
+                            topic = "edge/telemetry/prediction"
+                        elif line.startswith("ESP32_ALERT:"):
+                            topic = "edge/alerts/high_priority"
+                        else:
+                            topic = None
+
                         if topic is None:
                             continue
                         try:

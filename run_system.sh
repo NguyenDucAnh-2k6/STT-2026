@@ -7,17 +7,18 @@
 #        chmod +x run_system.sh
 #   2. Chay mac dinh (Host PC Live Sniffer bat luu luong mang that cua may tinh):
 #        ./run_system.sh
-#   3. Chay kem bo ban goi tin doc hai mang that (Dieu khien on-demand tu Web UI):
-#        ./run_system.sh --attack-sim
-#   4. Chay voi thiet bi ESP32 vat ly qua WiFi/MQTT (Promiscuous Mode):
+#   3. DEMO 1: ESP32 Promiscuous Sniffer (Bat song khong trung L2 Wireless WIDS):
 #        ./run_system.sh --probe esp32
-#   5. Chay ESP32 kem ban goi tin mang that:
-#        ./run_system.sh --probe esp32 --attack-sim
-#   6. 1-Click tu dong build va nap code cho ESP32 qua arduino-cli (khong can mo Arduino IDE GUI):
-#        ./run_system.sh --probe esp32 --attack-sim --arduino_cli true
+#   4. DEMO 2: ESP32 Micro-Gateway (Phat SoftAP cho laptop ket noi, NAT Internet, ML DPI qua CPU):
+#        ./run_system.sh --esp32-gateway
+#        (Hoac 1-Click build & nap firmware luon: ./run_system.sh --esp32-gateway --arduino-cli)
+#   5. DEMO 3: Laptop lam Gateway (Quy hoach cho giai doan tiep theo):
+#        ./run_system.sh --demo-mode laptop-gateway
+#   6. Chay kem bo ban goi tin doc hai mang that (Dieu khien on-demand tu Web UI):
+#        ./run_system.sh --attack-sim
 #   7. Chi dinh cong Serial ro rang khi nap ESP32:
-#        ./run_system.sh --arduino_cli true --port /dev/ttyUSB0           # Tren Linux
-#        ./run_system.sh --arduino_cli true --port /dev/cu.usbserial-0001 # Tren macOS
+#        ./run_system.sh --arduino-cli true --port /dev/ttyUSB0           # Tren Linux
+#        ./run_system.sh --arduino-cli true --port /dev/cu.usbserial-0001 # Tren macOS
 #   8. Xem toan bo danh sach cac flag ho tro:
 #        ./run_system.sh --help
 #

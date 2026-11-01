@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include "sniffer.h"
 #include "packet_features.h"
+#include "wireless_features.h"
 
 struct EdgeInferenceResult {
   float anomaly_score;
@@ -12,9 +13,14 @@ struct EdgeInferenceResult {
   const char* threat_name;
   float confidence;
   const char* edge_model_name;
+  const char* edge_profile;
+  const char* edge_model_id;
   uint16_t features_count;
-  float class_probabilities[ESP32_PACKET_CLASS_COUNT];
-  uint32_t raw_features[ESP32_PACKET_FEATURE_COUNT];
+  uint16_t classes_count;
+  const char* const* feature_names;
+  const char* const* class_labels;
+  float class_probabilities[16];
+  uint32_t raw_features[16];
   const char* status_reason;
   uint32_t sequence;
   uint32_t inferred_at_ms;
@@ -30,5 +36,6 @@ float getDynamicAnomalyThreshold();
 
 EdgeInferenceResult runPacketEdgeInference(const RadioFrame& frame);
 EdgeInferenceResult getLatestEdgeInference();
+void recordGatewayInference(const char* threat, float anomScore, float confidence, bool isAnomaly);
 
 #endif // EDGE_INFERENCE_H

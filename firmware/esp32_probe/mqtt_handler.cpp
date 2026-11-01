@@ -3,6 +3,7 @@
 #include <WiFiUdp.h>
 #include <ArduinoJson.h>
 #include "led_buzzer.h"
+#include "gateway_manager.h"
 
 static WiFiClient espClient;
 static PubSubClient mqttClient(espClient);
@@ -29,9 +30,9 @@ static void publishLocalAlert(const RadioFrame& frame, const EdgeInferenceResult
   alert["anomaly_score"] = inf.anomaly_score;
   alert["threat_type"] = inf.threat_name;
   alert["confidence"] = inf.confidence;
-  alert["edge_model_version"] = ESP32_PACKET_MODEL_ID;
-  alert["severity"] = (inf.anomaly_score > .85f || strcmp(inf.threat_name, "DDoS_TCP") == 0 ||
-      strcmp(inf.threat_name, "DDoS_UDP") == 0 || strcmp(inf.threat_name, "Port_Scanning") == 0)
+  alert["edge_model_version"] = inf.edge_model_id;
+  alert["severity"] = (inf.anomaly_score > .85f || strstr(inf.threat_name, "DDoS") != NULL ||
+      strstr(inf.threat_name, "Deauth") != NULL || strstr(inf.threat_name, "Port") != NULL)
       ? "CRITICAL" : (inf.anomaly_score > .65f ? "HIGH" : "MEDIUM");
   JsonObject raw = alert.createNestedObject("raw_telemetry");
   raw["record_kind"] = "packet";
@@ -48,18 +49,21 @@ static void publishLocalAlert(const RadioFrame& frame, const EdgeInferenceResult
 void sendRadioFrame() {
   static RadioFrame frame;
   if (!popRadioFrame(&frame)) return;
+#if CURRENT_PROBE_MODE == PROBE_MODE_GATEWAY
+  inspectGatewayPacket(frame.payload, frame.captured_length);
+#endif
   EdgeInferenceResult inf = runPacketEdgeInference(frame);
   setAlertState(inf.inference_valid && inf.is_anomaly);
   publishLocalAlert(frame, inf);
   static char hex[RADIO_FRAME_MAX_BYTES * 2 + 1];
-  static char buffer[RADIO_FRAME_MAX_BYTES * 2 + 2304];
+  static char buffer[RADIO_FRAME_MAX_BYTES * 2 + 3072];
   const char* digits = "0123456789abcdef";
   for (uint16_t i = 0; i < frame.captured_length; i++) {
     hex[2 * i] = digits[frame.payload[i] >> 4];
     hex[2 * i + 1] = digits[frame.payload[i] & 15];
   }
   hex[2 * frame.captured_length] = '\0';
-  StaticJsonDocument<2304> doc;
+  StaticJsonDocument<3072> doc;
   doc["schema_version"] = 1;
   doc["record_kind"] = "radio_frame";
   doc["device_id"] = MQTT_CLIENT_ID;
@@ -77,8 +81,8 @@ void sendRadioFrame() {
   doc["frame_hex"] = static_cast<const char*>(hex);
   doc["edge_inference_status"] = inf.inference_valid ? "ok" : "unavailable";
   doc["edge_error"] = inf.status_reason;
-  doc["edge_input_profile"] = ESP32_PACKET_PROFILE;
-  doc["edge_model_version"] = ESP32_PACKET_MODEL_ID;
+  doc["edge_input_profile"] = inf.edge_profile;
+  doc["edge_model_version"] = inf.edge_model_id;
   doc["edge_model"] = inf.edge_model_name;
   doc["edge_features_count"] = inf.features_count;
   doc["edge_prediction"] = inf.threat_name;
@@ -89,9 +93,17 @@ void sendRadioFrame() {
     doc["edge_anomaly_score"] = inf.anomaly_score;
     doc["edge_confidence"] = inf.confidence;
     JsonObject probabilities = doc.createNestedObject("edge_class_probabilities");
-    for (int i = 0; i < ESP32_PACKET_CLASS_COUNT; i++) probabilities[ESP32_PACKET_LABELS[i]] = inf.class_probabilities[i];
+    for (int i = 0; i < inf.classes_count; i++) {
+      if (inf.class_labels && inf.class_labels[i]) {
+        probabilities[inf.class_labels[i]] = inf.class_probabilities[i];
+      }
+    }
     JsonObject rawFeatures = doc.createNestedObject("edge_raw_features");
-    for (int i = 0; i < ESP32_PACKET_FEATURE_COUNT; i++) rawFeatures[ESP32_PACKET_FEATURE_NAMES[i]] = inf.raw_features[i];
+    for (int i = 0; i < inf.features_count; i++) {
+      if (inf.feature_names && inf.feature_names[i]) {
+        rawFeatures[inf.feature_names[i]] = inf.raw_features[i];
+      }
+    }
   } else {
     doc["edge_flag"] = nullptr;
     doc["edge_anomaly_score"] = nullptr;
@@ -141,7 +153,7 @@ void initMqttAndWiFi(bool allNetworksMode) {
     return;
   }
 
-  Serial.println(F("\n[WiFi] Khoi dong WiFiMulti tu dong ket noi AP tot nhat..."));
+  Serial.printf("\n[WiFi] Dang ket noi vao mang AP muc tieu: '%s'...\n", WIFI_SSID);
   WiFi.mode(WIFI_STA);
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
 
@@ -212,6 +224,19 @@ static void reconnectMqtt() {
 void maintainMqttLoop(bool allNetworksMode) {
   if (allNetworksMode) return;
 
+#if CURRENT_PROBE_MODE == PROBE_MODE_GATEWAY
+  // Ở chế độ Gateway, WiFi STA đã do gateway_manager khởi tạo và quản lý.
+  // Tuyệt đối không gọi wifiMulti.run(250) vì hàm này chặn 250ms mỗi vòng lặp
+  // và tự động đổi WiFi.mode(WIFI_STA) làm sập SoftAP và ngắt kết nối laptop!
+  if (WiFi.status() == WL_CONNECTED) {
+    checkUdpDiscovery();
+    if (!mqttClient.connected()) {
+      reconnectMqtt();
+    } else {
+      mqttClient.loop();
+    }
+  }
+#else
   if (wifiMulti.run(250) == WL_CONNECTED) {
     checkUdpDiscovery();
     if (!mqttClient.connected()) {
@@ -220,6 +245,7 @@ void maintainMqttLoop(bool allNetworksMode) {
       mqttClient.loop();
     }
   }
+#endif
 }
 
 bool isWiFiConnected() {
@@ -290,6 +316,17 @@ void sendTelemetryData(
   doc["observed_udp_count"] = snap.udp_packets;
   doc["observed_icmp_count"] = snap.icmp_packets;
   doc["observed_unique_port_buckets"] = snap.unique_ports_count;
+  // 802.11 Layer 2 observed metrics (khai thác trực tiếp kể cả khi WPA2/WPA3 mã hóa)
+  doc["observed_mgmt_count"] = snap.mgmt_packets;
+  doc["observed_control_count"] = snap.control_packets;
+  doc["observed_data_count"] = snap.data_packets;
+  doc["observed_deauth_count"] = snap.deauth_packets;
+  doc["observed_disassoc_count"] = snap.disassoc_packets;
+  doc["observed_protected_count"] = snap.protected_data_packets;
+  if (snap.total_packets > 0) {
+    doc["mgmt_ratio"] = round(((float)snap.mgmt_packets / snap.total_packets) * 1000) / 1000.0;
+    doc["protected_ratio"] = round(((float)snap.protected_data_packets / snap.total_packets) * 1000) / 1000.0;
+  }
 
   // Đóng gói danh sách mạng WiFi (SSID)
   JsonArray netArr = doc.createNestedArray("scanned_networks");

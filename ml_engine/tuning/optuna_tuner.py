@@ -233,8 +233,19 @@ def optimize_hyperparameters(
         for step, (train_idx, val_idx) in enumerate(splits):
             X_tr, X_val = X[train_idx], X[val_idx]
             if raw_features is not None:
-                from ml_engine.preprocessing import EdgeTrafficPreprocessor
-                fold_preprocessor = EdgeTrafficPreprocessor(feature_names=list(raw_features.columns))
+                from ml_engine.preprocessing import (
+                    EdgeTrafficPreprocessor,
+                    AWID3TrafficPreprocessor,
+                    EncryptedTrafficPreprocessor
+                )
+                from ml_engine.config.edge_profiles import AWID3_WIFI_FEATURES, ESP32_PACKET_FEATURES
+                cols = list(raw_features.columns)
+                if cols == list(AWID3_WIFI_FEATURES):
+                    fold_preprocessor = AWID3TrafficPreprocessor(feature_names=cols)
+                elif cols == list(ESP32_PACKET_FEATURES):
+                    fold_preprocessor = EncryptedTrafficPreprocessor(feature_names=cols)
+                else:
+                    fold_preprocessor = EdgeTrafficPreprocessor(feature_names=cols)
                 fold_preprocessor.fit(raw_features.iloc[train_idx], raw_labels.iloc[train_idx])
                 X_tr = fold_preprocessor.transform(raw_features.iloc[train_idx])
                 X_val = fold_preprocessor.transform(raw_features.iloc[val_idx])

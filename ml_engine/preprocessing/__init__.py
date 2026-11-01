@@ -38,12 +38,26 @@ from .modules import (
     TCP_FEATURES,
     UDP_FEATURES,
     HTTP_FEATURES,
-    IOT_FEATURES
+    IOT_FEATURES,
+    PayloadEntropyPreprocessor,
+    FlowDynamicsPreprocessor,
+    TLSHandshakePreprocessor,
+    WifiWirelessPreprocessor,
+    PAYLOAD_ENTROPY_FEATURES,
+    FLOW_DYNAMICS_FEATURES,
+    TLS_HANDSHAKE_FEATURES,
+    WIFI_CORE_FEATURES,
+    WIFI_WINDOW_EXTENDED_FEATURES,
+    ALL_WIFI_FEATURES
 )
 from .ustc_tfc2016_preprocessor import (
     load_ustc_tfc2016_dataset,
     EncryptedTrafficPreprocessor,
     USTC_TFC2016_LABELS
+)
+from .awid3_preprocessor import (
+    load_awid3_dataset,
+    AWID3TrafficPreprocessor
 )
 
 __all__ = [
@@ -60,12 +74,24 @@ __all__ = [
     "UDPTransportPreprocessor",
     "HTTPApplicationPreprocessor",
     "IoTProtocolsPreprocessor",
+    "PayloadEntropyPreprocessor",
+    "FlowDynamicsPreprocessor",
+    "TLSHandshakePreprocessor",
+    "WifiWirelessPreprocessor",
     "NETWORK_CORE_FEATURES",
     "TCP_FEATURES",
     "UDP_FEATURES",
     "HTTP_FEATURES",
     "IOT_FEATURES",
+    "PAYLOAD_ENTROPY_FEATURES",
+    "FLOW_DYNAMICS_FEATURES",
+    "TLS_HANDSHAKE_FEATURES",
+    "WIFI_CORE_FEATURES",
+    "WIFI_WINDOW_EXTENDED_FEATURES",
+    "ALL_WIFI_FEATURES",
     "load_ustc_tfc2016_dataset",
     "EncryptedTrafficPreprocessor",
-    "USTC_TFC2016_LABELS"
+    "USTC_TFC2016_LABELS",
+    "load_awid3_dataset",
+    "AWID3TrafficPreprocessor"
 ]

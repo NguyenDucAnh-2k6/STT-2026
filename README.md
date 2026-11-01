@@ -26,9 +26,10 @@ attack của paper Edge-IIoTset**.
   Các module JS có fingerprint chung để tránh dùng lẫn component cũ/mới.
 - Nút Normal/attack UI chạy **workload Twin + PCAP capture + Parquet import**.
   Accepted không đồng nghĩa COMPLETED hay attack được xác minh.
-- ESP32 có radio sniffer, window telemetry, local alert và inference/export modules.
-  Window ESP32 không tương đương 56 host packet features; không coi Wi-Fi mã hóa
-  là TCP/HTTP plaintext đo được. Cần artifact phù hợp khả năng probe.
+- ESP32 hỗ trợ 2 chế độ biên linh hoạt: **Promiscuous Sniffer** (bắt sóng không trung L2 thụ động)
+  và **Micro-Gateway** (phát SoftAP + NAT chuyển tiếp Internet, hook lwIP DPI L3-L4 thời gian thực,
+  tích hợp Captive Portal HTTP 204 chống out mạng và Web Portal điều khiển tại chỗ).
+  Window ESP32 phân định rõ giữa đặc trưng L2 vô tuyến và L3-L4 IP/Entropy giải mã.
 - Twin vật lý/RL và GAN là thành phần thử nghiệm. Vector simulation không phải
   packet đo thật; thử policy chưa chứng minh phòng thủ mạng thực.
 
@@ -54,67 +55,217 @@ Hệ thống hoạt động theo mô hình phân tán đa tầng (Hybrid Multi-T
 ```mermaid
 flowchart TD
     subgraph Traffic_Sources["1. NGUỒN LƯU LƯỢNG MẠNG"]
-        WiFi[("Wi-Fi Môi trường / Hotspot<br/>(WPA2/WPA3 / Open)")]
-        HostNIC[("Card mạng Host PC<br/>(Ethernet / Wi-Fi)")]
-        TwinLab[("Digital Twin Lab<br/>(Loopback 127.0.0.1)")]
+        WiFi_Air["Sóng Wi-Fi Không Trung<br/>(802.11 b/g/n Kênh chỉ định)"]
+        Client_Dev["Thiết bị IoT / Phone / Laptop<br/>(Kết nối qua SoftAP Gateway)"]
+        HostNIC["Card Mạng Host PC<br/>(Ethernet / Wi-Fi)"]
+        TwinLab["Digital Twin Lab<br/>(Loopback 127.0.0.1)"]
     end
 
-    subgraph Edge_Tier["2. BIÊN ESP32 (EDGE TINYML PROBE)"]
-        Sniffer["Promiscuous 802.11 Sniffer"]
-        L24_Extract["Trích xuất 10 Đặc trưng L2-4<br/>(ESP32_PACKET_FEATURES)"]
-        TinyML["TinyML Engine C Header<br/>(Random Forest 16 cây + Isolation Forest)"]
-        LocalAlert["Cảnh báo phần cứng tại chỗ<br/>(OLED SSD1306, LED, Buzzer)"]
-        
-        Sniffer --> L24_Extract --> TinyML
-        TinyML --> LocalAlert
+    subgraph Edge_Tier["2. BIÊN ESP32 (DUAL-MODE EDGE AI PROBE)"]
+        subgraph Mode_Sniffer["Mode 1: Promiscuous Sniffer"]
+            Sniff_L2["Promiscuous 802.11 Sniffer"]
+            L2_Extract["Trích xuất 10 Đặc trưng L2-4 / 14 Wireless"]
+            TinyML_Sniff["TinyML Engine C Header"]
+            Sniff_L2 --> L2_Extract --> TinyML_Sniff
+        end
+
+        subgraph Mode_Gateway["Mode 2: Micro-Gateway DPI & NAPT"]
+            SoftAP_IF["SoftAP Interface (AERO-Security-Gateway)"]
+            Portal_DNS["Captive Portal HTTP 204 + DNS Server"]
+            Netif_Hook["lwIP Netif Input Hook"]
+            DPI_Entropy["DPI Engine (Entropy + Cờ TCP/UDP)"]
+            TinyML_GW["TinyML In-line DPI (RF + Isolation Forest)"]
+            NAPT_Route["lwIP NAPT Forwarder sang Router chính"]
+
+            SoftAP_IF --> Portal_DNS
+            SoftAP_IF --> Netif_Hook
+            Netif_Hook --> DPI_Entropy --> TinyML_GW
+            Netif_Hook --> NAPT_Route
+        end
+
+        LocalAlert["Báo động phần cứng tại chỗ<br/>(OLED SSD1306, LED, Buzzer)"]
+        TinyML_Sniff --> LocalAlert
+        TinyML_GW --> LocalAlert
     end
 
-    subgraph Host_Tier["3. HOST PROBE ENGINE"]
-        TShark["TShark Engine ngầm<br/>(Npcap / WinPcap)"]
-        L7_Extract["Trích xuất 56 Canonical Features<br/>(L2-L7: TCP/UDP/HTTP/DNS/MQTT)"]
-        HostInference["Host ML Inference Service<br/>(Dual Pipeline: Anomaly + Classifier)"]
+    subgraph Host_Tier["3. HOST PROBE & INFERENCE SERVICE"]
+        TShark["TShark Engine ngầm (Npcap / WinPcap)"]
+        L7_Extract["Trích xuất 56 Canonical Features (L2-L7)"]
+        HostInference["Host ML Inference Service (Dual Pipeline)"]
+        USBBridge["USB Serial Bridge Worker (launcher/workers.py)"]
 
         TShark --> L7_Extract --> HostInference
     end
 
     subgraph Messaging["4. HỆ THỐNG ĐIỀU PHỐI MQTT"]
-        Broker["Mosquitto MQTT Broker<br/>(Cổng 1883/1884)"]
+        Broker["Mosquitto MQTT Broker (Cổng 1883/1884)"]
         T_Traffic["Topic: edge/telemetry/traffic (QoS 1)"]
+        T_Window["Topic: edge/telemetry/window (QoS 0)"]
+        T_Radio["Topic: edge/telemetry/radio (QoS 1)"]
         T_Pred["Topic: edge/telemetry/prediction (QoS 1)"]
         T_Alert["Topic: edge/alerts/high_priority (QoS 1)"]
-        T_Nodes["Topic: edge/nodes/status (QoS 0/1)"]
-        T_Config["Topic: edge/config/threshold (QoS 1)"]
 
         Broker --- T_Traffic
+        Broker --- T_Window
+        Broker --- T_Radio
         Broker --- T_Pred
         Broker --- T_Alert
-        Broker --- T_Nodes
-        Broker --- T_Config
     end
 
     subgraph Storage_Dashboard["5. LƯU TRỮ VÀ GIAO DIỆN QUẢN TRỊ"]
         FastAPI["FastAPI Backend & Lifespan Service"]
-        DataLake[("Data Lake Parquet + SQLite<br/>(data_lake/raw/date=YYYY-MM-DD/)")]
-        WebUI["Web Dashboard Frontend<br/>(FastAPI WebSockets + Native ES Modules)"]
+        DataLake[("Data Lakehouse Parquet + SQLite Catalog")]
+        WebUI["Web Dashboard Frontend (FastAPI WebSockets + Native ES)"]
 
         FastAPI --> DataLake
         FastAPI <--> WebUI
     end
 
-    WiFi --> Sniffer
+    WiFi_Air --> Sniff_L2
+    Client_Dev --> SoftAP_IF
     HostNIC --> TShark
     TwinLab --> TShark
 
-    TinyML -.->|"MQTT Pub"| T_Pred
-    L24_Extract -.->|"MQTT Pub"| T_Traffic
-    TinyML -.->|"Alert Pub"| T_Alert
-    HostInference -.->|"MQTT Pub"| T_Pred
+    TinyML_Sniff -.->|"USB Serial / UART"| USBBridge
+    TinyML_GW -.->|"USB Serial / UART"| USBBridge
+    USBBridge -->|"Publish"| Broker
+    HostInference -->|"Publish"| Broker
 
-    T_Traffic --> FastAPI
-    T_Pred --> FastAPI
-    T_Alert --> FastAPI
-    T_Config <--> FastAPI
+    Broker --> FastAPI
 ```
+
+---
+
+## Sơ đồ luồng dữ liệu theo từng chế độ (Data Flow Diagrams)
+
+Hệ thống AERO hiện nay hỗ trợ **2 chế độ giám sát biên trên phần cứng ESP32** và **2 chế độ giám sát trên máy tính Host**. Dưới đây là sơ đồ luồng dữ liệu (Data Flow) chi tiết cho từng chế độ:
+
+### 1. Chế độ ESP32 Micro-Gateway (In-line DPI & NAPT Router)
+Ở chế độ này, ESP32 hoạt động như một Wi-Fi Router / IoT Firewall trung gian:
+- **Phát sóng SoftAP độc lập** (`AERO-Security-Gateway`, pass: `ducanh123`), cấp phát DHCP IP (`192.168.4.x`) cho thiết bị (điện thoại/laptop) kết nối vào.
+- **Tích hợp Captive Portal (Cổng HTTP 80 & DNS 53)**: Tự động trả về mã `HTTP 204 No Content` cho các endpoint kiểm tra kết nối (`/generate_204`, `/gen_204`, `hotspot-detect.html`), giúp smartphone **giữ kết nối liên tục 100% không bị văng**. Đồng thời phục vụ giao diện Web Portal trực quan tại `http://192.168.4.1` để người dùng kiểm tra kết nối hoặc kích hoạt thử nghiệm báo động AI.
+- **Bắt trọn gói tin đã giải mã**: Cài đặt hook trực tiếp vào `netif->input` của lwIP (`gateway_ap_input_hook`), bóc tách toàn bộ gói tin L3-L4 (IP, TCP, UDP, ICMP).
+- **Tính toán Shannon Payload Entropy** và 10 đặc trưng L2-L4 theo thời gian thực.
+- **Thực thi suy luận In-line Edge TinyML**: Chạy trực tiếp Random Forest 16 cây + Isolation Forest cho từng gói tin trên chip ESP32.
+- **Định tuyến hai chiều lwIP NAPT**: Chuyển tiếp an toàn các gói tin hợp lệ ra Router Wi-Fi chính (`ducianh`) để đi Internet.
+- **Cầu nối MQTT thời gian thực**: Xuất bản tin cấu trúc `ESP32_PREDICTION:`, `ESP32_ALERT:` và log `[Gateway Monitor]` qua cáp USB Serial lên MQTT Broker, lập tức cập nhật Web Dashboard tại `http://localhost:8000`.
+
+```mermaid
+flowchart TD
+    subgraph Client_Layer["1. THIẾT BỊ CLIENT (SMARTPHONE / LAPTOP)"]
+        UserDevice["Smartphone / Laptop Client<br/>(Được cấp IP: 192.168.4.2)"]
+        UserBrowser["Trình duyệt Web Client<br/>(Truy cập http://192.168.4.1)"]
+    end
+
+    subgraph ESP32_Gateway_Core["2. ESP32 MICRO-GATEWAY RUNTIME (FIRMWARE)"]
+        SoftAP_Dev["Wi-Fi SoftAP Interface<br/>(AERO-Security-Gateway | Kênh 2 | IP: 192.168.4.1)"]
+        DNS_Captive["Embedded DNS Server (Cổng 53)<br/>(Phân giải tên miền Captive tức thì)"]
+        HTTP_Portal["WebServer & Captive Portal (Cổng 80)<br/>(Trả về HTTP 204 chống out mạng & Web UI)"]
+        
+        Netif_InHook["lwIP Netif Input Hook (gateway_ap_input_hook)<br/>(Bắt trọn gói tin IP đã giải mã)"]
+        Entropy_DPI["DPI Engine & Shannon Entropy<br/>(Tính Entropy payload + Trích xuất L3-L4)"]
+        TinyML_Model["TinyML Engine C Header<br/>(Random Forest 16 cây + Isolation Forest)"]
+        Buzzer_LED["Còi Buzzer & LED Cảnh Báo<br/>(Phát tín hiệu âm thanh/ánh sáng tại chỗ)"]
+        
+        NAPT_Engine["lwIP NAPT Forwarder (ip_napt_enable)<br/>(Định tuyến hai chiều SoftAP <-> STA)"]
+        STA_Interface["Wi-Fi STA Interface<br/>(Khóa kênh 2 & BSSID router chính: 'ducianh')"]
+
+        UserDevice -->|"1. Kết nối Wi-Fi WPA2"| SoftAP_Dev
+        UserBrowser -->|"2. Yêu cầu HTTP Portal"| HTTP_Portal
+        SoftAP_Dev --> DNS_Captive
+        SoftAP_Dev --> HTTP_Portal
+        SoftAP_Dev --> Netif_InHook
+        Netif_InHook --> Entropy_DPI
+        Entropy_DPI --> TinyML_Model
+        TinyML_Model -->|"Nếu phát hiện bất thường"| Buzzer_LED
+        Netif_InHook -->|"Gói tin chuyển tiếp"| NAPT_Engine
+        NAPT_Engine --> STA_Interface
+    end
+
+    subgraph External_Network["3. ROUTER VÀ INTERNET"]
+        Home_Router["Router Wi-Fi Chính (ducianh)<br/>(Dải mạng LAN 192.168.1.x)"]
+        Internet_Cloud["Internet Toàn Cầu<br/>(Web, Cloud, DNS 8.8.8.8)"]
+        STA_Interface --> Home_Router --> Internet_Cloud
+    end
+
+    subgraph Host_Telemetry_Tier["4. HOST PC & GIAO DIỆN GIÁM SÁT REALTIME"]
+        Serial_Bridge["USB Serial Telemetry Bridge<br/>(launcher/workers.py | 115200 baud)"]
+        MQTT_Hub["Mosquitto MQTT Broker<br/>(Topics: prediction, alerts, traffic)"]
+        FastAPI_App["FastAPI Backend Service"]
+        Web_UI["Web Dashboard Frontend<br/>(http://localhost:8000 | WebSocket Live)"]
+        Parquet_Lake[("Data Lakehouse Parquet/SQLite<br/>(Lưu trữ phân vùng theo ngày)")]
+
+        TinyML_Model -.->|"ESP32_PREDICTION / ALERT / TELEMETRY"| Serial_Bridge
+        Serial_Bridge -->|"MQTT Publish QoS 1"| MQTT_Hub
+        MQTT_Hub --> FastAPI_App
+        FastAPI_App --> Web_UI
+        FastAPI_App --> Parquet_Lake
+    end
+```
+
+---
+
+### 2. Chế độ ESP32 Promiscuous Sniffer (Over-the-Air L2 WIDS)
+Ở chế độ này, ESP32 hoạt động như một cảm biến giám sát không dây thụ động (Passive WIDS Sensor):
+- **Không xâm nhập mạng**: Card Wi-Fi của ESP32 chuyển sang chế độ `promiscuous`, khóa vào kênh sóng (channel) của Router mục tiêu và bắt toàn bộ khung sóng 802.11 truyền trong không gian.
+- **Lọc và phân vùng bộ nhớ**: Bộ lọc FreeRTOS lọc bỏ khung Beacon nhiễu, chuyển các khung dữ liệu hợp lệ vào Ring Buffer có giới hạn dung lượng để chống tràn RAM.
+- **Suy luận đa tầng**:
+  - *Tầng 1 (Trên chip ESP32)*: Trích xuất 10 đặc trưng L2-4 hoặc 14 đặc trưng AWID3, chạy suy luận TinyML thời gian thực dưới 5ms/gói, cập nhật màn hình OLED và còi buzzer.
+  - *Tầng 2 (Trên Host PC)*: ESP32 đóng gói khung tin thô qua Serial (`ESP32_RADIO:`) đẩy lên MQTT. Engine `radio_capture.py` và TShark trên máy tính phân tích sâu và đối chiếu với mô hình phân loại toàn phần 15 nhãn.
+
+```mermaid
+flowchart TD
+    subgraph Radio_Space["1. KHÔNG GIAN SÓNG VÔ TUYẾN 802.11"]
+        AP_Target["Router Wi-Fi Mục Tiêu (Target AP)<br/>(Phát sóng tại kênh chỉ định)"]
+        Wireless_Stations["Các thiết bị Client trong vùng phủ sóng<br/>(Laptop, Phone, Smart Home, Camera)"]
+        Air_Packets["Khung vô tuyến 802.11 Over-The-Air<br/>(Beacon, Management, Encrypted Data, Deauth)"]
+        
+        Wireless_Stations <-->|"Trao đổi dữ liệu"| AP_Target
+        AP_Target -.-> Air_Packets
+        Wireless_Stations -.-> Air_Packets
+    end
+
+    subgraph ESP32_Sniffer_Probe["2. ESP32 PROBE (PROMISCUOUS SNIFFER ENGINE)"]
+        Promisc_Driver["Driver 802.11 Promiscuous Sniffer<br/>(esp_wifi_set_promiscuous_rx_cb)"]
+        BSSID_Filter["Hardware BSSID & Channel Filter<br/>(Chỉ nhận gói tin thuộc mạng mục tiêu)"]
+        Ring_Buffer["FreeRTOS Bounded Ring Buffer Queue<br/>(Bảo vệ chống tràn RAM và drop packet an toàn)"]
+        
+        L2_Feature_Calc["Wireless Feature Extractor<br/>(AWID3 14 đặc trưng / USTC 10 đặc trưng)"]
+        TinyML_Local["TinyML Engine C Header<br/>(Random Forest 16 cây + Isolation Forest)"]
+        OLED_Buzzer["Màn hình OLED SSD1306 + Còi Buzzer<br/>(Hiển thị tốc độ Pkts/s, Bytes/s & Cảnh báo)"]
+        
+        Radio_Serializer["Radio Sample Serializer<br/>(Xuất chuỗi HEX khung tin: ESP32_RADIO:)"]
+
+        Air_Packets --> Promisc_Driver
+        Promisc_Driver --> BSSID_Filter --> Ring_Buffer
+        Ring_Buffer --> L2_Feature_Calc --> TinyML_Local
+        TinyML_Local --> OLED_Buzzer
+        Ring_Buffer --> Radio_Serializer
+    end
+
+    subgraph Host_Engine["3. MÁY TÍNH HOST & SERVICE SUY LUẬN TOÀN PHẦN"]
+        USB_Serial_In["USB Serial Bridge Worker (launcher/workers.py)"]
+        MQTT_Broker_Core["Mosquitto MQTT Broker (edge/telemetry/radio)"]
+        Radio_Capture["Radio Capture Engine (radio_capture.py)"]
+        Host_Inference["Host ML Inference Engine<br/>(Phân loại 15 nhãn tấn công & Anomaly Gate)"]
+
+        Radio_Serializer -.->|"Cáp USB COM (115200 baud)"| USB_Serial_In
+        USB_Serial_In -->|"Publish Radio Frame"| MQTT_Broker_Core
+        MQTT_Broker_Core --> Radio_Capture --> Host_Inference
+        Host_Inference -->|"Publish Prediction"| MQTT_Broker_Core
+    end
+
+    subgraph Visualization_Lake["4. DATA LAKEHOUSE VÀ GIAO DIỆN WEB DASHBOARD"]
+        FastAPI_Server["FastAPI Backend Service"]
+        Parquet_Store[("Data Lakehouse Parquet/SQLite<br/>(Lưu trữ toàn bộ Telemetry theo ngày)")]
+        Dashboard_UI["Web Dashboard Frontend<br/>(http://localhost:8000 | WebSocket Live)"]
+
+        MQTT_Broker_Core --> FastAPI_Server
+        FastAPI_Server --> Parquet_Store
+        FastAPI_Server <-->|WebSocket| Dashboard_UI
+    end
+```
+
 
 ---
 
@@ -165,25 +316,37 @@ AERO sử dụng kiến trúc Pub/Sub tách biệt hoàn toàn giữa luồng d�
 
 ## 3. Module ESP32 Probe (Edge AI TinyML)
 
-ESP32 Probe là điểm đột phá cho phép **giám sát biên không xâm nhập (Non-intrusive Over-The-Air Sniffing)**:
+ESP32 Probe là hạt nhân giám sát biên thông minh, hỗ trợ **2 kiến trúc triển khai độc lập**:
 
-1. **Thu thập không dây (Promiscuous 802.11 Mode):**
-   - ESP32 đặt card Wi-Fi ở chế độ Promiscuous, lắng nghe toàn bộ khung truyền sóng trong không gian ở kênh (channel) chỉ định.
-   - Bộ lọc phần cứng FreeRTOS lọc nhanh các khung Management/Beacon, chỉ chuyển khung Data hợp lệ qua ring buffer có giới hạn dung lượng để chống tràn bộ nhớ.
-2. **TinyML Inference Engine:**
-   - Mô hình Random Forest (16 Decision Trees) + Isolation Forest được biên dịch trực tiếp sang mã nguồn C thuần (`esp32_packet_model.h`).
-   - Cây quyết định được biểu diễn dưới dạng cây if/else nhị phân phẳng, không cấp phát bộ nhớ động (Zero dynamic heap allocation), thời gian suy luận **dưới 5 ms/gói tin**.
-   - Cấu hình phân vùng bộ nhớ Flash: Sử dụng bảng phân vùng `PartitionScheme=huge_app` (3MB cho App), chiếm ~38–47% dung lượng Flash của ESP32.
-3. **Cảnh báo và tự trị (Edge Autonomy):**
-   - Khi mất kết nối MQTT về máy chủ, ESP32 vẫn tiếp tục suy luận độc lập và kích hoạt còi/LED/OLED tại chỗ khi phát hiện tấn công.
+### A. Kiến trúc 1: Promiscuous 802.11 Sniffer (Over-the-Air WIDS)
+- **Giám sát không xâm nhập (Non-intrusive)**: Không cần biết mật khẩu mạng, không cần kết nối vào mạng mục tiêu, bắt toàn bộ khung sóng 802.11 trong không gian vô tuyến.
+- **Bộ đệm FreeRTOS an toàn**: Sử dụng hàng đợi vòng giới hạn dung lượng (Bounded Ring Buffer) để bảo vệ bộ nhớ RAM khỏi tràn khi lưu lượng đột biến.
+- **Trích xuất đặc trưng L2**: Đọc nhanh các trường Header 802.11, cờ điều khiển, độ dài khung tin, địa chỉ MAC và tỉ lệ khung tin quản trị (Deauth/Disassoc/Management).
+
+### B. Kiến trúc 2: In-line Micro-Gateway (DPI & NAPT Router)
+- **Wi-Fi Router & Firewall biên độc lập**: Phát sóng SoftAP riêng biệt (`AERO-Security-Gateway`, mật khẩu `ducanh123`), cấp phát DHCP IP cho các thiết bị cần bảo vệ (điện thoại thông minh, laptop, cảm biến IoT).
+- **Captive Portal & Web Server tích hợp**:
+  - Tự động phản hồi mã chuẩn `HTTP 204 No Content` cho mọi yêu cầu kiểm tra kết nối (`/generate_204`, `/gen_204`, `hotspot-detect.html`), giúp smartphone (Android/iOS) **giữ kết nối liên tục 100% không bị văng ra mạng mặc định**.
+  - Tích hợp DNS Server trên cổng 53 để phản hồi phân giải tên miền ngay tức khắc.
+  - Cung cấp trang Web Portal điều khiển tại `http://192.168.4.1`, cho phép người dùng kiểm tra trạng thái DPI, tạo traffic hợp lệ (Normal) hoặc bấm nút thử nghiệm phát còi báo động AI (Simulate Alert).
+- **Bóc tách sâu Deep Packet Inspection (DPI) & Shannon Entropy**:
+  - Hook trực tiếp vào hàm `netif->input` của tầng mạng lwIP (`gateway_ap_input_hook`), thu giữ 100% gói tin L3-L4 IP/TCP/UDP/ICMP đã giải mã từ thiết bị.
+  - Tính toán độ hỗn loạn Shannon Payload Entropy trên từng gói tin.
+- **Định tuyến lwIP NAPT**: Kích hoạt bộ định tuyến phần mềm `ip_napt_enable` chuyển tiếp hai chiều giữa mạng SoftAP và Router Internet chính (`ducianh`).
+
+### C. TinyML Inference Engine & Cảnh báo Biên Tự Trị
+- **Mã nguồn C thuần tối ưu**: Mô hình Random Forest (16 cây quyết định) kết hợp Isolation Forest được biên dịch trực tiếp sang file C header (`tinyml_model.h` / `esp32_packet_model.h`).
+- **Zero Dynamic Allocation**: Hoàn toàn không cấp phát bộ nhớ động (`malloc`/`free`), loại bỏ triệt để nguy cơ phân mảnh bộ nhớ (Heap Fragmentation), thời gian suy luận **dưới 5 ms/gói tin**.
+- **Cấu hình Flash**: Sử dụng phân vùng `PartitionScheme=huge_app` (3MB Flash), chiếm ~39% dung lượng Flash và 15% RAM của ESP32.
+- **Báo động tại chỗ (Edge Autonomy)**: Ngay cả khi mất kết nối mạng về máy chủ, ESP32 vẫn duy trì khả năng suy luận độc lập và kích hoạt còi Buzzer/LED/OLED cảnh báo khi phát hiện bất thường.
 
 ---
 
-## 4. Hướng dẫn vận hành & Các chế độ chạy
+## 4. Hướng dẫn vận hành & Các lệnh chạy Demo
 
 ### Bước 1: Chuẩn bị môi trường
 - Cài đặt Python 3.10+, Wireshark (Npcap trên Windows), Mosquitto native.
-- Cài đặt Arduino-CLI và ESP32 board core (`esp32:esp32`) nếu muốn tự động nạp firmware cho ESP32.
+- Cài đặt Arduino-CLI và ESP32 board core (`esp32:esp32`) nếu muốn tự động biên dịch và nạp firmware cho ESP32.
 - Cài đặt các thư viện Python:
   ```powershell
   python -m pip install -r requirements.txt
@@ -191,44 +354,66 @@ ESP32 Probe là điểm đột phá cho phép **giám sát biên không xâm nh�
 
 ---
 
-### Bước 2: Huấn luyện mô hình TinyML cho ESP32 (Offline Training)
-Nếu muốn huấn luyện mô hình Random Forest 16 cây + Isolation Forest từ tập dữ liệu Edge-IIoTset (lọc 10 đặc trưng L2-4):
+### Bước 2: Huấn luyện mô hình TinyML cho ESP32 (Offline Training - Tùy chọn)
+Nếu muốn huấn luyện lại mô hình Random Forest 16 cây + Isolation Forest từ tập dữ liệu Edge-IIoTset hoặc AWID3:
 
 ```powershell
 python -m ml_engine.edge.train --classifier random_forest --trees 16 --output ml_engine/models/esp32_edgeiiot_rf16
 ```
-*(Lệnh sẽ xuất toàn bộ trọng số, scaler và file C header `esp32_packet_model.h` vào thư mục chỉ định).*
+*(Lệnh sẽ xuất toàn bộ trọng số, scaler và file C header `tinyml_model.h` / `esp32_packet_model.h` vào thư mục firmware).*
 
 ---
 
-### Bước 3: Khởi chạy hệ thống
+### Bước 3: Các lệnh khởi chạy Demo hệ thống
 
-#### Chế độ A: Giám sát biên qua ESP32 (Tự động biên dịch, nạp firmware & kết nối Hotspot)
-Kết nối ESP32 qua cáp micro-USB vào máy tính (ví dụ cổng COM4), bật Hotspot trên điện thoại hoặc máy tính:
+#### DEMO 1: Giám sát sóng không trung qua ESP32 (Promiscuous Sniffer WIDS)
+Bắt sóng không trung L2, khóa vào kênh của Wi-Fi mục tiêu, truyền telemetry và suy luận TinyML thời gian thực:
 
 ```powershell
-python run_system.py --probe esp32 --classifier random_forest --anomaly-model isolation_forest --models-dir ml_engine/models/esp32_edgeiiot_rf16 --arduino-cli --wifi-ssid "Tên_Hotspot" --wifi-pass
+python run_system.py --probe esp32 --demo-mode sniffer --arduino-cli --flash --wifi-ssid "Tên_WiFi" --wifi-pass "Mật_Khẩu_WiFi" --classifier random_forest --anomaly-model isolation_forest
 ```
-- Launcher sẽ tự động:
-  1. Đồng bộ file `esp32_packet_model.h` mới nhất vào thư mục firmware.
-  2. Tạo cấu hình `credentials.h` tạm chứa SSID/Password.
-  3. Dùng `arduino-cli` biên dịch và nạp xuống ESP32.
-  4. Khởi chạy Mosquitto Broker, Data Lake Collector và FastAPI Dashboard tại `http://localhost:8000`.
+- **Hành vi**:
+  1. Tự động biên dịch sketch và nạp code xuống bo mạch ESP32 qua cổng COM.
+  2. Khởi chạy Mosquitto Broker, Data Lakehouse Collector và FastAPI Web Dashboard tại `http://localhost:8000`.
+  3. ESP32 bật chế độ Promiscuous bắt sóng 802.11, hiển thị tốc độ gói trên màn hình OLED và gửi bản tin qua USB Serial Bridge.
 
-#### Chế độ B: Giám sát lưu lượng Host (Card mạng máy tính thực tế)
-Quan sát lưu lượng Ethernet hoặc Wi-Fi đi qua máy tính cá nhân bằng TShark ngầm:
+#### DEMO 2: ESP32 làm Micro-Gateway bảo mật (In-line DPI & AI Edge Firewall)
+ESP32 phát mạng SoftAP riêng biệt, định tuyến NAT ra router ngoài và chạy Deep Packet Inspection (DPI) trên CPU ESP32:
+
+```powershell
+python run_system.py --esp32-gateway --demo-mode gateway --arduino-cli --flash --wifi-ssid "Tên_WiFi_Internet" --wifi-pass "Mật_Khẩu_WiFi" --classifier random_forest --anomaly-model isolation_forest
+```
+- **Hành vi**:
+  1. ESP32 phát Wi-Fi SoftAP: **`AERO-Security-Gateway`** (Mật khẩu mặc định: **`ducanh123`**).
+  2. Giao diện Web Dashboard tại `http://localhost:8000` tự động mở và chuyển sang chế độ giám sát Micro-Gateway.
+  3. Mọi gói tin đi qua Gateway đều được bóc tách DPI, tính Entropy và chạy AI trực tiếp trên chip ESP32.
+
+> [!TIP]
+> **HƯỚNG DẪN KẾT NỐI VÀ GIỮ MẠNG LIÊN TỤC TRÊN ĐIỆN THOẠI TRONG PHIÊN DEMO 2:**
+> 1. **Tạm thời tắt 4G / Dữ liệu di động** trên điện thoại để máy không tự động nhảy mạng.
+> 2. **Tắt tính năng "Chuyển sang dữ liệu di động khi Wi-Fi yếu" / "Trợ lý Wi-Fi"** trong phần cài đặt Wi-Fi nâng cao của điện thoại.
+> 3. Kết nối vào Wi-Fi **`AERO-Security-Gateway`** (mật khẩu: `ducanh123`). Nếu điện thoại hiện thông báo *"Mạng không có Internet"*, bấm vào thông báo và chọn **"Giữ kết nối" (Stay connected)**.
+> 4. Tắt tính năng **DNS riêng tư (Private DNS)** trong cài đặt mạng của điện thoại để tránh bị chặn cổng DoT 853.
+> 5. Mở trình duyệt trên điện thoại và truy cập:
+>    ```text
+>    http://192.168.4.1
+>    ```
+>    Trang **AERO Gateway Portal** sẽ hiện ra. Bạn có thể bấm nút **"Kiểm Tra Kết Nối (Normal Traffic)"** hoặc bấm **"Thử Nghiệm Cảnh Báo AI (Simulate Alert)"** để còi chip kêu và Web Dashboard lập tức hiển thị cảnh báo đỏ rực!
+
+#### DEMO 3: Giám sát lưu lượng Host (Card mạng máy tính thực tế)
+Bóc tách toàn phần 56 đặc trưng canonical L2-L7 bằng TShark trên card mạng máy tính (Ethernet/Wi-Fi):
 
 ```powershell
 python run_system.py --probe host --classifier random_forest --anomaly-model isolation_forest
 ```
 
-#### Chế độ C: Thử nghiệm Digital Twin Lab (Loopback & Sinh kịch bản tấn công)
-Dành cho kiểm thử an toàn các kịch bản DoS, Scan, Injection trên loopback `127.0.0.1`:
+#### DEMO 4: Thử nghiệm Digital Twin Lab (14 Kịch bản tấn công trên Loopback)
+Dành cho kiểm thử an toàn các kịch bản DoS, Scan, Injection, XSS, Ransomware, MITM trên loopback `127.0.0.1`:
 
 ```powershell
 python run_system.py --probe host --twin-lab
 ```
-*(Truy cập giao diện Web `http://localhost:8000`, bấm các nút kịch bản để bắt đầu bắn workload và thu PCAP).*
+*(Mở giao diện Web `http://localhost:8000`, bấm các nút kịch bản tấn công để bắt đầu bắn workload, thu PCAP và nhập vào Data Lake).*
 
 ## Cấu hình .env
 

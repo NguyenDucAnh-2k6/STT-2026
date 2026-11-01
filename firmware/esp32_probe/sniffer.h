@@ -17,6 +17,12 @@ struct TrafficWindowStats {
   volatile uint32_t syn_packets;
   volatile uint32_t ack_packets;
   volatile uint32_t unique_ports_count;
+  volatile uint32_t mgmt_packets;
+  volatile uint32_t control_packets;
+  volatile uint32_t data_packets;
+  volatile uint32_t deauth_packets;
+  volatile uint32_t disassoc_packets;
+  volatile uint32_t protected_data_packets;
   uint32_t radio_queue_dropped;
   uint32_t radio_sample_skipped;
 };
@@ -45,6 +51,15 @@ struct DetectedWifiNetwork {
 // Khởi tạo Promiscuous Sniffer
 void initSniffer(uint8_t initialChannel);
 
+// Khóa bộ lọc gói tin vào AP Wi-Fi mục tiêu (Target BSSID & Channel)
+void setTargetNetworkFilter(const uint8_t* bssid, uint8_t channel);
+
+// Xóa bộ lọc mạng mục tiêu (tạm dừng bắt gói khi ngắt kết nối AP)
+void clearTargetNetworkFilter();
+
+// Kiểm tra xem bộ lọc mạng mục tiêu có đang kích hoạt không
+bool isTargetNetworkFilterActive();
+
 // Chụp snapshot số liệu thống kê chu kỳ hiện tại và reset bộ đếm
 TrafficWindowStats captureAndResetStats();
 
@@ -53,5 +68,8 @@ void handleChannelHopping(uint8_t* inoutChannel, unsigned long* inoutLastHopTime
 
 // Truy xuất danh sách các mạng Wi-Fi phát hiện được
 uint8_t copyDetectedWifiNetworks(DetectedWifiNetwork* output, uint8_t capacity);
+
+// Ghi nhận số liệu thống kê gói tin đi qua Gateway vào cửa sổ Telemetry
+void recordGatewayPacketStats(size_t length, uint8_t protocol, bool isSyn, bool isAck, uint16_t srcPort, uint16_t dstPort);
 
 #endif // SNIFFER_H

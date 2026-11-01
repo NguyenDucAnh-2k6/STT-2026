@@ -1,5 +1,6 @@
 #include "packet_features.h"
 #include <string.h>
+#include <math.h>
 
 static uint16_t be16(const uint8_t* p) {
   return ((uint16_t)p[0] << 8) | p[1];
@@ -83,3 +84,74 @@ PacketFeatures extractPacketFeatures(const uint8_t* data, size_t capturedLength,
   result.status = PacketFeatureStatus::Ok;
   return result;
 }
+
+float calculatePayloadEntropy(const uint8_t* payload, size_t length) {
+  if (!payload || length == 0) return 0.0f;
+  uint16_t counts[256] = {0};
+  for (size_t i = 0; i < length; i++) {
+    counts[payload[i]]++;
+  }
+  float entropy = 0.0f;
+  float len_f = (float)length;
+  for (int i = 0; i < 256; i++) {
+    if (counts[i] > 0) {
+      float p = (float)counts[i] / len_f;
+      entropy -= p * (logf(p) / 0.69314718056f); // log2(p) = ln(p) / ln(2)
+    }
+  }
+  return entropy;
+}
+
+PacketFeatures extractRawIpFeatures(const uint8_t* ipData, size_t length, float* outEntropy) {
+  PacketFeatures result = {};
+  result.status = PacketFeatureStatus::Malformed;
+  if (outEntropy) *outEntropy = 0.0f;
+  if (!ipData || length < 20) return result;
+
+  uint8_t ipVer = (ipData[0] >> 4) & 0x0F;
+  if (ipVer != 4) { result.status = PacketFeatureStatus::Unsupported; return result; }
+
+  size_t ipHeaderLength = (ipData[0] & 0x0F) * 4;
+  size_t ipLength = be16(ipData + 2);
+  if (ipHeaderLength < 20 || ipLength < ipHeaderLength || length < ipLength) return result;
+  if (be16(ipData + 6) & 0x3FFF) { result.status = PacketFeatureStatus::Fragmented; return result; }
+
+  const uint8_t* transport = ipData + ipHeaderLength;
+  size_t transportLength = ipLength - ipHeaderLength;
+  uint8_t protocol = ipData[9];
+
+  if (protocol == 6) { // TCP
+    if (transportLength < 20) return result;
+    size_t tcpHeaderLength = (transport[12] >> 4) * 4;
+    if (tcpHeaderLength < 20 || tcpHeaderLength > transportLength) return result;
+    uint16_t flags = ((uint16_t)(transport[12] & 1) << 8) | transport[13];
+    result.values[ESP32_F_TCP_ACK_RAW] = be32(transport + 8);
+    result.values[ESP32_F_TCP_CHECKSUM] = be16(transport + 16);
+    result.values[ESP32_F_TCP_DSTPORT] = be16(transport + 2);
+    result.values[ESP32_F_TCP_FLAGS] = flags;
+    result.values[ESP32_F_TCP_FLAGS_ACK] = (flags & 0x10) ? 1.0f : 0.0f;
+    size_t payloadLen = transportLength - tcpHeaderLength;
+    result.values[ESP32_F_TCP_LEN] = (uint32_t)payloadLen;
+    result.values[ESP32_F_TCP_SRCPORT] = be16(transport);
+
+    if (outEntropy && payloadLen > 0) {
+      *outEntropy = calculatePayloadEntropy(transport + tcpHeaderLength, payloadLen);
+    }
+  } else if (protocol == 1) { // ICMP
+    if (transportLength < 8) return result;
+    result.values[ESP32_F_ICMP_CHECKSUM] = be16(transport + 2);
+  } else if (protocol == 17) { // UDP
+    if (transportLength < 8) return result;
+    size_t udpPayloadLen = (transportLength > 8) ? (transportLength - 8) : 0;
+    if (outEntropy && udpPayloadLen > 0) {
+      *outEntropy = calculatePayloadEntropy(transport + 8, udpPayloadLen);
+    }
+  } else {
+    result.status = PacketFeatureStatus::Unsupported;
+    return result;
+  }
+
+  result.status = PacketFeatureStatus::Ok;
+  return result;
+}
+
