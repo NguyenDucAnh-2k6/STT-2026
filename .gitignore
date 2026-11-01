@@ -48,3 +48,6 @@ Edge-IIoTset dataset/
 *.csv
 data_lake/experiments/
 data_lake/label_backups/
+ml_engine/datasets/AWID3_Dataset/sslkeys/
+ml_engine/datasets/AWID3_Dataset/pcaps/
+ml_engine/datasets/AWID3_Dataset/cache/

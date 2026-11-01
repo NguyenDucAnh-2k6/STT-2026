@@ -1,6 +1,6 @@
 {
-  "timestamp": 1792056813,
-  "artifact_id": "656e4496491747c79cbfc348fe8e4e08",
+  "timestamp": 1792749604,
+  "artifact_id": "b14c4f90d8bf46189fc34f96c3b480de",
   "traffic_mode": "encrypted",
   "profile": "esp32-l234-packet-v1",
   "features_count": 10,
@@ -16,7 +16,7 @@
     "tcp.len",
     "tcp.srcport"
   ],
-  "labels_count": 10,
+  "labels_count": 11,
   "labels": [
     "Cridex",
     "Geodo",
@@ -26,6 +26,7 @@
     "Normal",
     "Nsis-ay",
     "Shifu",
+    "Tinba",
     "Virut",
     "Zeus"
   ],
@@ -37,110 +38,116 @@
     "traffic_mode": "encrypted",
     "profile": "esp32-l234-packet-v1",
     "features_count": 10,
-    "total_extracted_records": 4767,
+    "total_extracted_records": 95324,
     "duplicates_removed": 14763
   },
   "data_lake_records_used": 0,
   "data_lake_labeled_records_used": 0,
-  "sample_ratio": 0.05,
+  "sample_ratio": 1.0,
   "test_size": 0.2,
   "refit_full": false,
-  "train_samples": 3813,
-  "test_samples": 954,
-  "classifier_accuracy": 0.8459,
-  "classifier_accuracy_cv": 0.8272,
-  "classifier_accuracy_std": 0.0194,
-  "classifier_macro_f1": 0.7151,
-  "classifier_macro_f1_cv": 0.6971,
-  "classifier_macro_f1_std": 0.0227,
-  "classifier_weighted_f1": 0.856,
-  "cv_strategy": "3-Fold Stratified CV",
-  "cv_folds": 3,
+  "train_samples": 76259,
+  "test_samples": 19065,
+  "classifier_accuracy": 0.9135,
+  "classifier_accuracy_cv": 0.8988,
+  "classifier_accuracy_std": 0.0131,
+  "classifier_macro_f1": 0.7636,
+  "classifier_macro_f1_cv": 0.7652,
+  "classifier_macro_f1_std": 0.0238,
+  "classifier_weighted_f1": 0.9189,
+  "cv_strategy": "5-Fold Stratified CV",
+  "cv_folds": 5,
   "classification_report": {
     "Cridex": {
-      "precision": 0.782608695652174,
-      "recall": 0.7659574468085106,
-      "f1-score": 0.7741935483870968,
-      "support": 47.0
+      "precision": 0.9715394566623544,
+      "recall": 0.8066595059076263,
+      "f1-score": 0.8814553990610329,
+      "support": 931.0
     },
     "Geodo": {
-      "precision": 0.6842105263157895,
-      "recall": 1.0,
-      "f1-score": 0.8125,
-      "support": 26.0
+      "precision": 0.7369942196531792,
+      "recall": 0.99609375,
+      "f1-score": 0.8471760797342193,
+      "support": 512.0
     },
     "Htbot": {
-      "precision": 0.7872340425531915,
-      "recall": 0.7551020408163265,
-      "f1-score": 0.7708333333333334,
-      "support": 49.0
+      "precision": 0.9131868131868132,
+      "recall": 0.8393939393939394,
+      "f1-score": 0.8747368421052631,
+      "support": 990.0
     },
     "Miuref": {
-      "precision": 0.49230769230769234,
-      "recall": 0.8,
-      "f1-score": 0.6095238095238096,
-      "support": 40.0
+      "precision": 0.7425149700598802,
+      "recall": 0.9323308270676691,
+      "f1-score": 0.8266666666666667,
+      "support": 798.0
     },
     "Neris": {
-      "precision": 0.45,
-      "recall": 0.34615384615384615,
-      "f1-score": 0.391304347826087,
-      "support": 26.0
+      "precision": 0.5455680399500624,
+      "recall": 0.8276515151515151,
+      "f1-score": 0.6576373212942062,
+      "support": 528.0
     },
     "Normal": {
-      "precision": 0.9947552447552448,
-      "recall": 0.8753846153846154,
-      "f1-score": 0.9312602291325696,
-      "support": 650.0
+      "precision": 0.998598400527661,
+      "recall": 0.9317639818447573,
+      "f1-score": 0.9640241961158866,
+      "support": 12999.0
     },
     "Nsis-ay": {
-      "precision": 0.7058823529411765,
-      "recall": 0.9230769230769231,
-      "f1-score": 0.8,
-      "support": 26.0
+      "precision": 0.8495575221238938,
+      "recall": 0.916030534351145,
+      "f1-score": 0.8815426997245179,
+      "support": 524.0
     },
     "Shifu": {
-      "precision": 0.5942028985507246,
-      "recall": 0.8541666666666666,
-      "f1-score": 0.7008547008547008,
-      "support": 48.0
+      "precision": 0.6441947565543071,
+      "recall": 0.900523560209424,
+      "f1-score": 0.7510917030567685,
+      "support": 955.0
+    },
+    "Tinba": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 0.0
     },
     "Virut": {
-      "precision": 0.43478260869565216,
-      "recall": 0.7407407407407407,
-      "f1-score": 0.547945205479452,
-      "support": 27.0
+      "precision": 0.7150259067357513,
+      "recall": 0.770949720670391,
+      "f1-score": 0.7419354838709677,
+      "support": 537.0
     },
     "Zeus": {
-      "precision": 0.7647058823529411,
-      "recall": 0.8666666666666667,
-      "f1-score": 0.8125,
-      "support": 15.0
+      "precision": 0.9964028776978417,
+      "recall": 0.9518900343642611,
+      "f1-score": 0.9736379613356766,
+      "support": 291.0
     },
-    "accuracy": 0.8459119496855346,
+    "accuracy": 0.9135064253868345,
     "macro avg": {
-      "precision": 0.6690689944124586,
-      "recall": 0.7927248946314297,
-      "f1-score": 0.7150915174537049,
-      "support": 954.0
+      "precision": 0.7375984511956131,
+      "recall": 0.8066624880873389,
+      "f1-score": 0.7636276684513823,
+      "support": 19065.0
     },
     "weighted avg": {
-      "precision": 0.8817758555819372,
-      "recall": 0.8459119496855346,
-      "f1-score": 0.8559538686133108,
-      "support": 954.0
+      "precision": 0.9326809851959066,
+      "recall": 0.9135064253868345,
+      "f1-score": 0.9189410221164415,
+      "support": 19065.0
     }
   },
-  "anomaly_test_roc_auc": 0.7193,
-  "anomaly_test_f1": 0.571,
+  "anomaly_test_roc_auc": 0.7232,
+  "anomaly_test_f1": 0.5551,
   "anomaly_evaluation_error": null,
   "preprocessing_version": 1,
   "feature_semantics": "esp32-l234-packet-v1",
   "holdout_scope": "benchmark_packets_only; no field-data generalization claim",
   "deployment_refit_uses_holdout": false,
   "anomaly_threshold": 0.55,
-  "isolation_score_min": -0.6187912791844282,
-  "isolation_score_max": -0.44370706645001085,
+  "isolation_score_min": -0.6196753577081731,
+  "isolation_score_max": -0.4417809020716165,
   "loss_curve_path": null,
   "feature_importance_path": "D:\\STT 2026\\ml_engine\\models\\encrypted\\random_forest_isolation_forest\\feature_importance.png",
   "timeseries": false,

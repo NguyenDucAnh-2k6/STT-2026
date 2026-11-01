@@ -5,14 +5,15 @@ rem ============================================================================
 rem Chi dan su dung:
 rem   1. Chay mac dinh (Host PC Live Sniffer bat luu luong mang that cua may tinh):
 rem        run_system.bat
-rem   2. Chay kem bo ban goi tin doc hai mang that (Dieu khien on-demand tu Web UI):
-rem        run_system.bat --attack-sim
-rem   3. Chay voi thiet bi ESP32 vat ly qua WiFi/MQTT (Promiscuous Mode):
+rem   2. DEMO 1: ESP32 Promiscuous Sniffer (Bat song khong trung L2 Wireless WIDS):
 rem        run_system.bat --probe esp32
-rem   4. Chay ESP32 kem ban goi tin mang that:
-rem        run_system.bat --probe esp32 --attack-sim
-rem   5. 1-Click tu dong build va nap code cho ESP32 qua arduino-cli (khong can mo Arduino IDE):
-rem        run_system.bat --probe esp32 --attack-sim --arduino_cli true
+rem   3. DEMO 2: ESP32 Micro-Gateway (Phat SoftAP cho laptop ket noi, NAT Internet, ML DPI qua CPU):
+rem        run_system.bat --esp32-gateway
+rem        (Hoac 1-Click build & nap firmware luon: run_system.bat --esp32-gateway --arduino-cli)
+rem   4. DEMO 3: Laptop lam Gateway (Quy hoach cho giai doan tiep theo):
+rem        run_system.bat --demo-mode laptop-gateway
+rem   5. Chay kem bo ban goi tin doc hai mang that (Dieu khien on-demand tu Web UI):
+rem        run_system.bat --attack-sim
 rem   6. Xem toan bo danh sach cac flag ho tro:
 rem        run_system.bat --help
 rem

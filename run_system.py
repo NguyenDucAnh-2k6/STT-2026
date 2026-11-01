@@ -65,6 +65,7 @@ from launcher import (
     sync_env_to_firmware,
     resolve_esp32_zero_config,
     check_port_in_use,
+    sync_esp32_probe_mode,
     udp_broker_beacon_worker,
     network_roaming_watcher_worker,
     serial_telemetry_bridge_worker,
@@ -182,270 +183,39 @@ class SmartBooleanAction(argparse.Action):
 
 def resolve_models_dir(root_dir: str, classifier: str, anomaly_model: str, custom_dir: Optional[str] = None, traffic_mode: str = "decrypted") -> Tuple[str, str]:
     """
-    Truy vết và tự động chuẩn bị thư mục chứa model artifacts cho BẤT KỲ tổ hợp dual model nào:
-    1. Nếu người dùng chỉ định custom_dir: dùng custom_dir.
-    2. Kiểm tra thư mục phân vùng: ml_engine/models/{traffic_mode}/{classifier}_{anomaly_model}
-    3. Kiểm tra thư mục legacy: ml_engine/models/{classifier}_{anomaly_model}
-    4. Nếu traffic_mode == 'encrypted', kiểm tra thêm các thư mục demo packet cho ESP32.
-    5. Tự động truy quét các folder artifacts con để tìm hoặc tổng hợp tổ hợp dual model mới.
+    Truy vết và định vị chính xác thư mục chứa model artifacts cho hệ thống qua ml_engine.routing.
     """
     if custom_dir:
         return custom_dir, f"Thu muc chi dinh qua --models-dir ({custom_dir})"
 
+    from ml_engine.routing import resolve_deployed_model, normalize_stream
     base_models = os.path.join(root_dir, "ml_engine", "models")
-    clf_clean = classifier.lower().strip()
-    ano_clean = anomaly_model.lower().strip()
-
-    # Chuẩn hóa alias
-    if clf_clean in ("dnn", "mlp", "deep_learning"):
-        clf_clean = "pytorch_deep"
-    if ano_clean == "autoencoder":
-        ano_clean = "deep_autoencoder"
-
-    # 1. Kiểm tra thư mục phân vùng chuyên biệt theo traffic_mode: ml_engine/models/{traffic_mode}/{clf}_{ano}
-    mode_dir = os.path.join(base_models, traffic_mode, f"{clf_clean}_{ano_clean}")
-    if os.path.exists(mode_dir):
-        clf_p = os.path.join(mode_dir, "attack_classifier.joblib")
-        iso_p = os.path.join(mode_dir, "isolation_forest.joblib")
-        sc_p = os.path.join(mode_dir, "scaler.joblib")
-        pr_p = os.path.join(mode_dir, "preprocessor.joblib")
-        if os.path.exists(clf_p) and os.path.exists(iso_p) and (os.path.exists(sc_p) or os.path.exists(pr_p)):
-            return mode_dir, f"Thu muc to hop {traffic_mode.upper()} ({clf_clean}_{ano_clean})"
-
-    # 2. Kiểm tra nếu thư mục tổ hợp legacy đã tồn tại đầy đủ artifacts
-    target_combo_dir = os.path.join(base_models, f"{clf_clean}_{ano_clean}")
-    if os.path.exists(target_combo_dir):
-        clf_p = os.path.join(target_combo_dir, "attack_classifier.joblib")
-        iso_p = os.path.join(target_combo_dir, "isolation_forest.joblib")
-        sc_p = os.path.join(target_combo_dir, "scaler.joblib")
-        pr_p = os.path.join(target_combo_dir, "preprocessor.joblib")
-        if os.path.exists(clf_p) and os.path.exists(iso_p) and (os.path.exists(sc_p) or os.path.exists(pr_p)):
-            return target_combo_dir, f"Thu muc to hop legacy ({clf_clean}_{ano_clean})"
-
-    # 3. Với traffic_mode == 'encrypted', kiểm tra thư mục demo packet sẵn có
-    if traffic_mode == "encrypted":
-        packet_demo_dirs = [
-            os.path.join(base_models, "esp32_rf_if_packet_demo"),
-            os.path.join(base_models, "esp32_packet_v1"),
-        ]
-        for pdd in packet_demo_dirs:
-            if os.path.exists(pdd):
-                clf_p = os.path.join(pdd, "attack_classifier.joblib")
-                iso_p = os.path.join(pdd, "isolation_forest.joblib")
-                sc_p = os.path.join(pdd, "scaler.joblib")
-                pr_p = os.path.join(pdd, "preprocessor.joblib")
-                if os.path.exists(clf_p) and os.path.exists(iso_p) and (os.path.exists(sc_p) or os.path.exists(pr_p)):
-                    return pdd, f"Thu muc model packet chuyen biet cho ESP32 ({os.path.basename(pdd)})"
-
-    # 4. Quét các folder con để tìm từng model thành phần
-    found_clf_dir = None
-    found_ano_dir = None
-    shared_prep_dir = None
-
-    search_dirs = [os.path.join(base_models, traffic_mode), base_models]
-    for s_dir in search_dirs:
-        if not os.path.exists(s_dir):
-            continue
-        for entry in sorted(os.listdir(s_dir)):
-            subpath = os.path.join(s_dir, entry)
-            if not os.path.isdir(subpath) or entry in ("decrypted", "encrypted"):
-                continue
-
-            meta_file = os.path.join(subpath, "model_metadata.json")
-            clf_file = os.path.join(subpath, "attack_classifier.joblib")
-            ano_file = os.path.join(subpath, "isolation_forest.joblib")
-
-            # Tìm classifier khớp
-            if os.path.exists(clf_file) and not found_clf_dir:
-                matched = False
-                if os.path.exists(meta_file):
-                    try:
-                        import json
-                        with open(meta_file, "r", encoding="utf-8") as f:
-                            mdata = json.load(f)
-                            m_clf = mdata.get("classifier_type", "").lower()
-                            if m_clf in ("dnn", "mlp", "deep_learning"):
-                                m_clf = "pytorch_deep"
-                            if m_clf == clf_clean:
-                                matched = True
-                    except Exception:
-                        pass
-                if not matched and clf_clean in entry.lower():
-                    matched = True
-                if matched:
-                    found_clf_dir = subpath
-
-            # Tìm anomaly detector khớp
-            if os.path.exists(ano_file) and not found_ano_dir:
-                matched = False
-                if os.path.exists(meta_file):
-                    try:
-                        import json
-                        with open(meta_file, "r", encoding="utf-8") as f:
-                            mdata = json.load(f)
-                            m_ano = mdata.get("anomaly_detector_type", "").lower()
-                            if m_ano == "autoencoder":
-                                m_ano = "deep_autoencoder"
-                            if m_ano == ano_clean:
-                                matched = True
-                    except Exception:
-                        pass
-                if not matched and ano_clean in entry.lower():
-                    matched = True
-                if matched:
-                    found_ano_dir = subpath
-
-            if (os.path.exists(os.path.join(subpath, "scaler.joblib")) or
-                os.path.exists(os.path.join(subpath, "preprocessor.joblib"))) and not shared_prep_dir:
-                shared_prep_dir = subpath
-
-    # 3. Tự động tổng hợp tổ hợp dual model nếu tìm thấy cả 2 thành phần
-    if found_clf_dir and found_ano_dir:
-        os.makedirs(target_combo_dir, exist_ok=True)
-        print(f"\n  [Dual Model Synthesis] Dang tong hop to hop moi '{clf_clean} + {ano_clean}'...")
-        print(f"    * Nguon Classifier ({clf_clean})      : {os.path.basename(found_clf_dir)}")
-        print(f"    * Nguon Anomaly Model ({ano_clean})   : {os.path.basename(found_ano_dir)}")
-
-        # Copy classifier artifacts
-        shutil.copy2(os.path.join(found_clf_dir, "attack_classifier.joblib"), os.path.join(target_combo_dir, "attack_classifier.joblib"))
-        if os.path.exists(os.path.join(found_clf_dir, "classifier_dnn.tflite")):
-            shutil.copy2(os.path.join(found_clf_dir, "classifier_dnn.tflite"), os.path.join(target_combo_dir, "classifier_dnn.tflite"))
-
-        # Copy anomaly detector artifacts
-        shutil.copy2(os.path.join(found_ano_dir, "isolation_forest.joblib"), os.path.join(target_combo_dir, "isolation_forest.joblib"))
-        if os.path.exists(os.path.join(found_ano_dir, "anomaly_autoencoder.tflite")):
-            shutil.copy2(os.path.join(found_ano_dir, "anomaly_autoencoder.tflite"), os.path.join(target_combo_dir, "anomaly_autoencoder.tflite"))
-
-        # Copy scaler/preprocessor
-        prep_src = shared_prep_dir or found_clf_dir or found_ano_dir
-        if os.path.exists(os.path.join(prep_src, "scaler.joblib")):
-            shutil.copy2(os.path.join(prep_src, "scaler.joblib"), os.path.join(target_combo_dir, "scaler.joblib"))
-        if os.path.exists(os.path.join(prep_src, "preprocessor.joblib")):
-            shutil.copy2(os.path.join(prep_src, "preprocessor.joblib"), os.path.join(target_combo_dir, "preprocessor.joblib"))
-
-        # Tự động xuất C Header tinyml_model.h hoàn chỉnh cho tổ hợp này
-        try:
-            import joblib
-            from ml_engine.exporter.tinyml_exporter import export_model_to_c_header
-            clf_obj = joblib.load(os.path.join(target_combo_dir, "attack_classifier.joblib"))
-            ano_obj = joblib.load(os.path.join(target_combo_dir, "isolation_forest.joblib"))
-            prep_obj = joblib.load(os.path.join(target_combo_dir, "preprocessor.joblib")) if os.path.exists(os.path.join(target_combo_dir, "preprocessor.joblib")) else None
-            h_path = os.path.join(target_combo_dir, "tinyml_model.h")
-            export_model_to_c_header(clf_obj, ano_obj, h_path, preprocessor=prep_obj)
-            print(f"    * Da tao C Header tinyml_model.h cho to hop: {h_path}")
-        except Exception as e:
-            print(f"    [Warning] Khong the tu dong tao tinyml_model.h cho to hop: {e}")
-
-        # Tự động xuất model_metadata.json cho tổ hợp mới
-        try:
-            import json
-            combo_meta = {
-                "classifier_type": clf_clean,
-                "anomaly_detector_type": ano_clean,
-                "synthesized": True,
-                "classifier_source": os.path.basename(found_clf_dir),
-                "anomaly_source": os.path.basename(found_ano_dir),
-                "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
-            }
-            clf_meta_path = os.path.join(found_clf_dir, "model_metadata.json")
-            if os.path.exists(clf_meta_path):
-                with open(clf_meta_path, "r", encoding="utf-8") as f:
-                    clf_m = json.load(f)
-                    for k in ("features", "labels", "features_count", "labels_count", "classifier_accuracy", "classifier_macro_f1"):
-                        if k in clf_m:
-                            combo_meta[k] = clf_m[k]
-            with open(os.path.join(target_combo_dir, "model_metadata.json"), "w", encoding="utf-8") as f:
-                json.dump(combo_meta, f, indent=2)
-        except Exception:
-            pass
-
-        return target_combo_dir, f"To hop tu dong tong hop ({clf_clean} + {ano_clean})"
-
-    # Fallback: Quét folder đầu tiên hợp lệ
-    if os.path.exists(base_models):
-        for entry in sorted(os.listdir(base_models)):
-            subpath = os.path.join(base_models, entry)
-            if os.path.isdir(subpath):
-                clf_p = os.path.join(subpath, "attack_classifier.joblib")
-                iso_p = os.path.join(subpath, "isolation_forest.joblib")
-                if os.path.exists(clf_p) and os.path.exists(iso_p):
-                    return subpath, f"Thu muc model fallback tu dong tim thay ({entry})"
-
-    return target_combo_dir, f"Thu muc model ({clf_clean}_{ano_clean})"
+    canonical_stream = normalize_stream(traffic_mode)
+    try:
+        resolved_dir, desc = resolve_deployed_model(
+            stream=canonical_stream,
+            classifier=classifier,
+            anomaly_model=anomaly_model,
+            base_models_dir=base_models
+        )
+        return resolved_dir, f"Thu muc model {desc.traffic_mode.upper()} ({desc.profile})"
+    except Exception as e:
+        clf_clean = classifier.lower().strip()
+        ano_clean = anomaly_model.lower().strip()
+        fallback_dir = os.path.join(base_models, canonical_stream, f"{clf_clean}_{ano_clean}")
+        return fallback_dir, f"Thu muc model {canonical_stream.upper()} ({clf_clean}_{ano_clean}) [Chua huan luyen: {e}]"
 
 
 def sync_tinyml_header_to_firmware(root_dir: str, models_dir: str, classifier: str, anomaly_model: str, traffic_mode: str = "decrypted") -> bool:
     """
-    Tự động sao chép và ghi đè C Header TinyML (esp32_packet_model.h cho encrypted, tinyml_model.h cho decrypted)
-    và các file .tflite (nếu có) từ thư mục models tương ứng sang firmware/esp32_probe/.
+    Tự động sao chép và ghi đè C Header TinyML sang firmware/esp32_probe/ qua ml_engine.routing.
     """
+    from ml_engine.routing import sync_firmware_header
     firmware_dir = os.path.join(root_dir, "firmware", "esp32_probe")
-    os.makedirs(firmware_dir, exist_ok=True)
-
-    if traffic_mode == "encrypted":
-        candidate_paths = [
-            os.path.join(models_dir, "esp32_packet_model.h"),
-            os.path.join(root_dir, "ml_engine", "models", "encrypted", f"{classifier.lower()}_{anomaly_model.lower()}", "esp32_packet_model.h"),
-            os.path.join(root_dir, "ml_engine", "models", "esp32_rf_if_packet_demo", "esp32_packet_model.h"),
-        ]
-        source_header = None
-        for cp in candidate_paths:
-            if os.path.exists(cp) and os.path.getsize(cp) > 500:
-                source_header = cp
-                break
-
-        if source_header:
-            dest_header = os.path.join(firmware_dir, "esp32_packet_model.h")
-            shutil.copy2(source_header, dest_header)
-            sz = os.path.getsize(dest_header)
-            print(f"  [TinyML Sync] Da dong bo esp32_packet_model.h ({sz:,} bytes) sang firmware ESP32:")
-            print(f"                Nguon : {source_header}")
-            print(f"                Dich  : {dest_header}")
-            return True
-        else:
-            print("  [TinyML Sync] Canh bao: Khong tim thay esp32_packet_model.h hop le de dong bo!")
-            return False
-    else:
-        candidate_paths = [
-            os.path.join(models_dir, "tinyml_model.h"),
-            os.path.join(root_dir, "ml_engine", "models", "decrypted", f"{classifier.lower()}_{anomaly_model.lower()}", "tinyml_model.h"),
-            os.path.join(root_dir, "ml_engine", "models", f"{classifier.lower()}_{anomaly_model.lower()}", "tinyml_model.h"),
-        ]
-        base_models = os.path.join(root_dir, "ml_engine", "models")
-        if os.path.exists(base_models):
-            for entry in sorted(os.listdir(base_models)):
-                candidate_paths.append(os.path.join(base_models, entry, "tinyml_model.h"))
-
-        source_header = None
-        for cp in candidate_paths:
-            if os.path.exists(cp) and os.path.getsize(cp) > 500:
-                source_header = cp
-                break
-
-        if not source_header:
-            print("  [TinyML Sync] Canh bao: Khong tim thay tep tinyml_model.h hop le de dong bo!")
-            return False
-
-        dest_header = os.path.join(firmware_dir, "tinyml_model.h")
-        try:
-            shutil.copy2(source_header, dest_header)
-            sz = os.path.getsize(dest_header)
-            print(f"  [TinyML Sync] Da tu dong dong bo & ghi de tinyml_model.h sang firmware ESP32 ({sz:,} bytes):")
-            print(f"                Nguon : {source_header}")
-            print(f"                Dich  : {dest_header}")
-
-            # Đồng bộ thêm các file .tflite nếu có trong models_dir
-            for tflite_name in ("classifier_dnn.tflite", "anomaly_autoencoder.tflite"):
-                tf_src = os.path.join(models_dir, tflite_name)
-                if os.path.exists(tf_src):
-                    tf_dest = os.path.join(firmware_dir, tflite_name)
-                    shutil.copy2(tf_src, tf_dest)
-                    print(f"                TFLite: {tflite_name} ({os.path.getsize(tf_dest):,} bytes) -> firmware")
-
-            return True
-        except Exception as e:
-            print(f"  [TinyML Sync Warning] Khong the ghi de tinyml_model.h sang firmware: {e}")
-            return False
+    success, message = sync_firmware_header(traffic_mode, models_dir, firmware_dir)
+    prefix = "[TinyML Sync]" if success else "[TinyML Sync Warning]"
+    print(f"  {prefix} {message}")
+    return success
 
 
 def main():
@@ -488,6 +258,32 @@ def main():
         action=SmartBooleanAction,
         default=False,
         help="Chay che do phan cung ESP32 vat ly (tuong duong --probe esp32)"
+    )
+    parser.add_argument(
+        "--esp32-gateway", "--gateway",
+        dest="esp32_gateway",
+        action=SmartBooleanAction,
+        default=False,
+        help="Kich hoat che do Demo 2: ESP32 Micro-Gateway (Phat SoftAP cho laptop ket noi, NAT ra Internet, giam sat ML Deep Packet Inspection qua CPU; khong drop goi tin)"
+    )
+    parser.add_argument(
+        "--demo-mode", "--demo",
+        dest="demo_mode",
+        choices=["sniffer", "gateway", "laptop-gateway"],
+        default=None,
+        help="Lua chon 1 trong 3 loai hinh demo: 'sniffer' (Demo 1: Bat song khong trung WIDS), 'gateway' (Demo 2: ESP32 lam Micro-Gateway DPI), 'laptop-gateway' (Demo 3: Laptop lam Gateway)"
+    )
+    parser.add_argument(
+        "--gateway-ssid",
+        dest="gateway_ssid",
+        default=os.getenv("GATEWAY_AP_SSID", "AERO-Security-Gateway"),
+        help="Ten SSID mang SoftAP do ESP32 phat khi o che do Gateway (mac dinh: AERO-Security-Gateway hoac tu .env)"
+    )
+    parser.add_argument(
+        "--gateway-pass",
+        dest="gateway_pass",
+        default=os.getenv("GATEWAY_AP_PASSWORD", os.getenv("GATEWAY_AP_PASS", "aero2026sec")),
+        help="Mat khau mang SoftAP do ESP32 phat khi o che do Gateway (mac dinh: aero2026sec hoac tu .env, dat '' neu mang mo)"
     )
     parser.add_argument(
         "--window",
@@ -561,9 +357,9 @@ def main():
     parser.add_argument(
         "--traffic-mode", "--traffic",
         dest="traffic_mode",
-        choices=["auto", "decrypted", "encrypted"],
+        choices=["auto", "decrypted", "encrypted", "wireless"],
         default="auto",
-        help="Che do phan loai luu luong: 'auto' (ESP32 dung encrypted, Host dung decrypted), 'decrypted' (Edge-IIoTset 56 dac trung), 'encrypted' (USTC-TFC2016 10 dac trung)"
+        help="Che do phan loai luu luong: 'auto' (ESP32 dung encrypted, Host dung decrypted), 'decrypted' (Edge-IIoTset 56 dac trung), 'encrypted' (USTC-TFC2016 10 dac trung), 'wireless' (AWID3 14 dac trung 802.11)"
     )
     parser.add_argument(
         "--classifier",
@@ -707,8 +503,13 @@ def main():
     root_dir = os.path.dirname(os.path.abspath(__file__))
     python_exe = sys.executable
 
-    # Xac dinh che do probe
+    # Xac dinh che do probe va loai hinh demo (Demo 1: Sniffer, Demo 2: ESP32 Gateway, Demo 3: Laptop Gateway)
+    is_gateway = getattr(args, "esp32_gateway", False) or (getattr(args, "demo_mode", "") == "gateway")
+
     if args.no_sim:
+        probe_mode = "esp32"
+    elif is_gateway:
+        # Neu chon gateway, tu dong chuyen sang probe_mode esp32 ma nguoi dung khong can go --probe esp32
         probe_mode = "esp32"
     elif args.probe == "sim":
         print("\n[Luu y] Che do 'sim' (so lieu ao) da duoc thay the bang bo ban goi tin mang that 100%.")
@@ -718,9 +519,17 @@ def main():
     else:
         probe_mode = args.probe
 
+    if getattr(args, "demo_mode", None) == "laptop-gateway":
+        print("\n" + "=" * 70)
+        print("   [DEMO MODE 3] LAPTOP LAM GATEWAY (RESERVED)")
+        print("=" * 70)
+        print("   * Che do 'Laptop lam Gateway' da duoc quy hoach trong he thong va se trien khai tiep theo.")
+        print("=" * 70 + "\n")
+
     print("=" * 70)
     print("   EDGE AI NETWORK ANOMALY DETECTION SYSTEM - RUNTIME LAUNCHER")
-    print(f"   [Mode: INFERENCE ONLY] | [Probe: {probe_mode.upper()}]")
+    demo_label = "DEMO 2: ESP32 GATEWAY" if is_gateway else (f"DEMO 1: {probe_mode.upper()}" if probe_mode == "esp32" else f"PROBE: {probe_mode.upper()}")
+    print(f"   [Mode: INFERENCE ONLY] | [{demo_label}]")
     print(f"   [Target Models: Classifier='{args.classifier}', Anomaly='{args.anomaly_model}']")
     if enable_remote_push:
         print("   [Cloud Sync: KICH HOAT (Tu dong push len Cloudflare R2 / S3)]")
@@ -734,6 +543,37 @@ def main():
     if probe_mode == "esp32":
         if getattr(args, "rl_defense", False) or getattr(args, "enforce_real_network", False):
             raise ValueError("--probe esp32 runs independently of Twin/RL; omit defense flags")
+
+        # Dong bo che do hoat dong (Sniffer vs Gateway) vao config.h cua firmware ESP32
+        firmware_mode = "gateway" if is_gateway else "sniffer"
+        sync_esp32_probe_mode(
+            root_dir,
+            mode=firmware_mode,
+            ap_ssid=getattr(args, "gateway_ssid", None),
+            ap_pass=getattr(args, "gateway_pass", None)
+        )
+
+        if is_gateway:
+            print("\n" + "=" * 70)
+            print("   DEMO 2: ESP32 MICRO-GATEWAY (DEEP PACKET INSPECTION & EDGE AI)")
+            print("=" * 70)
+            print("   * Che do hoat dong : ESP32 phat mang SoftAP + NAT chuyen tiep Internet")
+            print(f"   * Wi-Fi SoftAP phat: '{args.gateway_ssid}' | Mat khau: '{args.gateway_pass}'")
+            print("   * Cach ly an toan  : Khoa cung toi da 1 client (chiec laptop nay)")
+            print("   * Kha nang boc tach: Shannon Payload Entropy + Header L3/L4 (TCP/UDP/ICMP)")
+            print("   * Chinh sach bao ve: MONITOR-ONLY (Chua dua ra quyet dinh phong thu,")
+            print("                        chuyen tiep nguyen ven 100% goi tin ra Internet)")
+            print("   * Huong dan nhanh  : Hay mo Wi-Fi tren laptop va ket noi vao mang")
+            print(f"                        '{args.gateway_ssid}' de bat dau luot web & quan sat!")
+            print("=" * 70 + "\n")
+        else:
+            print("\n" + "=" * 70)
+            print("   DEMO 1: PROMISCUOUS SNIFFER (L2 WIRELESS OVER-THE-AIR WIDS)")
+            print("=" * 70)
+            print("   * ESP32 bat song khong trung (802.11 Promiscuous Sniffer).")
+            print("   * Khoa bo loc vao Target AP va kenh tuong ung.")
+            print("=" * 70 + "\n")
+
         # Tu dong hoac thu cong xac dinh toan bo thong so mang, IP LAN, va cong MQTT kha dung cho mang LAN
         wifi_ssid, wifi_pass, args.broker_host, args.broker_port = resolve_esp32_zero_config(
             root_dir, requested_port=args.broker_port,
@@ -803,11 +643,12 @@ def main():
     global lake_collector
     if getattr(args, "record_lake", True):
         try:
+            sniffer_mode_tag = "host-interface" if probe_mode == "host" else ("esp32-gateway" if is_gateway else "ap-locked")
             lake_collector = start_lake_collector(
                 broker_host=args.broker_host,
                 broker_port=args.broker_port,
                 probe_type=probe_mode,
-                sniffer_mode="host-interface" if probe_mode == "host" else "ap-locked",
+                sniffer_mode=sniffer_mode_tag,
                 buffer_size=500,
                 flush_interval=5.0
             )
@@ -929,6 +770,8 @@ def main():
     env_inf["ANOMALY_THRESHOLD"] = str(args.threshold)
     env_inf["MODELS_DIR"] = models_dir
     env_inf["AERO_PROBE_MODE"] = probe_mode
+    env_inf["AERO_TRAFFIC_MODE"] = effective_traffic_mode
+    env_inf["AERO_ESP32_MODE"] = "gateway" if is_gateway else "sniffer"
     p_inference = subprocess.Popen([python_exe, inference_script], env=env_inf)
     processes.append(p_inference)
     time.sleep(1.0)
@@ -945,6 +788,9 @@ def main():
     env["AERO_PROBE_MODE"] = probe_mode
     env["MODELS_DIR"] = models_dir
     env["AERO_TRAFFIC_MODE"] = effective_traffic_mode
+    env["AERO_ESP32_MODE"] = "gateway" if is_gateway else "sniffer"
+    if is_gateway:
+        env["AERO_GATEWAY_SSID"] = args.gateway_ssid
     p_dashboard = subprocess.Popen([python_exe, dashboard_script], env=env)
     processes.append(p_dashboard)
     time.sleep(2.0)
@@ -971,13 +817,13 @@ def main():
     else:
         from firmware.esp32_probe.radio_capture import run_radio_capture
         from firmware.host_probe.tshark_engine import find_tshark_path
-        if getattr(args, "use_tshark", True) and not find_tshark_path():
+        if getattr(args, "use_tshark", True) and not is_gateway and not find_tshark_path():
             cleanup()
             raise RuntimeError("ESP32 packet mode requires Wireshark/TShark installed on the host")
         global esp32_stop_event, esp32_bridge_thread
         esp32_stop_event = multiprocessing.Event()
         p_radio = None
-        if getattr(args, "use_tshark", True):
+        if getattr(args, "use_tshark", True) and not is_gateway:
             p_radio = multiprocessing.Process(target=run_radio_capture,
                 args=(args.broker_host, args.broker_port, esp32_stop_event))
             p_radio.start()
@@ -1033,6 +879,10 @@ def main():
     print(f"  -> Model Classifier     : {clf_name}")
     print(f"  -> Model Anomaly        : {det_name}")
     print(f"  -> Probe Source         : {probe_mode.upper()} ({probe_desc})")
+    demo_arch = "DEMO 2 (ESP32 Micro-Gateway DPI)" if is_gateway else ("DEMO 1 (Promiscuous Sniffer L2)" if probe_mode == "esp32" else "Host PC Sniffer")
+    print(f"  -> Demo Architecture   : {demo_arch}")
+    if is_gateway:
+        print(f"  -> Gateway Wi-Fi SSID  : '{args.gateway_ssid}' (Pass: '{args.gateway_pass}')")
     traffic_domain_desc = "USTC-TFC2016 (10-feature L2-4 encrypted packet header)" if effective_traffic_mode == "encrypted" else "Edge-IIoTset (56-feature L7 DPI cleartext)"
     print(f"  -> Traffic Domain       : {effective_traffic_mode.upper()} ({traffic_domain_desc})")
     print(f"  -> Data Lakehouse       : {'BAT (Luu data_lake/raw/ partitioned theo ngay)' if getattr(args, 'record_lake', True) else 'TAT'}")

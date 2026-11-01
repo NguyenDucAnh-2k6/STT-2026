@@ -17,8 +17,11 @@ from firmware.esp32_probe.radio_capture import parse_radio_sample
 from firmware.host_probe.packet_capture import PacketTSharkEngine
 from firmware.host_probe.tshark_engine import find_tshark_path
 from ml_engine.edge.prediction import edge_prediction, radio_prediction_input
-from ml_engine.config.edge_profiles import ESP32_PACKET_FEATURES, ESP32_PACKET_PROFILE
-from ml_engine.config.schema import LABEL_NAMES
+from ml_engine.config.edge_profiles import (
+    ESP32_PACKET_FEATURES, ESP32_PACKET_PROFILE,
+    AWID3_WIFI_FEATURES, AWID3_WIFI_PROFILE,
+)
+from ml_engine.config.schema import LABEL_NAMES, AWID3_LABELS
 from test_esp32_radio import radio_payload
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,6 +35,26 @@ def edge_payload() -> dict:
         "edge_prediction": "Normal", "edge_flag": False, "edge_latency_ms": .5,
         "edge_class_probabilities": {name: .7 if name == "Normal" else .3 if name == "DDoS_TCP" else 0 for name in LABEL_NAMES},
         "edge_raw_features": {name: 0 for name in ESP32_PACKET_FEATURES}}
+
+
+def awid3_edge_payload(encrypted: bool = True) -> dict:
+    other_prob = round(0.15 / (len(AWID3_LABELS) - 1), 6)
+    probs = {name: other_prob for name in AWID3_LABELS}
+    probs["Normal"] = round(1.0 - other_prob * (len(AWID3_LABELS) - 1), 6)
+    return radio_payload(encrypted) | {
+        "edge_input_profile": AWID3_WIFI_PROFILE,
+        "edge_model_version": "b" * 32,
+        "edge_inference_status": "ok",
+        "edge_features_count": len(AWID3_WIFI_FEATURES),
+        "edge_anomaly_score": .15,
+        "edge_threshold": .55,
+        "edge_confidence": probs["Normal"],
+        "edge_prediction": "Normal",
+        "edge_flag": False,
+        "edge_latency_ms": .05,
+        "edge_class_probabilities": probs,
+        "edge_raw_features": {name: 1.0 if name == "wlan.fc.protected" and encrypted else 0.0 for name in AWID3_WIFI_FEATURES},
+    }
 
 
 class ESP32EdgeTests(unittest.TestCase):
@@ -48,6 +71,18 @@ class ESP32EdgeTests(unittest.TestCase):
         self.assertEqual(len(packet["missing_features"]), 46)
         self.assertEqual(result["edge_threshold"], .8)
         self.assertFalse(packet["supervised_training_eligible"])
+
+    def test_awid3_wireless_profile_accepts_encrypted_frame(self) -> None:
+        sample = parse_radio_sample(awid3_edge_payload(encrypted=True), 1_800_000_000_000)
+        packet = radio_prediction_input(sample)
+        result = edge_prediction(packet)
+        self.assertEqual(result["inference_status"], "ok")
+        self.assertEqual(result["inference_source"], "esp32")
+        self.assertFalse(result["is_anomaly"])
+        self.assertEqual(result["threat_type"], "Normal")
+        self.assertEqual(result["edge_input_profile"], AWID3_WIFI_PROFILE)
+        self.assertTrue(packet["radio_protected"])
+        self.assertEqual(packet["wlan.fc.protected"], 1.0)
 
     def test_invalid_probabilities_and_decisions_are_unknown(self) -> None:
         packet = radio_prediction_input(parse_radio_sample(edge_payload(), 1_800_000_000_000))

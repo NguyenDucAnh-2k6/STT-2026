@@ -4,10 +4,11 @@ Master Training Entrypoint Wrapper
 ==================================
 Chuyển tiếp trực tiếp sang ml_engine/train.py.
 Cho phép người dùng gõ lệnh ngắn gọn:
-    python train.py --classifier decision_tree
-    python train.py --train-gan
-    python train.py --train-rl --rl-episodes 300
-    python train.py --train-all
+    python train.py --traffic-mode decrypted --classifier decision_tree
+    python train.py --traffic-mode encrypted --classifier decision_tree
+    python train.py --traffic-mode wireless --classifier random_forest
+    python train.py --classifier xgboost --optuna --sample-ratio 0.2
+    python train.py --list-models
 """
 
 import os

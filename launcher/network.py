@@ -238,15 +238,27 @@ def resolve_esp32_zero_config(root_dir: str, requested_port: int = 1883,
     """
     from broker.manager import check_port_open, check_mqtt_ready
 
-    # 1. Xác định thông tin Wi-Fi
-    if manual_ssid:
-        wifi_ssid = manual_ssid
+    # 1. Xác định thông tin Wi-Fi theo thứ tự ưu tiên: CLI -> .env -> Auto-detect
+    env_ssid = os.getenv("WIFI_SSID", "").strip()
+    env_pwd = os.getenv("WIFI_PASSWORD", "").strip()
+    placeholder_ssids = {"YOUR_WIFI_SSID", "YOUR_SURVEY_SSID", "Your_WiFi_SSID"}
+
+    if manual_ssid is not None and manual_ssid.strip():
+        wifi_ssid = manual_ssid.strip()
         wifi_pass = manual_pwd if manual_pwd is not None else ""
         detected_ip = detect_host_lan_ip()
+        print(f"  [Config] Su dung Wi-Fi SSID tu CLI argument: '{wifi_ssid}'")
+    elif env_ssid and env_ssid not in placeholder_ssids:
+        wifi_ssid = env_ssid
+        wifi_pass = env_pwd
+        detected_ip = detect_host_lan_ip()
+        print(f"  [Config] Su dung Wi-Fi SSID tu tep .env: '{wifi_ssid}'")
     else:
         detected_ssid, detected_pwd, detected_ip = auto_detect_wifi_credentials()
-        wifi_ssid = detected_ssid or os.getenv("WIFI_SSID", "")
-        wifi_pass = detected_pwd or os.getenv("WIFI_PASSWORD", "")
+        wifi_ssid = detected_ssid or env_ssid
+        wifi_pass = detected_pwd or env_pwd
+        print(f"  [Auto-Config] Tu dong nhan dien Wi-Fi tu card mang PC: '{wifi_ssid}'")
+
     mqtt_host = detected_ip or detect_host_lan_ip()
 
     if not mqtt_host or mqtt_host in ("127.0.0.1", "localhost", "0.0.0.0"):
@@ -285,3 +297,50 @@ def check_port_in_use(port: int) -> bool:
     """Kiểm tra xem một cổng mạng TCP đã có tiến trình nào chiếm dụng hay chưa."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('127.0.0.1', port)) == 0
+
+
+def sync_esp32_probe_mode(root_dir: str, mode: str = "sniffer",
+                          ap_ssid: Optional[str] = None,
+                          ap_pass: Optional[str] = None) -> bool:
+    """
+    Tự động đồng bộ chế độ hoạt động (Sniffer vs Micro-Gateway) vào firmware/esp32_probe/config.h:
+    - mode = 'gateway': PROBE_MODE_GATEWAY (1)
+    - mode = 'sniffer': PROBE_MODE_SNIFFER (0)
+    """
+    config_path = os.path.join(root_dir, "firmware", "esp32_probe", "config.h")
+    if not os.path.exists(config_path):
+        return False
+
+    with open(config_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    new_mode_macro = "PROBE_MODE_GATEWAY" if mode == "gateway" else "PROBE_MODE_SNIFFER"
+    old_content = content
+
+    content = re.sub(
+        r"#define\s+CURRENT_PROBE_MODE\s+(PROBE_MODE_SNIFFER|PROBE_MODE_GATEWAY|[01])",
+        f"#define CURRENT_PROBE_MODE {new_mode_macro}",
+        content
+    )
+
+    if ap_ssid is not None and ap_ssid.strip():
+        content = re.sub(
+            r'#define\s+GATEWAY_AP_SSID\s+"[^"]*"',
+            f'#define GATEWAY_AP_SSID "{ap_ssid.strip()}"',
+            content
+        )
+
+    if ap_pass is not None:
+        content = re.sub(
+            r'#define\s+GATEWAY_AP_PASSWORD\s+"[^"]*"',
+            f'#define GATEWAY_AP_PASSWORD "{ap_pass.strip()}"',
+            content
+        )
+
+    if content != old_content:
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        mode_label = "MICRO-GATEWAY (Demo 2)" if mode == "gateway" else "PROMISCUOUS SNIFFER (Demo 1)"
+        print(f"  [Firmware Config] Da tu dong dong bo config.h sang che do: {mode_label}")
+        return True
+    return False

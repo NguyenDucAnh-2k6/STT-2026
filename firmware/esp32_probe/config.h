@@ -41,19 +41,30 @@
 #define RADIO_FRAME_INTERVAL_MS 750
 #define TOPIC_RADIO_FRAMES "edge/telemetry/radio"
 
+// --- Chế độ hoạt động của ESP32 (Operating Mode) ---
+// PROBE_MODE_SNIFFER (0): Chế độ mặc định - Cảm biến Promiscuous Sniffer ngoài không khí (L2 Wireless WIDS).
+// PROBE_MODE_GATEWAY (1): Chế độ Micro-Gateway - Tự phát SoftAP + NAT chuyển tiếp ra Internet,
+//                         đồng thời chạy Machine Learning giám sát toàn bộ gói tin đi qua CPU (Monitor-only, không drop).
+#define PROBE_MODE_SNIFFER 0
+#define PROBE_MODE_GATEWAY 1
+#define CURRENT_PROBE_MODE PROBE_MODE_SNIFFER
+
+// --- Cấu hình Gateway SoftAP (Dành cho PROBE_MODE_GATEWAY) ---
+#define GATEWAY_AP_SSID "AERO-Security-Gateway"
+#define GATEWAY_AP_PASSWORD "ducanh123"
+#define GATEWAY_AP_CHANNEL 1
+#define GATEWAY_AP_MAX_CLIENTS 4      // Cho phép laptop kết nối mượt mà, chống lỗi handshake WPA2
+#define GATEWAY_DEFENSE_ACTIVE false  // Chưa đưa ra quyết định phòng thủ (Monitor Mode: PASS toàn bộ)
+
 // --- Chế độ dò sóng mạng (Sniffer Mode) ---
 // SNIFFER_MODE_ALL_NETWORKS:
-//  - true : Thoát ly hoàn toàn khỏi AP, radio nhảy liên tục 13 kênh (1..13) bắt
-//  mọi mạng Wi-Fi xung quanh.
-//           Dữ liệu telemetry truyền liên tục qua cáp USB Serial về Data Lake &
-//           ML Engine.
-//  - false: Kết nối vào AP WiFi cụ thể để gửi MQTT không dây (bị khóa vào kênh
-//  của AP).
+//  - false: Khóa cố định vào AP Wi-Fi mục tiêu (WIFI_SSID) và BSSID tương ứng.
+//           Chế độ promiscuous bắt toàn bộ mạng trôi nổi over-the-air đã được tắt hoàn toàn
+//           để đảm bảo ESP32 chỉ phân tích lưu lượng thuộc mạng được cấu hình trong .env / CLI.
 #define SNIFFER_MODE_ALL_NETWORKS false
-#define FAST_HOP_INTERVAL_MS                                                   \
-  300 // Chu kỳ nhảy kênh nhanh khi quét toàn bộ mạng (300ms/kênh)
+#define FAST_HOP_INTERVAL_MS 300
 
-// Kênh WiFi cần lắng nghe (1 - 13) khi không nhảy kênh
+// Kênh WiFi ban đầu (sẽ tự động đồng bộ theo kênh thực tế của AP mục tiêu khi kết nối thành công)
 #define WIFI_CHANNEL 1
 #define ENABLE_CHANNEL_HOP false
 #define HOP_INTERVAL_MS 5000

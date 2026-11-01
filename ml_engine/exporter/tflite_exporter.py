@@ -13,12 +13,8 @@ import os
 import sys
 from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
-
-try:
-    import tensorflow as tf
-    TF_AVAILABLE = True
-except ImportError:
-    TF_AVAILABLE = False
+import tensorflow as tf
+TF_AVAILABLE = hasattr(tf, 'lite') and hasattr(tf.lite, 'TFLiteConverter')
 
 from .common import (
     _format_float,

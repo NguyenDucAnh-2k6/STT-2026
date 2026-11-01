@@ -14,6 +14,7 @@ from .network import (
     sync_env_to_firmware,
     resolve_esp32_zero_config,
     check_port_in_use,
+    sync_esp32_probe_mode,
 )
 from .workers import (
     udp_broker_beacon_worker,
@@ -33,6 +34,7 @@ __all__ = [
     "sync_env_to_firmware",
     "resolve_esp32_zero_config",
     "check_port_in_use",
+    "sync_esp32_probe_mode",
     "udp_broker_beacon_worker",
     "network_roaming_watcher_worker",
     "serial_telemetry_bridge_worker",

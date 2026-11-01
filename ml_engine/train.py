@@ -34,20 +34,20 @@ Chỉ dẫn kiến trúc & Luận giải phương pháp học máy (Machine Lear
      - tinyml_tflite_array.h (C FlatBuffer cho Deep Learning).
 
 Cú pháp sử dụng:
-    # 1. Huấn luyện nhanh Decision Tree kèm tập Test 20%:
-    python ml_engine/train.py --classifier decision_tree
+    # 1. Huấn luyện Decision Tree cho lưu lượng giải mã (Edge-IIoTset 56 đặc trưng DPI):
+    python ml_engine/train.py --traffic-mode decrypted --classifier decision_tree
 
-    # 2. Huấn luyện kết hợp Optuna HPO (20 trials, 5-Fold CV):
-    python ml_engine/train.py --classifier decision_tree --optuna --n-trials 20 --cv 5
+    # 2. Huấn luyện cho lưu lượng mã hóa Promiscuous Sniffer (USTC-TFC2016 10 đặc trưng L2-4):
+    python ml_engine/train.py --traffic-mode encrypted --classifier decision_tree
 
-    # 3. Lấy mẫu 20% dữ liệu để HPO siêu tốc, sau đó test trên tập độc lập:
+    # 3. Huấn luyện cho mạng không dây Wi-Fi WIDS (AWID3 14 đặc trưng 802.11 Layer 2/Radio):
+    python ml_engine/train.py --traffic-mode wireless --classifier random_forest
+
+    # 4. Huấn luyện kết hợp Optuna HPO (15 trials, 5-Fold CV, lấy mẫu phân tầng 20%):
     python ml_engine/train.py --classifier xgboost --optuna --sample-ratio 0.2 --n-trials 15
 
-    # 4. Huấn luyện Deep Learning (in epoch, vẽ đồ thị loss_curve.png và xuất TFLite):
-    python ml_engine/train.py --classifier pytorch_deep --anomaly-model deep_autoencoder
-
     # 5. Huấn luyện và refit trên 100% dữ liệu sau khi đo Test Metrics:
-    python ml_engine/train.py --classifier random_forest --optuna --refit-full
+    python ml_engine/train.py --classifier random_forest --refit-full
 
     # 6. Xem danh sách thuật toán hỗ trợ:
     python ml_engine/train.py --list-models
@@ -89,13 +89,17 @@ from ml_engine.config.schema import (
 )
 from ml_engine.config.edge_profiles import (
     ESP32_PACKET_FEATURES,
-    ESP32_PACKET_PROFILE
+    ESP32_PACKET_PROFILE,
+    AWID3_WIFI_FEATURES,
+    AWID3_WIFI_PROFILE
 )
 from ml_engine.preprocessing import (
     load_raw_dataset,
     EdgeTrafficPreprocessor,
     load_ustc_tfc2016_dataset,
-    EncryptedTrafficPreprocessor
+    EncryptedTrafficPreprocessor,
+    load_awid3_dataset,
+    AWID3TrafficPreprocessor,
 )
 from ml_engine.algorithms.classifiers import (
     get_classifier,
@@ -175,7 +179,10 @@ def run_training_pipeline(
     use_timeseries: bool = False,
     window_size: int = 10,
     pull_remote: bool = False,
-    invalid_rows: str = "error"
+    invalid_rows: str = "error",
+    samples_per_class: Optional[int] = None,
+    rebuild_cache: bool = False,
+    skip_cv: bool = False
 ):
     """
     Quy trình huấn luyện End-to-End:
@@ -187,7 +194,10 @@ def run_training_pipeline(
       6. Tùy chọn refit trên 100% dữ liệu phục vụ Edge Deployment.
       7. Xuất toàn bộ Artifacts (Joblib, Metadata, C Header tinyml_model.h / esp32_packet_model.h, TFLite).
     """
-    if pull_remote and traffic_mode != "encrypted":
+    from ml_engine.routing import normalize_stream
+    traffic_mode = normalize_stream(traffic_mode)
+
+    if pull_remote and traffic_mode not in ("encrypted", "wireless"):
         print("\n[Cloudflare R2 / S3] Dang kiem tra va keo cac tep Parquet moi nhat tu remote storage...")
         try:
             remote_mgr = get_remote_storage_manager()
@@ -206,14 +216,25 @@ def run_training_pipeline(
         output_dir = os.path.join(ROOT_DIR, "ml_engine", "models", traffic_mode, folder_name)
     os.makedirs(output_dir, exist_ok=True)
 
+    if data_source == "edge-iiotset":
+        data_source = "benchmark"
+
     cv_strat = f"{cv}-Fold Walk-Forward (TimeSeriesSplit)" if use_timeseries else f"{cv}-Fold Stratified CV"
     print("=" * 80)
     print("       EDGE AI NETWORK ANOMALY DETECTION - MASTER TRAINING PIPELINE")
     print(f"   [Traffic Domain: '{traffic_mode.upper()}'] | [Classifier: '{classifier_type}'] | [Anomaly Detector: '{anomaly_type}']")
-    data_src_label = "USTC-TFC2016 (PCAP L2-4)" if traffic_mode == "encrypted" else data_source.upper()
+    if traffic_mode == "encrypted":
+        data_src_label = "USTC-TFC2016 (PCAP L2-4)"
+    elif traffic_mode == "wireless":
+        data_src_label = "AWID3_Dataset (PCAP 802.11)"
+    else:
+        data_src_label = data_source.upper()
     print(f"   [Data Source: '{data_src_label}'] | [Time-Series: {'BAT (W=' + str(window_size) + ')' if use_timeseries else 'TAT (Tabular)'}]")
     print(f"   [Optuna HPO: {'BAT (' + str(n_trials) + ' trials)' if use_optuna else 'TAT'}] | [CV Strategy: {cv_strat}]")
     print(f"   [Sample Ratio: {sample_ratio*100:.1f}%] | [Holdout Test Set: {test_size*100:.1f}%] | [Refit Full: {'BAT' if refit_full else 'TAT'}]")
+    if samples_per_class is not None:
+        samples_info = "FULL TOAN BO (-1)" if samples_per_class <= 0 else f"{samples_per_class:,} mau/lop"
+        print(f"   [Samples per Class: {samples_info}] | [Rebuild Cache: {'BAT' if rebuild_cache else 'TAT'}]")
     print("=" * 80)
 
     t_start = time.perf_counter()
@@ -221,7 +242,28 @@ def run_training_pipeline(
     # =========================================================================
     # BƯỚC 1: NẠP VÀ PHÂN CHIA DỮ LIỆU (TRAIN / HOLDOUT TEST SPLIT)
     # =========================================================================
-    if traffic_mode == "encrypted":
+    if traffic_mode == "wireless":
+        print(f"\n[1/5] Nap du lieu luu luong KHONG DAY 802.11 (AWID3) gom 14 dac trung Layer 2 / Radio...")
+        raw_X, raw_y = load_awid3_dataset(
+            dataset_dir=dataset_path,
+            sample_ratio=sample_ratio,
+            force_rebuild=rebuild_cache,
+            samples_per_class=samples_per_class
+        )
+        if not 0.0 <= test_size < 1.0:
+            raise ValueError("test_size must be in [0, 1).")
+        if test_size > 0 and len(raw_X) >= 20:
+            raw_train, raw_test, labels_train, labels_test = train_test_split(
+                raw_X, raw_y, test_size=test_size, random_state=42, stratify=raw_y
+            )
+        else:
+            raw_train, labels_train = raw_X, raw_y
+            raw_test, labels_test = None, None
+        raw_train = raw_train.reset_index(drop=True)
+        labels_train = labels_train.reset_index(drop=True)
+        preprocessor = AWID3TrafficPreprocessor(feature_names=list(raw_X.columns))
+        preprocessor.fit(raw_train, labels_train)
+    elif traffic_mode == "encrypted":
         print(f"\n[1/5] Nap du lieu luu luong MA HOA (USTC-TFC2016) gom 10 dac trung Layer 2-4 (ESP32 Promiscuous)...")
         raw_X, raw_y = load_ustc_tfc2016_dataset(dataset_dir=dataset_path, sample_ratio=sample_ratio)
         if not 0.0 <= test_size < 1.0:
@@ -286,8 +328,23 @@ def run_training_pipeline(
     y_train = label_encoder.transform(labels_train)
     X_test = preprocessor.transform(raw_test) if raw_test is not None else None
     y_test = label_encoder.transform(labels_test) if labels_test is not None else None
-    X = preprocessor.transform(raw_X)
-    y = label_encoder.transform(raw_y)
+
+    raw_dataset_quality = getattr(raw_X, "attrs", {}).get("data_quality", {})
+    # Only transform full raw_X if refit_full is requested; otherwise free memory immediately
+    X, y = None, None
+    if refit_full:
+        X = preprocessor.transform(raw_X)
+        y = label_encoder.transform(raw_y)
+    else:
+        del raw_X, raw_y
+        import gc
+        gc.collect()
+
+    # Free train DataFrames if CV is skipped and refit_full is not requested
+    if (skip_cv or cv <= 1) and not refit_full:
+        del raw_train, labels_train
+        import gc
+        gc.collect()
 
     # Lưu preprocessor và scaler đồng bộ
     preprocessor_path = os.path.join(output_dir, "preprocessor.joblib")
@@ -303,14 +360,28 @@ def run_training_pipeline(
     # Tích hợp dữ liệu từ Data Lakehouse (Parquet)
     lake_records_used = 0
     lake_labeled_records_used = 0
-    if traffic_mode != "encrypted" and data_source in ("hybrid", "data-lake"):
+    if data_source in ("hybrid", "data-lake"):
         lake_mgr = get_lakehouse_manager()
-        from data_lake.quality import TRAINING_REQUIRED_COLUMNS
         lake_load_start = time.perf_counter()
-        labeled_lake_df = lake_mgr.load_labeled_dataset(valid_labels=label_names,
-            columns=TRAINING_REQUIRED_COLUMNS + ["session_id", "capture_id", "data_provenance", "sniffer_mode"])
-        print(f"  [DataLake] Read + quality gate: {time.perf_counter() - lake_load_start:.2f}s")
-        print(f"  [DataLake] Nguon Parquet: {lake_mgr.raw_dir}")
+
+        meta_cols = ["session_id", "capture_id", "data_provenance", "sniffer_mode", "traffic_mode", "feature_semantics"]
+        if traffic_mode == "encrypted":
+            from data_lake.quality import TRAINING_REQUIRED_COLUMNS_ENCRYPTED
+            req_cols = TRAINING_REQUIRED_COLUMNS_ENCRYPTED + meta_cols
+        elif traffic_mode == "wireless":
+            from data_lake.quality import TRAINING_REQUIRED_COLUMNS_WIRELESS
+            req_cols = TRAINING_REQUIRED_COLUMNS_WIRELESS + meta_cols
+        else:
+            from data_lake.quality import TRAINING_REQUIRED_COLUMNS_DECRYPTED
+            req_cols = TRAINING_REQUIRED_COLUMNS_DECRYPTED + meta_cols
+
+        labeled_lake_df = lake_mgr.load_labeled_dataset(
+            traffic_mode=traffic_mode,
+            valid_labels=label_names,
+            columns=req_cols
+        )
+        print(f"  [DataLake] Read + quality gate [{traffic_mode}]: {time.perf_counter() - lake_load_start:.2f}s")
+        print(f"  [DataLake] Nguon Parquet: {os.path.join(lake_mgr.raw_dir, traffic_mode)}")
         print(f"  [DataLake] Eligibility: {lake_mgr.last_training_report}")
         print(f"  [DataLake] Nhan hop le cho classifier: {labeled_lake_df.ground_truth_scenario.value_counts().to_dict() if not labeled_lake_df.empty else {}}")
 
@@ -321,18 +392,18 @@ def run_training_pipeline(
             lake_records_used = len(lake_normal_df)
             X_lake_normal = transform_lake_telemetry_batch(lake_normal_df, preprocessor)
             if data_source == "data-lake" and len(X_lake_normal) < 50:
-                raise ValueError("Data-lake-only anomaly training requires at least 50 eligible Normal packet records.")
+                raise ValueError(f"Data-lake-only anomaly training requires at least 50 eligible Normal packet records for {traffic_mode}.")
             if data_source == "data-lake" and len(X_lake_normal) >= 50:
-                print(f"\n[DataLake] Che do 'data-lake': Su dung 100% du lieu thuc te ({lake_records_used:,} mau) huan luyen Anomaly Detector.")
+                print(f"\n[DataLake] Che do 'data-lake': Su dung 100% du lieu thuc te ({lake_records_used:,} mau) huan luyen Anomaly Detector ({traffic_mode}).")
                 X_train_normal = X_lake_normal
             else:
-                print(f"\n[DataLake] Che do 'hybrid': Concat {X_train_normal.shape[0]:,} mau benchmark + {X_lake_normal.shape[0]:,} mau thuc te Parquet cho Anomaly Detector.")
+                print(f"\n[DataLake] Che do 'hybrid': Concat {X_train_normal.shape[0]:,} mau benchmark + {X_lake_normal.shape[0]:,} mau thuc te Parquet cho Anomaly Detector ({traffic_mode}).")
                 X_train_normal = np.vstack([X_train_normal, X_lake_normal])
         else:
             if data_source == "data-lake":
-                raise ValueError("No eligible attributable Normal packet records in data lake; refusing benchmark fallback.")
+                raise ValueError(f"No eligible attributable Normal packet records in data lake for {traffic_mode}; refusing benchmark fallback.")
             else:
-                print("  [DataLake][Anomaly] Khong co Normal hop le trong 30 ngay gan day; dung Normal TRAIN cua Edge-IIoTset. Cac attack hop le van duoc nap cho classifier.")
+                print(f"  [DataLake][Anomaly] Khong co Normal hop le trong 30 ngay gan day cho '{traffic_mode}'; dung Normal TRAIN cua benchmark. Cac attack hop le van duoc nap cho classifier.")
 
         # 2. Cho Classifier: Lấy các bản ghi CÓ NHÃN GROUND-TRUTH HỢP LỆ (gán bởi Simulator)
         if not labeled_lake_df.empty:
@@ -348,10 +419,10 @@ def run_training_pipeline(
 
             counts = pd.Series(y_lake_raw).value_counts().to_dict()
             counts_str = ", ".join([f"{k}: {v}" for k, v in list(counts.items())[:4]])
-            print(f"[DataLake] Concat {lake_labeled_records_used:,} mau CO NHAN hop le tu Simulator vao Classifier ({counts_str}...).")
+            print(f"[DataLake] Concat {lake_labeled_records_used:,} mau CO NHAN hop le tu Data Lake ({traffic_mode}) vao Classifier ({counts_str}...).")
             print(f"           (Tu dong lo di toan bo ban ghi telemetry chua duoc gan nhan).")
         else:
-            print(f"[DataLake] Chua co ban ghi tan cong nao duoc gan nhan trong Data Lake. Lo di cac ban ghi chua co nhan.")
+            print(f"[DataLake] Chua co ban ghi tan cong nao duoc gan nhan trong Data Lake cho '{traffic_mode}'. Lo di cac ban ghi chua co nhan.")
 
     if lake_labeled_records_used:
         # Vocabulary and scaling must include eligible field TRAIN records as well.
@@ -437,7 +508,12 @@ def run_training_pipeline(
         if tune_anomaly:
             tuning_train, tuning_val, tuning_labels, val_labels = train_test_split(
                 raw_train, labels_train, test_size=0.2, stratify=labels_train, random_state=43)
-            tuning_preprocessor = EdgeTrafficPreprocessor(feature_names=feature_names)
+            if traffic_mode == "wireless":
+                tuning_preprocessor = AWID3TrafficPreprocessor(feature_names=feature_names)
+            elif traffic_mode == "encrypted":
+                tuning_preprocessor = EncryptedTrafficPreprocessor(feature_names=feature_names)
+            else:
+                tuning_preprocessor = EdgeTrafficPreprocessor(feature_names=feature_names)
             tuning_preprocessor.fit(tuning_train, tuning_labels)
             tuning_normal = tuning_preprocessor.transform(tuning_train.loc[tuning_labels.eq("Normal")])
             best_anomaly_params, _, _ = optimize_anomaly_hyperparameters(
@@ -480,10 +556,14 @@ def run_training_pipeline(
     anomaly_detector = get_anomaly_detector(anomaly_type, **best_anomaly_params)
     anomaly_detector.fit(X_train_normal)
 
-    # Hiệu chuẩn dải điểm Anomaly Score chuẩn xác từ phân vị
+    # Hiệu chuẩn dải điểm Anomaly Score chuẩn xác từ phân vị (subsample nếu tập Normal lớn)
     score_min, score_max = None, None
     if hasattr(anomaly_detector, "score_samples"):
-        normal_scores = anomaly_detector.score_samples(X_train_normal)
+        if len(X_train_normal) > 100_000:
+            calib_idx = np.random.RandomState(42).choice(len(X_train_normal), size=100_000, replace=False)
+            normal_scores = anomaly_detector.score_samples(X_train_normal[calib_idx])
+        else:
+            normal_scores = anomaly_detector.score_samples(X_train_normal)
         score_min = float(np.percentile(normal_scores, 2))
         score_max = float(np.percentile(normal_scores, 98))
         print(f"  -> Dai diem Anomaly Score cua mau Normal: [{score_min:.4f} -> {score_max:.4f}]")
@@ -496,51 +576,65 @@ def run_training_pipeline(
     # =========================================================================
     # BƯỚC 4: CROSS-VALIDATION ĐÁNH GIÁ ĐỘ ỔN ĐỊNH TRÊN TẬP TRAIN
     # =========================================================================
-    cv_name = f"{cv}-Fold TimeSeriesSplit (Walk-Forward CV)" if use_timeseries else f"{cv}-Fold Stratified CV"
-    print(f"\n[4/5] Danh gia on dinh qua {cv_name} tren tap Train ({X_train.shape[0]:,} mau)...")
-
-    if use_timeseries:
-        cv_obj = TimeSeriesSplit(n_splits=cv)
-        splits = list(cv_obj.split(X_train))
+    if skip_cv or cv <= 1:
+        cv_name = "Skipped"
+        print(f"\n[4/5] Bo qua Cross-Validation (--skip-cv hoac cv<=1) de toi uu bo nho RAM va tang toc huan luyen tren Big Data...")
+        mean_acc, std_acc = 0.0, 0.0
+        mean_f1, std_f1 = 0.0, 0.0
     else:
-        y_counts = pd.Series(y_train).value_counts()
-        if y_counts.min() >= cv:
-            cv_obj = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
-            splits = list(cv_obj.split(X_train, y_train))
-        else:
-            cv_obj = KFold(n_splits=cv, shuffle=True, random_state=42)
+        cv_name = f"{cv}-Fold TimeSeriesSplit (Walk-Forward CV)" if use_timeseries else f"{cv}-Fold Stratified CV"
+        print(f"\n[4/5] Danh gia on dinh qua {cv_name} tren tap Train ({X_train.shape[0]:,} mau)...")
+
+        if use_timeseries:
+            cv_obj = TimeSeriesSplit(n_splits=cv)
             splits = list(cv_obj.split(X_train))
+        else:
+            y_counts = pd.Series(y_train).value_counts()
+            if y_counts.min() >= cv:
+                cv_obj = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
+                splits = list(cv_obj.split(X_train, y_train))
+            else:
+                cv_obj = KFold(n_splits=cv, shuffle=True, random_state=42)
+                splits = list(cv_obj.split(X_train))
 
-    fold_accs = []
-    fold_f1s = []
-    oof_preds = np.zeros(len(y_train), dtype=int)
-    oof_mask = np.zeros(len(y_train), dtype=bool)
+        fold_accs = []
+        fold_f1s = []
+        oof_preds = np.zeros(len(y_train), dtype=int)
+        oof_mask = np.zeros(len(y_train), dtype=bool)
 
-    for fold_idx, (tr_idx, val_idx) in enumerate(splits):
-        fold_preprocessor = EdgeTrafficPreprocessor(feature_names=feature_names)
-        fold_preprocessor.fit(raw_train.iloc[tr_idx], labels_train.iloc[tr_idx])
-        X_tr = fold_preprocessor.transform(raw_train.iloc[tr_idx])
-        X_val = fold_preprocessor.transform(raw_train.iloc[val_idx])
-        y_tr, y_val = y_train[tr_idx], y_train[val_idx]
+        for fold_idx, (tr_idx, val_idx) in enumerate(splits):
+            if traffic_mode == "wireless":
+                fold_preprocessor = AWID3TrafficPreprocessor(feature_names=feature_names)
+            elif traffic_mode == "encrypted":
+                fold_preprocessor = EncryptedTrafficPreprocessor(feature_names=feature_names)
+            else:
+                fold_preprocessor = EdgeTrafficPreprocessor(feature_names=feature_names)
+            fold_preprocessor.fit(raw_train.iloc[tr_idx], labels_train.iloc[tr_idx])
+            X_tr = fold_preprocessor.transform(raw_train.iloc[tr_idx])
+            X_val = fold_preprocessor.transform(raw_train.iloc[val_idx])
+            y_tr, y_val = y_train[tr_idx], y_train[val_idx]
 
-        fold_clf = get_classifier(classifier_type, **best_params)
-        fold_clf.fit(X_tr, y_tr)
-        preds = fold_clf.predict(X_val)
+            fold_clf = get_classifier(classifier_type, **best_params)
+            fold_clf.fit(X_tr, y_tr)
+            preds = fold_clf.predict(X_val)
 
-        acc = float(accuracy_score(y_val, preds))
-        f1 = float(f1_score(y_val, preds, average="macro", zero_division=0))
-        fold_accs.append(acc)
-        fold_f1s.append(f1)
+            acc = float(accuracy_score(y_val, preds))
+            f1 = float(f1_score(y_val, preds, average="macro", zero_division=0))
+            fold_accs.append(acc)
+            fold_f1s.append(f1)
 
-        oof_preds[val_idx] = preds
-        oof_mask[val_idx] = True
+            oof_preds[val_idx] = preds
+            oof_mask[val_idx] = True
 
-        print(f"  -> Fold {fold_idx + 1}/{cv}: Accuracy = {acc*100:.2f}% | Macro F1 = {f1*100:.2f}% (Val: {len(val_idx):,} mau)")
+            print(f"  -> Fold {fold_idx + 1}/{cv}: Accuracy = {acc*100:.2f}% | Macro F1 = {f1*100:.2f}% (Val: {len(val_idx):,} mau)")
+            del fold_clf, X_tr, X_val, fold_preprocessor
+            import gc
+            gc.collect()
 
-    mean_acc = float(np.mean(fold_accs))
-    std_acc = float(np.std(fold_accs))
-    mean_f1 = float(np.mean(fold_f1s))
-    std_f1 = float(np.std(fold_f1s))
+        mean_acc = float(np.mean(fold_accs))
+        std_acc = float(np.std(fold_accs))
+        mean_f1 = float(np.mean(fold_f1s))
+        std_f1 = float(np.std(fold_f1s))
 
     # Huấn luyện Primary Classifier trên TOÀN BỘ tập Train
     print(f"\n[Primary Classifier] Huan luyen tren toan bo Tap Train ({X_train.shape[0]:,} mau)...")
@@ -563,7 +657,15 @@ def run_training_pipeline(
 
     if X_test is not None:
         print(f"\n[5/5] Danh gia khach quan tren Tap Test doc lap ({X_test.shape[0]:,} mau - Unseen Data)...")
-        test_preds = primary_classifier.predict(X_test)
+        if len(X_test) > 500_000:
+            test_preds = np.empty(len(X_test), dtype=int)
+            chunk_size = 250_000
+            for start_idx in range(0, len(X_test), chunk_size):
+                end_idx = min(start_idx + chunk_size, len(X_test))
+                test_preds[start_idx:end_idx] = primary_classifier.predict(X_test[start_idx:end_idx])
+        else:
+            test_preds = primary_classifier.predict(X_test)
+
         test_acc = float(accuracy_score(y_test, test_preds))
         test_f1 = float(f1_score(y_test, test_preds, average="macro", zero_division=0))
         test_weighted_f1 = float(f1_score(y_test, test_preds, average="weighted", zero_division=0))
@@ -580,11 +682,20 @@ def run_training_pipeline(
         y_test_binary = (y_test != normal_idx).astype(int)  # 0: Normal, 1: Attack
         if hasattr(anomaly_detector, "score_samples"):
             try:
-                test_scores = anomaly_detector.score_samples(X_test)
-                test_ano_auc = float(roc_auc_score(y_test_binary, -test_scores))
-                threshold = (score_min + score_max) / 2.0
-                ano_preds = (test_scores < threshold).astype(int)
-                test_ano_f1 = float(f1_score(y_test_binary, ano_preds, zero_division=0))
+                if len(X_test) > 200_000:
+                    eval_idx = np.random.RandomState(42).choice(len(X_test), size=200_000, replace=False)
+                    sub_test_scores = anomaly_detector.score_samples(X_test[eval_idx])
+                    sub_y_binary = y_test_binary[eval_idx]
+                    test_ano_auc = float(roc_auc_score(sub_y_binary, -sub_test_scores))
+                    threshold = (score_min + score_max) / 2.0 if (score_min is not None and score_max is not None) else 0.0
+                    sub_ano_preds = (sub_test_scores < threshold).astype(int)
+                    test_ano_f1 = float(f1_score(sub_y_binary, sub_ano_preds, zero_division=0))
+                else:
+                    test_scores = anomaly_detector.score_samples(X_test)
+                    test_ano_auc = float(roc_auc_score(y_test_binary, -test_scores))
+                    threshold = (score_min + score_max) / 2.0 if (score_min is not None and score_max is not None) else 0.0
+                    ano_preds = (test_scores < threshold).astype(int)
+                    test_ano_f1 = float(f1_score(y_test_binary, ano_preds, zero_division=0))
             except (ValueError, RuntimeError) as exc:
                 anomaly_evaluation_error = str(exc)
                 print(f"[Evaluation] Anomaly metrics unavailable: {exc}")
@@ -596,8 +707,12 @@ def run_training_pipeline(
         print(f"  Chi so danh gia         | K-Fold CV (Tren Train)      | Holdout Test ({test_size*100:.0f}% Data)")
         print(f"  ------------------------+-----------------------------+-----------------------------")
         print(f"  So luong mau du lieu    | {X_train.shape[0]:<27,} | {X_test.shape[0]:<27,}")
-        print(f"  Classifier Accuracy     | {mean_acc*100:.2f}% ± {std_acc*100:.2f}%               | {test_acc*100:.2f}%")
-        print(f"  Classifier Macro F1     | {mean_f1*100:.2f}% ± {std_f1*100:.2f}%               | {test_f1*100:.2f}%")
+        if mean_acc > 0:
+            print(f"  Classifier Accuracy     | {mean_acc*100:.2f}% ± {std_acc*100:.2f}%               | {test_acc*100:.2f}%")
+            print(f"  Classifier Macro F1     | {mean_f1*100:.2f}% ± {std_f1*100:.2f}%               | {test_f1*100:.2f}%")
+        else:
+            print(f"  Classifier Accuracy     | Skipped (--skip-cv)         | {test_acc*100:.2f}%")
+            print(f"  Classifier Macro F1     | Skipped (--skip-cv)         | {test_f1*100:.2f}%")
         print(f"  Classifier Weighted F1  | N/A                         | {test_weighted_f1*100:.2f}%")
         if test_ano_auc is not None and test_ano_f1 is not None:
             print(f"  Anomaly Detector ROC-AUC| N/A                         | {test_ano_auc*100:.2f}%")
@@ -667,15 +782,15 @@ def run_training_pipeline(
         "timestamp": int(time.time()),
         "artifact_id": uuid.uuid4().hex,
         "traffic_mode": traffic_mode,
-        "profile": ESP32_PACKET_PROFILE if traffic_mode == "encrypted" else "edgeiiot-packet-v1",
+        "profile": AWID3_WIFI_PROFILE if traffic_mode == "wireless" else (ESP32_PACKET_PROFILE if traffic_mode == "encrypted" else "edgeiiot-packet-v1"),
         "features_count": len(feature_names),
         "features": feature_names,
         "labels_count": len(label_names),
         "labels": label_names,
         "classifier_type": classifier_type,
         "anomaly_detector_type": anomaly_type,
-        "data_source": "ustc-tfc2016" if traffic_mode == "encrypted" else data_source,
-        "dataset_quality": raw_X.attrs.get("data_quality", {}),
+        "data_source": "awid3" if traffic_mode == "wireless" else ("ustc-tfc2016" if traffic_mode == "encrypted" else data_source),
+        "dataset_quality": raw_dataset_quality,
         "data_lake_records_used": lake_records_used,
         "data_lake_labeled_records_used": lake_labeled_records_used,
         "sample_ratio": sample_ratio,
@@ -684,20 +799,20 @@ def run_training_pipeline(
         "train_samples": int(X_train.shape[0]),
         "test_samples": int(X_test.shape[0]) if X_test is not None else 0,
         "classifier_accuracy": round(test_acc, 4) if test_acc is not None else None,
-        "classifier_accuracy_cv": round(mean_acc, 4),
-        "classifier_accuracy_std": round(std_acc, 4),
+        "classifier_accuracy_cv": round(mean_acc, 4) if mean_acc > 0 else None,
+        "classifier_accuracy_std": round(std_acc, 4) if mean_acc > 0 else None,
         "classifier_macro_f1": round(test_f1, 4) if test_f1 is not None else None,
-        "classifier_macro_f1_cv": round(mean_f1, 4),
-        "classifier_macro_f1_std": round(std_f1, 4),
+        "classifier_macro_f1_cv": round(mean_f1, 4) if mean_f1 > 0 else None,
+        "classifier_macro_f1_std": round(std_f1, 4) if mean_f1 > 0 else None,
         "classifier_weighted_f1": round(test_weighted_f1, 4) if test_weighted_f1 is not None else None,
-        "cv_strategy": cv_name,
+        "cv_strategy": "skipped" if (skip_cv or cv <= 1) else cv_name,
         "cv_folds": cv,
         "classification_report": test_report_dict,
         "anomaly_test_roc_auc": round(test_ano_auc, 4) if test_ano_auc is not None else None,
         "anomaly_test_f1": round(test_ano_f1, 4) if test_ano_f1 is not None else None,
         "anomaly_evaluation_error": anomaly_evaluation_error,
-        "preprocessing_version": 1 if traffic_mode == "encrypted" else 2,
-        "feature_semantics": ESP32_PACKET_PROFILE if traffic_mode == "encrypted" else "edgeiiot-packet-v1",
+        "preprocessing_version": 1 if traffic_mode in ("encrypted", "wireless") else 2,
+        "feature_semantics": AWID3_WIFI_PROFILE if traffic_mode == "wireless" else (ESP32_PACKET_PROFILE if traffic_mode == "encrypted" else "edgeiiot-packet-v1"),
         "holdout_scope": "benchmark_packets_only; no field-data generalization claim",
         "deployment_refit_uses_holdout": bool(refit_full and X_test is not None),
         "anomaly_threshold": round(threshold_val, 4),
@@ -810,7 +925,7 @@ def run_training_pipeline(
 
 
 def train_wgan_subroutine(epochs: int = 20, output_dir: str = "ml_engine/models/adversarial_wgan"):
-    """Subroutine huấn luyện WGAN-GP đối kháng tích hợp trong train.py."""
+    """Subroutine huấn luyện WGAN-GP đối kháng cho nghiên cứu bảo mật."""
     try:
         from ml_engine.adversarial.train_gan import load_sliding_window_data, train_wgan_adversarial
         dataset_csv = os.path.join(ROOT_DIR, "ml_engine", "datasets", "synthetic_traffic_dataset.csv")
@@ -843,40 +958,140 @@ def train_rl_subroutine(episodes: int = 200, output_path: str = "digital_twin/mo
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Master Training Pipeline: HPO (Optuna) + Train/Test Split + Full Refit + TinyML + WGAN-GP + RL"
+        description="AERO ML Engine - Master Training Pipeline: Huấn luyện mô hình Anomaly Detection & Attack Classification (Edge-IIoTset, USTC-TFC2016, AWID3)"
     )
     parser.add_argument(
-        "--traffic-mode", "--traffic",
+        "--traffic-mode", "--traffic", "--domain",
         dest="traffic_mode",
         default="decrypted",
-        choices=["decrypted", "encrypted"],
-        help="Che do phan tich luu luong: 'decrypted' (Edge-IIoTset 56 dac trung cho Host/Gateway DPI), 'encrypted' (USTC-TFC2016 10 dac trung L2-4 cho ESP32 Sniffer)"
+        choices=["decrypted", "encrypted", "wireless"],
+        help="Chế độ phân tích lưu lượng và mô hình mạng: 'decrypted' (Edge-IIoTset 56 đặc trưng DPI cho Host/Gateway), 'encrypted' (USTC-TFC2016 10 đặc trưng L2-4 cho ESP32 Promiscuous Sniffer), 'wireless' (AWID3 14 đặc trưng 802.11 L2/Radio cho Wi-Fi WIDS)"
     )
-    parser.add_argument("--classifier", default="decision_tree", help="Loai classifier: decision_tree, random_forest, extra_trees, xgboost, lightgbm, catboost, pytorch_deep, dnn, ensemble_voting")
-    parser.add_argument("--anomaly-model", default="isolation_forest", help="Loai anomaly detector: isolation_forest, one_class_svm, elliptic_envelope, lof, deep_autoencoder")
-    parser.add_argument("--data-source", default="hybrid", choices=["edge-iiotset", "data-lake", "hybrid"], help="Nguon du lieu: 'hybrid' (benchmark + data lake thuc te), 'data-lake' (uu tien du lieu thuc te), 'edge-iiotset' (thuan tap chuan)")
-    parser.add_argument("--dataset", default=None, help="Duong dan den dataset CSV Edge-IIoTset hoac thu muc USTC-TFC2016")
-    parser.add_argument("--invalid-rows", choices=["error", "drop"], default="error", help="Reject malformed benchmark fields, or explicitly exclude affected rows before splitting")
-    parser.add_argument("--sample-ratio", type=float, default=1.0, help="Ti le lay mau phan tang can bang cac lop (0.01 den 1.0, mac dinh 1.0 = 100%% du lieu)")
-    parser.add_argument("--test-size", type=float, default=0.2, help="Ti le phan chia tap danh gia doc lap Holdout Test (mac dinh: 0.2 = 20%% du lieu)")
-    parser.add_argument("--refit-full", action="store_true", help="Fit lai mo hinh tren toan bo 100%% du lieu sau khi da do Test Metrics, truoc khi xuat C Header cho ESP32")
-    parser.add_argument("--optuna", action="store_true", help="Kich hoat Optuna Hyperparameter Optimization (Bayesian Optimization TPE Sampler)")
-    parser.add_argument("--tune-anomaly", action="store_true", help="Kich hoat HPO cho ca Anomaly Detector (Isolation Forest / One-Class SVM)")
-    parser.add_argument("--n-trials", type=int, default=15, help="So luong trial cho Optuna HPO (mac dinh: 15)")
-    parser.add_argument("--cv", type=int, default=5, help="So luong fold cho Cross-Validation (mac dinh: 5)")
-    parser.add_argument("--pruner", default="median", choices=["median", "percentile", "hyperband", "none"], help="Thuat toan cat tia som: median, percentile, hyperband, none")
-    parser.add_argument("--timeseries", action="store_true", help="Currently blocked pending session-based splits and runtime/export parity")
-    parser.add_argument("--window-size", type=int, default=10, help="Do dai cua so truot W (so buoc thoi gian, mac dinh: 10)")
-    parser.add_argument("--pull-remote", action="store_true", help="Tu dong keo cac tep Parquet moi nhat tu Cloudflare R2 / S3 ve truoc khi train")
-    parser.add_argument("--list-models", action="store_true", help="Liet ke cac thuat toan duoc ho tro roi thoat")
-    parser.add_argument("--output-dir", default=None, help="Thu muc xuat artifacts")
+    parser.add_argument(
+        "--classifier",
+        default="decision_tree",
+        help="Thuật toán phân loại tấn công (Multi-class Classifier): decision_tree, random_forest, extra_trees, xgboost, lightgbm, catboost, pytorch_deep, dnn, ensemble_voting (mặc định: decision_tree)"
+    )
+    parser.add_argument(
+        "--anomaly-model",
+        default="isolation_forest",
+        help="Thuật toán phát hiện bất thường (Anomaly Detector): isolation_forest, one_class_svm, elliptic_envelope, lof, deep_autoencoder (mặc định: isolation_forest)"
+    )
+    parser.add_argument(
+        "--data-source",
+        default="hybrid",
+        choices=["hybrid", "benchmark", "data-lake", "edge-iiotset"],
+        help="Chiến lược nguồn dữ liệu: 'hybrid' (kết hợp benchmark và telemetry Data Lake), 'benchmark' (chỉ dùng tập dữ liệu chuẩn; 'edge-iiotset' tương thích ngược), 'data-lake' (chỉ sử dụng dữ liệu thực tế từ Data Lake)"
+    )
+    parser.add_argument(
+        "--dataset",
+        default=None,
+        help="Đường dẫn tùy chỉnh đến tệp/thư mục dữ liệu: tệp CSV cho Edge-IIoTset (decrypted), hoặc thư mục chứa các tệp PCAP cho USTC-TFC2016 (encrypted) / AWID3_Dataset (wireless). Mặc định tự động tìm trong ml_engine/datasets/"
+    )
+    parser.add_argument(
+        "--invalid-rows",
+        choices=["error", "drop"],
+        default="error",
+        help="Xử lý các dòng dữ liệu không hợp lệ trong benchmark: 'error' (báo lỗi nghiêm ngặt) hoặc 'drop' (loại bỏ dòng lỗi trước khi phân chia)"
+    )
+    parser.add_argument(
+        "--sample-ratio",
+        type=float,
+        default=1.0,
+        help="Tỷ lệ lấy mẫu phân tầng bảo toàn tỷ lệ các lớp (0.0 < ratio <= 1.0, mặc định: 1.0 = 100%% dữ liệu). Hữu ích để tăng tốc HPO trên tập dữ liệu lớn"
+    )
+    parser.add_argument(
+        "--test-size",
+        type=float,
+        default=0.2,
+        help="Tỷ lệ phân chia tập đánh giá độc lập Holdout Test (0.0 <= size < 1.0, mặc định: 0.2 = 20%% dữ liệu)"
+    )
+    parser.add_argument(
+        "--refit-full",
+        action="store_true",
+        help="Huấn luyện lại (refit) mô hình trên toàn bộ 100%% dữ liệu sau khi đã đo đạc và báo cáo trung thực chỉ số trên tập Holdout Test"
+    )
+    parser.add_argument(
+        "--optuna",
+        action="store_true",
+        help="Kích hoạt tìm kiếm siêu tham số tự động với Optuna HPO (Bayesian TPE Sampler & Stratified CV)"
+    )
+    parser.add_argument(
+        "--tune-anomaly",
+        action="store_true",
+        help="Kích hoạt HPO Optuna cho cả mô hình phát hiện bất thường (Anomaly Detector)"
+    )
+    parser.add_argument(
+        "--n-trials",
+        type=int,
+        default=15,
+        help="Số lượng trial đánh giá cho Optuna HPO (mặc định: 15)"
+    )
+    parser.add_argument(
+        "--cv",
+        type=int,
+        default=5,
+        help="Số lượng fold cho Cross-Validation trong quá trình huấn luyện và HPO (mặc định: 5)"
+    )
+    parser.add_argument(
+        "--pruner",
+        default="median",
+        choices=["median", "percentile", "hyperband", "none"],
+        help="Thuật toán cắt tỉa sớm trial kém hiệu quả trong Optuna: median, percentile, hyperband, none (mặc định: median)"
+    )
+    parser.add_argument(
+        "--pull-remote",
+        action="store_true",
+        help="Tự động đồng bộ các tệp Parquet mới nhất từ Cloudflare R2 / S3 về Data Lake trước khi huấn luyện"
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Thư mục xuất artifacts mô hình (mặc định: ml_engine/models/<traffic_mode>/<classifier>_<anomaly>/)"
+    )
+    parser.add_argument(
+        "--timeseries",
+        action="store_true",
+        help="Kích hoạt mô hình hóa chuỗi thời gian Time-Series (Sliding Window)"
+    )
+    parser.add_argument(
+        "--window-size",
+        type=int,
+        default=10,
+        help="Độ dài cửa sổ trượt W (số bước thời gian, mặc định: 10)"
+    )
+    parser.add_argument(
+        "--list-models",
+        action="store_true",
+        help="Liệt kê danh sách các thuật toán Classifier và Anomaly Detector được hỗ trợ rồi thoát"
+    )
 
-    # Cac flag mo rong cho Adversarial WGAN va Reinforcement Learning
-    parser.add_argument("--train-gan", "--gan", dest="train_gan", action="store_true", help="Kich hoat huan luyen WGAN-GP Adversarial Evasion Model")
-    parser.add_argument("--gan-epochs", type=int, default=20, help="So epoch cho WGAN-GP (mac dinh: 20)")
-    parser.add_argument("--train-rl", "--rl", dest="train_rl", action="store_true", help="Kich hoat huan luyen RL Cyber Defense Agent trong Digital Twin Sandbox")
-    parser.add_argument("--rl-episodes", type=int, default=200, help="So episodes cho RL Agent (mac dinh: 200)")
-    parser.add_argument("--train-all", action="store_true", help="Kich hoat huan luyen toan dien 1-Click: Classifier + Anomaly + WGAN-GP + RL Policy")
+    # Các cờ mở rộng cho Adversarial WGAN và Reinforcement Learning
+    parser.add_argument("--train-gan", "--gan", dest="train_gan", action="store_true", help="Kích hoạt huấn luyện WGAN-GP Adversarial Evasion Model")
+    parser.add_argument("--gan-epochs", type=int, default=20, help="Số epoch cho WGAN-GP (mặc định: 20)")
+    parser.add_argument("--train-rl", "--rl", dest="train_rl", action="store_true", help="Kích hoạt huấn luyện RL Cyber Defense Agent trong Digital Twin Sandbox")
+    parser.add_argument("--rl-episodes", type=int, default=200, help="Số episodes cho RL Agent (mặc định: 200)")
+    parser.add_argument("--train-all", action="store_true", help="Kích hoạt huấn luyện toàn diện: Classifier + Anomaly + WGAN-GP + RL Policy")
+
+    parser.add_argument(
+        "--samples-per-class", "--samples",
+        dest="samples_per_class",
+        type=int,
+        default=None,
+        help="Số lượng mẫu tối đa trích xuất cho mỗi lớp từ PCAP (AWID3): số dương (ví dụ: 5000, 10000) hoặc -1 để dùng FULL toàn bộ dữ liệu. Mặc định: dùng cache tiêu chuẩn"
+    )
+    parser.add_argument(
+        "--rebuild-cache", "--force-rebuild",
+        dest="rebuild_cache",
+        action="store_true",
+        help="Bắt buộc trích xuất lại dữ liệu từ tệp PCAP thô và ghi đè bộ nhớ đệm Parquet"
+    )
+    parser.add_argument(
+        "--skip-cv", "--no-cv",
+        dest="skip_cv",
+        action="store_true",
+        help="Bỏ qua bước Cross-Validation (tiết kiệm bộ nhớ RAM và thời gian khi huấn luyện tập dữ liệu cực lớn như AWID3 full)"
+    )
 
     args = parser.parse_args()
 
@@ -884,12 +1099,12 @@ def main():
         print_supported_models()
         sys.exit(0)
 
-    # 1. Neu chi yeu cau huan luyen WGAN-GP
+    # 1. Nếu chỉ yêu cầu huấn luyện WGAN-GP
     if args.train_gan and not args.train_all:
         train_wgan_subroutine(epochs=args.gan_epochs)
         sys.exit(0)
 
-    # 2. Neu chi yeu cau huan luyen RL Agent
+    # 2. Nếu chỉ yêu cầu huấn luyện RL Agent
     if args.train_rl and not args.train_all:
         train_rl_subroutine(episodes=args.rl_episodes)
         sys.exit(0)
@@ -922,10 +1137,13 @@ def main():
         use_timeseries=args.timeseries,
         window_size=args.window_size,
         pull_remote=args.pull_remote,
-        invalid_rows=args.invalid_rows
+        invalid_rows=args.invalid_rows,
+        samples_per_class=args.samples_per_class,
+        rebuild_cache=args.rebuild_cache,
+        skip_cv=args.skip_cv
     )
 
-    # 3. Neu la che do --train-all: Huan luyen tiep WGAN-GP va RL Defense
+    # 3. Nếu là chế độ --train-all
     if args.train_all:
         print("\n" + "=" * 80)
         print(" [TRAIN-ALL] HUẤN LUYỆN TIẾP TRỤ CỘT ĐỐI KHÁNG WGAN-GP & HỌC TĂNG CƯỜNG RL...")
@@ -933,7 +1151,7 @@ def main():
         train_wgan_subroutine(epochs=args.gan_epochs)
         train_rl_subroutine(episodes=args.rl_episodes)
         print("\n" + "=" * 80)
-        print(" [XONG TOÀN BỘ] HỆ SINH THÁI ĐÃ ĐƯỢC HUẤN LUYỆN TOÀN DIỆN (CLASSIFIER + DETECTOR + GAN + RL)!")
+        print(" [XONG TOÀN BỘ] HỆ SINH THÁI ĐÃ ĐƯỢC HUẤN LUYỆN TOÀN DIỆN (TRAFFIC + GAN + RL)!")
         print("=" * 80 + "\n")
 
 

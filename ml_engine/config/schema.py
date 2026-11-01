@@ -174,6 +174,24 @@ SLIDING_WINDOW_LABELS: List[str] = [
     "Data_Exfiltration"
 ]
 
+# Danh mục nhãn AWID3 (14 lớp: Normal + 13 loại tấn công 802.11 / Wi-Fi)
+AWID3_LABELS: List[str] = [
+    "Normal",
+    "Deauth",
+    "Disass",
+    "ReAssoc",
+    "Rogue_AP",
+    "Krack",
+    "Kr00k",
+    "Evil_Twin",
+    "SQL_Injection",
+    "SSH",
+    "Malware",
+    "SSDP",
+    "Botnet",
+    "Website_spoofing"
+]
+
 # Mặc định sử dụng 15 nhãn của Edge-IIoTset
 LABEL_NAMES: List[str] = EDGE_IIOTSET_LABELS
 

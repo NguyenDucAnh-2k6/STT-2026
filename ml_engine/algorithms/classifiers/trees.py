@@ -95,6 +95,11 @@ class RandomForestWrapper(BaseAttackClassifier):
         y_val: Optional[np.ndarray] = None,
         **kwargs
     ) -> "RandomForestWrapper":
+        if len(X) > 200_000 and self.model.max_samples is None:
+            self.model.max_samples = min(150_000, len(X))
+        if len(X) > 500_000 and self.model.n_jobs == -1:
+            import os
+            self.model.n_jobs = min(4, os.cpu_count() or 4)
         self.model.fit(X, y)
         return self
 
@@ -142,6 +147,12 @@ class ExtraTreesWrapper(BaseAttackClassifier):
         y_val: Optional[np.ndarray] = None,
         **kwargs
     ) -> "ExtraTreesWrapper":
+        if len(X) > 200_000 and not self.model.bootstrap:
+            self.model.bootstrap = True
+            self.model.max_samples = min(150_000, len(X))
+        if len(X) > 500_000 and self.model.n_jobs == -1:
+            import os
+            self.model.n_jobs = min(4, os.cpu_count() or 4)
         self.model.fit(X, y)
         return self
 

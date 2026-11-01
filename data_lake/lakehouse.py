@@ -15,11 +15,38 @@ from typing import Any, Optional, Callable
 import pandas as pd
 import pyarrow.parquet as pq
 from ml_engine.config.schema import EDGE_IIOTSET_FEATURES
+from ml_engine.config.edge_profiles import ESP32_PACKET_FEATURES, AWID3_WIFI_FEATURES
 from ml_engine.preprocessing.validation import CATEGORICAL_FEATURES
 from ml_engine.preprocessing.modules.base import normalize_categorical_value
 from .quality import select_training_records, TRAINING_OPTIONAL_COLUMNS
 
 LOG = logging.getLogger(__name__)
+
+ALL_CANONICAL_FEATURES = set(EDGE_IIOTSET_FEATURES) | set(ESP32_PACKET_FEATURES) | set(AWID3_WIFI_FEATURES)
+
+
+def resolve_record_traffic_mode(row: dict[str, Any]) -> str:
+    """Xác định kiểu mã hóa / giao thức (decrypted, encrypted, wireless) của từng bản ghi telemetry."""
+    mode = row.get("traffic_mode")
+    if mode in ("decrypted", "encrypted", "wireless"):
+        return str(mode)
+    semantics = str(row.get("feature_semantics", ""))
+    if semantics == "awid3-wifi-v1" or "wifi" in semantics or "wireless" in semantics:
+        return "wireless"
+    if semantics == "esp32-l234-packet-v1" or "l234" in semantics or "encrypted" in semantics:
+        return "encrypted"
+    if semantics == "edgeiiot-packet-v1" or "edgeiiot" in semantics:
+        return "decrypted"
+    if "radiotap.dbm_antsignal" in row or "wlan.fc.type" in row:
+        return "wireless"
+    if "arp.hw.size" in row and "arp.opcode" in row and "http.request.method" not in row:
+        return "encrypted"
+    sniffer = str(row.get("sniffer_mode", ""))
+    if "radio" in sniffer or "wifi" in sniffer:
+        return "wireless"
+    if "promiscuous" in sniffer:
+        return "encrypted"
+    return "decrypted"
 
 
 def raw_numeric(value: Any) -> Optional[float]:
@@ -83,7 +110,7 @@ class DataLakeManager:
                        inference_status=pred.get("inference_status", "unavailable"),
                        anomaly_score=pred.get("anomaly_score"), confidence=pred.get("confidence"))
             # Persist canonical raw values exactly once, never scaled/encoded outputs.
-            for name in EDGE_IIOTSET_FEATURES:
+            for name in ALL_CANONICAL_FEATURES:
                 if name in row:
                     row[name] = (normalize_categorical_value(row[name]) if name in CATEGORICAL_FEATURES
                                  and row[name] is not None else
@@ -110,27 +137,37 @@ class DataLakeManager:
         if not self.buffer:
             return
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        partition = Path(self.raw_dir) / f"date={today}"
-        partition.mkdir(parents=True, exist_ok=True)
-        path = partition / f"session_{self.current_session_id}_batch_{self._batch:06d}.parquet"
-        temporary = path.with_suffix(".parquet.tmp")
-        frame = pd.DataFrame(self.buffer)
-        for id_field in ("capture_id", "boot_id", "device_id", "packet_id", "session_id", "dissection_id"):
-            if id_field in frame.columns:
-                frame[id_field] = frame[id_field].astype(str)
-        frame.to_parquet(temporary, index=False, compression="snappy")
-        os.replace(temporary, path)
-        normal = int(frame.ground_truth_scenario.eq("Normal").sum())
-        attack = int((~frame.ground_truth_scenario.isin(["Normal", "Unknown"])).sum())
-        with closing(sqlite3.connect(self.catalog_db_path)) as conn:
-            conn.execute("INSERT OR REPLACE INTO packet_batches VALUES (?, ?, ?, ?, ?, ?, ?)",
-                         (str(path), self.current_session_id, time.time(), len(frame), normal, attack, path.stat().st_size / 1024))
-            conn.commit()
-        self.session_total_records += len(frame)
-        self.session_normal_records += normal
-        self.session_attack_records += attack
+        
+        # Nhóm theo traffic_mode tương ứng (decrypted, encrypted, wireless)
+        grouped_records: dict[str, list[dict[str, Any]]] = {}
+        for row in self.buffer:
+            mode = resolve_record_traffic_mode(row)
+            row["traffic_mode"] = mode
+            grouped_records.setdefault(mode, []).append(row)
+
+        for mode, rows in grouped_records.items():
+            partition = Path(self.raw_dir) / mode / f"date={today}"
+            partition.mkdir(parents=True, exist_ok=True)
+            path = partition / f"session_{self.current_session_id}_batch_{self._batch:06d}.parquet"
+            temporary = path.with_suffix(".parquet.tmp")
+            frame = pd.DataFrame(rows)
+            for id_field in ("capture_id", "boot_id", "device_id", "packet_id", "session_id", "dissection_id"):
+                if id_field in frame.columns:
+                    frame[id_field] = frame[id_field].astype(str)
+            frame.to_parquet(temporary, index=False, compression="snappy")
+            os.replace(temporary, path)
+            normal = int(frame.ground_truth_scenario.eq("Normal").sum()) if "ground_truth_scenario" in frame else 0
+            attack = int((~frame.ground_truth_scenario.isin(["Normal", "Unknown"])).sum()) if "ground_truth_scenario" in frame else 0
+            with closing(sqlite3.connect(self.catalog_db_path)) as conn:
+                conn.execute("INSERT OR REPLACE INTO packet_batches VALUES (?, ?, ?, ?, ?, ?, ?)",
+                             (str(path), self.current_session_id, time.time(), len(frame), normal, attack, path.stat().st_size / 1024))
+                conn.commit()
+            self.session_total_records += len(frame)
+            self.session_normal_records += normal
+            self.session_attack_records += attack
+            self._batch += 1
+
         self.buffer.clear()
-        self._batch += 1
 
     def flush(self) -> None:
         with self._lock:
@@ -170,13 +207,25 @@ class DataLakeManager:
                 "unknown_records": sum(r[1] - r[2] - r[3] for r in rows),
                 "total_storage_kb": sum(r[4] for r in rows), "recent_sessions": recent}
 
-    def load_all_training_data(self, columns: Optional[list[str]] = None) -> pd.DataFrame:
+    def load_all_training_data(self, traffic_mode: Optional[str] = "decrypted", columns: Optional[list[str]] = None) -> pd.DataFrame:
         frames = []
         all_columns: list[str] = []
-        for path in sorted(Path(self.raw_dir).rglob("*.parquet")):
+        parquet_files: list[Path] = []
+
+        if traffic_mode:
+            mode_dir = Path(self.raw_dir) / traffic_mode
+            if mode_dir.is_dir():
+                parquet_files.extend(sorted(mode_dir.rglob("*.parquet")))
+            if traffic_mode == "decrypted":
+                # Tương thích ngược với các file parquet lưu trực tiếp dưới date=* ở raw_dir
+                for date_dir in Path(self.raw_dir).glob("date=*"):
+                    if date_dir.is_dir():
+                        parquet_files.extend(sorted(date_dir.glob("*.parquet")))
+        else:
+            parquet_files.extend(sorted(Path(self.raw_dir).rglob("*.parquet")))
+
+        for path in parquet_files:
             selected = None
-            # Read the footer and projected data through the same file handle.
-            # Small batches otherwise pay two file opens/metadata reads each.
             with pq.ParquetFile(path) as parquet:
                 if columns is not None:
                     available = set(parquet.schema_arrow.names)
@@ -186,23 +235,20 @@ class DataLakeManager:
                 if name not in all_columns:
                     all_columns.append(name)
             if len(frame):
-                # Explicitly remove all-null blocks before concat, then restore
-                # columns. Nullable metadata in old/new schemas must not drive
-                # pandas' changing dtype inference or lose row identities.
                 frames.append(frame.loc[:, frame.notna().any(axis=0)])
         return pd.concat(frames, ignore_index=True).reindex(columns=all_columns) if frames else pd.DataFrame(columns=all_columns)
 
-    def load_labeled_dataset(self, valid_labels: Optional[list[str]] = None,
+    def load_labeled_dataset(self, traffic_mode: str = "decrypted", valid_labels: Optional[list[str]] = None,
                              columns: Optional[list[str]] = None) -> pd.DataFrame:
         if columns is not None:
             columns = list(dict.fromkeys(columns + TRAINING_OPTIONAL_COLUMNS))
-        frame, report = select_training_records(self.load_all_training_data(columns=columns))
+        frame, report = select_training_records(self.load_all_training_data(traffic_mode=traffic_mode, columns=columns), traffic_mode=traffic_mode)
         self.last_training_report = report
-        LOG.info("Training eligibility: %s", report)
+        LOG.info("Training eligibility [%s]: %s", traffic_mode, report)
         return frame[frame.ground_truth_scenario.isin(valid_labels)] if valid_labels and not frame.empty else frame
 
-    def load_normal_baseline_dataset(self, days: int = 30) -> pd.DataFrame:
-        frame = self.load_labeled_dataset(["Normal"])
+    def load_normal_baseline_dataset(self, traffic_mode: str = "decrypted", days: int = 30) -> pd.DataFrame:
+        frame = self.load_labeled_dataset(traffic_mode=traffic_mode, valid_labels=["Normal"])
         return frame[frame.timestamp.ge((time.time() - days * 86400) * 1000)] if not frame.empty else frame
 
     @staticmethod

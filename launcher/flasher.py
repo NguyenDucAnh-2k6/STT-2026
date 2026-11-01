@@ -77,15 +77,21 @@ def find_esp32_com_port(arduino_cli_path: Optional[str] = None) -> Optional[str]
     try:
         import serial.tools.list_ports
         ports = list(serial.tools.list_ports.comports())
+        # Ưu tiên các chip USB-to-UART phổ biến của ESP32
         for p in ports:
             desc = (p.description or "").upper()
             hwid = (p.hwid or "").upper()
-            if any(k in desc or k in hwid for k in ("CP210", "CH340", "CH9102", "SILICON", "USB", "UART", "ESP32", "FTDI")):
-                return p.device
+            if any(k in desc or k in hwid for k in ("CP210", "CH340", "CH9102", "SILICON", "USB", "UART", "ESP32", "FTDI", "CDC")):
+                if "ROOT\\PORTS" not in hwid and desc != "COMMUNICATIONS PORT":
+                    return p.device
+        # Dự phòng các cổng serial thực tế (loại bỏ cổng COM ảo/bo mạch chủ COM1, COM3)
         if ports:
             for p in ports:
-                if p.device.upper() not in ("COM1", "/DEV/TTYS0", "/DEV/TTY"):
-                    return p.device
+                desc = (p.description or "").upper()
+                hwid = (p.hwid or "").upper()
+                if p.device.upper() not in ("COM1", "COM3", "/DEV/TTYS0", "/DEV/TTY"):
+                    if "ROOT\\PORTS" not in hwid and "COMMUNICATIONS PORT" not in desc:
+                        return p.device
     except ImportError:
         pass
 
@@ -149,32 +155,32 @@ def find_esp32_com_port(arduino_cli_path: Optional[str] = None) -> Optional[str]
 
 
 def flash_esp32_cli(root_dir: str, com_port: Optional[str] = None) -> bool:
-    """Biên dịch và nạp firmware ESP32 qua CLI không cần mở Arduino IDE GUI."""
+    """Bien dich va nap firmware ESP32 qua CLI khong can mo Arduino IDE GUI."""
     arduino_cli = find_arduino_cli()
     if not arduino_cli:
-        print("  [Lỗi CLI] Không tìm thấy executable của arduino-cli trên máy tính!")
-        print("  -> Vui lòng cài đặt Arduino IDE 2.x hoặc cài arduino-cli độc lập vào PATH.")
-        print("  -> Tải arduino-cli chính thức tại: https://arduino.github.io/arduino-cli/latest/installation/")
+        print("  [Loi CLI] Khong tim thay executable cua arduino-cli tren may tinh!")
+        print("  -> Vui long cai dat Arduino IDE 2.x hoac cai arduino-cli doc lap vao PATH.")
+        print("  -> Tai arduino-cli chinh thuc tai: https://arduino.github.io/arduino-cli/latest/installation/")
         return False
 
     ino_path = os.path.join(root_dir, "firmware", "esp32_probe", "esp32_probe.ino")
     if not os.path.exists(ino_path):
-        print(f"  [Lỗi CLI] Không tìm thấy file sketch: {ino_path}")
+        print(f"  [Loi CLI] Khong tim thay file sketch: {ino_path}")
         return False
 
     port = com_port or find_esp32_com_port(arduino_cli)
     if not port:
-        print("\n  [Lỗi CLI] Không tìm thấy bo mạch ESP32 nào đang cắm vào cổng USB/Serial!")
-        print("  -> Gợi ý khắc phục:")
-        print("     1. Cắm cáp USB nối ESP32 với máy tính (đảm bảo cáp truyền được data, không phải chỉ sạc).")
-        print("     2. Hoặc chỉ định cổng trực tiếp bằng cờ --port <CỔNG>:")
+        print("\n  [Loi CLI] Khong tim thay bo mach ESP32 nao dang cam vao cong USB/Serial!")
+        print("  -> Goi y khac phuc:")
+        print("     1. Cam cap USB noi ESP32 voi may tinh (dam bao cap truyen duoc data, khong phai chi sac).")
+        print("     2. Hoac chi dinh cong truc tiep bang co --port <CONG>:")
         if sys.platform == "win32":
-            print("        Ví dụ Windows: python run_system.py --flash --port COM4")
+            print("        Vi du Windows: python run_system.py --flash --port COM4")
         elif sys.platform.startswith("linux"):
-            print("        Ví dụ Linux:   ./run_system.sh --flash --port /dev/ttyUSB0")
-            print("        (Nếu bị Permission Denied: chạy 'sudo usermod -a -G dialout $USER' rồi đăng nhập lại)")
+            print("        Vi du Linux:   ./run_system.sh --flash --port /dev/ttyUSB0")
+            print("        (Neu bi Permission Denied: chay 'sudo usermod -a -G dialout $USER' roi dang nhap lai)")
         else:
-            print("        Ví dụ macOS:   ./run_system.sh --flash --port /dev/cu.usbserial-0001")
+            print("        Vi du macOS:   ./run_system.sh --flash --port /dev/cu.usbserial-0001")
         return False
 
     print("\n" + "=" * 70)
@@ -182,21 +188,21 @@ def flash_esp32_cli(root_dir: str, com_port: Optional[str] = None) -> bool:
     print("=" * 70)
 
     fqbn = "esp32:esp32:esp32:PartitionScheme=huge_app"
-    # 1. Biên dịch
-    print(f"  [1/2] Biên dịch sketch {os.path.relpath(ino_path, root_dir)} (FQBN: {fqbn})...")
+    # 1. Bien dich
+    print(f"  [1/2] Bien dich sketch {os.path.relpath(ino_path, root_dir)} (FQBN: {fqbn})...")
     cmd_compile = [arduino_cli, "compile", "--fqbn", fqbn, ino_path]
     try:
         ret_compile = subprocess.run(cmd_compile, capture_output=True, text=True)
         if ret_compile.returncode != 0:
-            print(f"  [Lỗi Biên Dịch]:\n{ret_compile.stderr or ret_compile.stdout}")
+            print(f"  [Loi Bien Dich]:\n{ret_compile.stderr or ret_compile.stdout}")
             return False
-        print("  -> Biên dịch thành công!")
+        print("  -> Bien dich thanh cong!")
     except Exception as e:
-        print(f"  [Lỗi thực thi compile]: {e}")
+        print(f"  [Loi thuc thi compile]: {e}")
         return False
 
-    # 2. Nạp code qua cổng COM
-    print(f"  [2/2] Nạp firmware lên board ESP32 qua cổng {port}...")
+    # 2. Nap code qua cong COM
+    print(f"  [2/2] Nap firmware len board ESP32 qua cong {port}...")
     cmd_upload = [arduino_cli, "upload", "-p", port, "--fqbn", fqbn, ino_path]
     try:
         ret_upload = subprocess.run(cmd_upload, capture_output=True, text=True)
@@ -206,11 +212,11 @@ def flash_esp32_cli(root_dir: str, com_port: Optional[str] = None) -> bool:
                 print(f"\n  [CANH BAO QUAN TRONG] Cong {port} dang bi chiem dung boi tien trinh khac!")
                 print("  -> Vui long DONG Arduino IDE (hoac tat Serial Monitor) de giai phong cong COM, sau do chay lai!")
             else:
-                print(f"  [Lỗi Nạp Code]:\n{err_msg}")
+                print(f"  [Loi Nap Code]:\n{err_msg}")
             return False
-        print(f"  -> Nạp firmware thành công lên ESP32 qua cổng {port}!")
+        print(f"  -> Nap firmware thanh cong len ESP32 qua cong {port}!")
         print("=" * 70 + "\n")
         return True
     except Exception as e:
-        print(f"  [Lỗi thực thi upload]: {e}")
+        print(f"  [Loi thuc thi upload]: {e}")
         return False

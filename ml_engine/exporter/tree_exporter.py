@@ -77,7 +77,7 @@ def _generate_decision_tree_classifier_c(
 ) -> str:
     """Sinh hàm phân loại cho Decision Tree đơn lẻ."""
     body = tree_to_c_code(clf, feature_names, label_names, var_prefix="", depth_offset=1)
-    return f"""static inline int tinyml_predict_classifier(const float* raw_features, float* out_confidence) {{
+    return f"""static inline int tinyml_predict_classifier_proba(const float* raw_features, float* out_probabilities, float* out_confidence) {{
     if (!raw_features) return TINYML_NORMAL_CLASS_IDX;
 
     float features[TINYML_IN_FEATURES];
@@ -91,7 +91,22 @@ def _generate_decision_tree_classifier_c(
     if (out_confidence) {{
         *out_confidence = confidence;
     }}
+    if (out_probabilities) {{
+        float rem = (TINYML_NUM_CLASSES > 1) ? ((1.0f - confidence) / (float)(TINYML_NUM_CLASSES - 1)) : 0.0f;
+        float sum_p = 0.0f;
+        for (int c = 0; c < TINYML_NUM_CLASSES; c++) {{
+            if (c != pred_class) {{
+                out_probabilities[c] = rem;
+                sum_p += rem;
+            }}
+        }}
+        out_probabilities[pred_class] = 1.0f - sum_p;
+    }}
     return pred_class;
+}}
+
+static inline int tinyml_predict_classifier(const float* raw_features, float* out_confidence) {{
+    return tinyml_predict_classifier_proba(raw_features, NULL, out_confidence);
 }}"""
 
 
@@ -132,7 +147,7 @@ def _generate_forest_classifier_c(
     return f"""// --- Random Forest / Extra Trees Ensemble ({num_trees} Trees) ---
 {funcs_code}
 
-static inline int tinyml_predict_classifier(const float* raw_features, float* out_confidence) {{
+static inline int tinyml_predict_classifier_proba(const float* raw_features, float* out_probabilities, float* out_confidence) {{
     if (!raw_features) return TINYML_NORMAL_CLASS_IDX;
 
     float features[TINYML_IN_FEATURES];
@@ -154,10 +169,30 @@ static inline int tinyml_predict_classifier(const float* raw_features, float* ou
         }}
     }}
 
+    float conf = (total_votes > 0.0f) ? (max_votes / total_votes) : 1.0f;
     if (out_confidence) {{
-        *out_confidence = (total_votes > 0.0f) ? (max_votes / total_votes) : 1.0f;
+        *out_confidence = conf;
+    }}
+
+    if (out_probabilities) {{
+        if (total_votes > 0.0f) {{
+            float sum_p = 0.0f;
+            for (int c = 0; c < TINYML_NUM_CLASSES; c++) {{
+                out_probabilities[c] = votes[c] / total_votes;
+                sum_p += out_probabilities[c];
+            }}
+            out_probabilities[best_class] += (1.0f - sum_p);
+        }} else {{
+            for (int c = 0; c < TINYML_NUM_CLASSES; c++) {{
+                out_probabilities[c] = (c == best_class) ? 1.0f : 0.0f;
+            }}
+        }}
     }}
     return best_class;
+}}
+
+static inline int tinyml_predict_classifier(const float* raw_features, float* out_confidence) {{
+    return tinyml_predict_classifier_proba(raw_features, NULL, out_confidence);
 }}"""
 
 
