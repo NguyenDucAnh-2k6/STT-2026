@@ -11,8 +11,15 @@
 
 void sendRadioFrame();
 
-// Khởi tạo WiFi, UDP Discovery và MQTT Client
+// Khởi tạo WiFi, UDP Discovery và MQTT Client (dành cho Sniffer Mode)
 void initMqttAndWiFi(bool allNetworksMode);
+
+// Khởi tạo cấu hình MQTT Broker độc lập (dành cho Gateway Mode khi WiFi do Gateway quản lý)
+void initMqttClientConfig();
+
+// Phát bản tin suy luận và cảnh báo qua MQTT từ Gateway Mode (khi cắm nguồn độc lập ngoài)
+bool publishGatewayPrediction(const char* jsonBuffer);
+bool publishGatewayAlert(const char* jsonBuffer);
 
 // Duy trì kết nối MQTT và xử lý các tin nhắn điều khiển từ UI
 void maintainMqttLoop(bool allNetworksMode);

@@ -47,7 +47,7 @@
 //                         đồng thời chạy Machine Learning giám sát toàn bộ gói tin đi qua CPU (Monitor-only, không drop).
 #define PROBE_MODE_SNIFFER 0
 #define PROBE_MODE_GATEWAY 1
-#define CURRENT_PROBE_MODE PROBE_MODE_SNIFFER
+#define CURRENT_PROBE_MODE PROBE_MODE_GATEWAY
 
 // --- Cấu hình Gateway SoftAP (Dành cho PROBE_MODE_GATEWAY) ---
 #define GATEWAY_AP_SSID "AERO-Security-Gateway"

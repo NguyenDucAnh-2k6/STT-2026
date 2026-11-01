@@ -195,3 +195,134 @@ def serial_telemetry_bridge_worker(com_port: str, broker_port: int = 1883,
     finally:
         mqtt_client.disconnect()
         mqtt_client.loop_stop()
+
+
+def host_gateway_esp32_bridge_worker(
+    com_port: str,
+    broker_port: int = 1883,
+    broker_host: str = "127.0.0.1",
+    stop_event: threading.Event | None = None
+) -> None:
+    """
+    Cau noi 2 chieu giua Host Gateway (Laptop L7 DPI + ML) va ESP32 Hardware Security Dongle qua USB Serial:
+    1. Lang nghe telemetry va canh bao ML tu MQTT (edge/alerts/high_priority, edge/telemetry/prediction, edge/telemetry/traffic).
+    2. Day chi so thong luong (rate, bytes) va phan quyet an ninh (threat, anomaly_score) xuong ESP32.
+    3. ESP32 dieu khien man hinh OLED SSD1306 va coi Buzzer/LED bao dong vat ly theo thoi gian thuc.
+    """
+    try:
+        import serial
+        import paho.mqtt.client as mqtt
+    except ImportError as exc:
+        logging.getLogger(__name__).error("Host-Gateway USB bridge unavailable: %s", exc)
+        return
+
+    stop = stop_event if stop_event is not None else threading.Event()
+    mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="Host-Gateway-ESP32-Bridge")
+    mqtt_client.max_queued_messages_set(128)
+
+    latest_stats = {
+        "rate": 0.0,
+        "bytes": 0.0,
+        "threat": "Normal",
+        "score": 0.0,
+        "is_alert": False,
+        "alert_expiry": 0.0,
+        "updated_at": 0.0,
+    }
+    stats_lock = threading.Lock()
+
+    def on_connect(client, userdata, flags, rc, properties=None):
+        if rc == 0:
+            client.subscribe([
+                ("edge/alerts/high_priority", 1),
+                ("edge/telemetry/prediction", 0),
+                ("edge/telemetry/traffic", 0),
+                ("edge/telemetry/window", 0),
+            ])
+
+    def on_message(client, userdata, msg):
+        try:
+            payload = json.loads(msg.payload.decode("utf-8", errors="ignore"))
+            now_t = time.time()
+            with stats_lock:
+                if msg.topic in ("edge/telemetry/traffic", "edge/telemetry/window"):
+                    latest_stats["rate"] = float(payload.get("packet_rate", payload.get("total_packets", 0.0)))
+                    latest_stats["bytes"] = float(payload.get("byte_rate", payload.get("total_bytes", 0.0)))
+                    latest_stats["updated_at"] = now_t
+                elif msg.topic == "edge/alerts/high_priority":
+                    threat = str(payload.get("threat_type", payload.get("attack_type", "Alert")))
+                    score = float(payload.get("anomaly_score", payload.get("confidence", 0.99)))
+                    latest_stats["threat"] = threat
+                    latest_stats["score"] = score
+                    latest_stats["is_alert"] = True
+                    latest_stats["alert_expiry"] = now_t + 5.0
+                    latest_stats["updated_at"] = now_t
+                elif msg.topic == "edge/telemetry/prediction":
+                    is_anom = bool(payload.get("is_anomaly", False))
+                    threat = str(payload.get("threat_type", "Normal"))
+                    score = float(payload.get("anomaly_score", 0.0))
+                    if is_anom:
+                        latest_stats["threat"] = threat
+                        latest_stats["score"] = score
+                        latest_stats["is_alert"] = True
+                        latest_stats["alert_expiry"] = now_t + 5.0
+                    elif now_t > latest_stats.get("alert_expiry", 0.0):
+                        latest_stats["threat"] = threat
+                        latest_stats["score"] = score
+                        latest_stats["is_alert"] = False
+                    latest_stats["updated_at"] = now_t
+        except Exception:
+            pass
+
+    mqtt_client.on_connect = on_connect
+    mqtt_client.on_message = on_message
+
+    try:
+        mqtt_client.connect(broker_host, broker_port, keepalive=60)
+        mqtt_client.loop_start()
+    except Exception as e:
+        print(f"  [HostGatewayBridge] Khong the ket noi MQTT: {e}")
+        return
+
+    print(f"  [HostGatewayBridge] Da kich hoat cau noi Hardware Dongle tren {com_port} (115200 baud).")
+
+    try:
+        while not stop.is_set():
+            try:
+                with serial.Serial(com_port, 115200, timeout=0.5) as ser:
+                    ser.write(b"HOST_PING\n")
+                    ser.flush()
+                    last_send_time = 0.0
+
+                    while not stop.is_set():
+                        now = time.time()
+                        if ser.in_waiting > 0:
+                            line = ser.readline().decode("utf-8", errors="ignore").strip()
+                            if line.startswith("[ESP32]"):
+                                print(f"  {line}")
+
+                        if now - last_send_time >= 1.0:
+                            last_send_time = now
+                            with stats_lock:
+                                is_alert = latest_stats["is_alert"] and (now <= latest_stats.get("alert_expiry", 0.0))
+                                threat = latest_stats["threat"] if is_alert else "Normal"
+                                score = latest_stats["score"] if is_alert else 0.0
+                                rate = latest_stats["rate"]
+                                bytes_val = latest_stats["bytes"]
+
+                            cmd_prefix = "HOST_ALERT:" if is_alert else "HOST_STATS:"
+                            msg_body = {
+                                "threat": threat,
+                                "score": score,
+                                "rate": rate,
+                                "bytes": bytes_val,
+                            }
+                            ser.write(f"{cmd_prefix}{json.dumps(msg_body)}\n".encode("utf-8"))
+                            ser.flush()
+
+                        time.sleep(0.1)
+            except (serial.SerialException, OSError):
+                stop.wait(2.0)
+    finally:
+        mqtt_client.loop_stop()
+        mqtt_client.disconnect()

@@ -22,4 +22,13 @@ void updateOledMetrics(
     uint32_t unique_ports
 );
 
+// Hiển thị thông số từ Host-Gateway khi cắm ESP32 làm Hardware Security Dongle
+void updateOledHostGateway(
+    float packet_rate,
+    float byte_rate,
+    bool is_alert,
+    const char* threat_name,
+    float anomaly_score
+);
+
 #endif // OLED_DISPLAY_H

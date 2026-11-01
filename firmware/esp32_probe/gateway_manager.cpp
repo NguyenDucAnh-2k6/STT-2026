@@ -15,6 +15,7 @@
 #include "sniffer.h"
 #include "packet_features.h"
 #include "edge_inference.h"
+#include "mqtt_handler.h"
 
 // Thư viện lwIP NAPT của ESP-IDF (nếu được hỗ trợ trong core)
 #if __has_include(<lwip/lwip_napt.h>)
@@ -25,11 +26,13 @@
 #define HAS_LWIP_NAPT 1
 #else
 #define HAS_LWIP_NAPT 0
+#endif
+
 extern "C" {
+  void ip_napt_init(uint16_t max_nats, uint8_t max_portmaps) __attribute__((weak));
   void ip_napt_enable(uint32_t addr, int enable) __attribute__((weak));
   void ip_napt_enable_no(uint8_t number, int enable) __attribute__((weak));
 }
-#endif
 
 static GatewayMetrics metrics = {0, 0, 0, 0, 0, 0, 0.0f, "Normal", 1.0f};
 static bool gatewayActive = false;
@@ -41,8 +44,13 @@ static netif_input_fn original_ap_input = nullptr;
 // Máy chủ HTTP phục vụ Captive Portal & Web UI trên ESP32
 static WebServer gatewayHttpServer(80);
 
-// Máy chủ DNS phục vụ phân giải Captive Portal để điện thoại luôn giữ kết nối Wi-Fi
+// Máy chủ DNS phục vụ phân giải Captive Portal khi chưa kết nối Internet
 static DNSServer gatewayDnsServer;
+
+// Socket UDP phục vụ DNS Relay hai chiều chuyển tiếp tên miền Internet thật khi đã có STA
+static WiFiUDP dnsServerUdp;
+static WiFiUDP dnsClientUdp;
+static bool dnsRelayActive = false;
 
 // Trạng thái giám sát STA (Upstream Internet)
 static unsigned long lastStaCheckMs = 0;
@@ -114,8 +122,12 @@ static void handleBrowseTest() {
 static void handleTestAlert() {
   recordGatewayInference("SYN_Flood_Anomaly", 0.92f, 0.95f, true);
   setAlertState(true);
-  Serial.printf("ESP32_ALERT:{\"device_id\":\"%s\",\"threat_type\":\"SYN_Flood_Anomaly\",\"severity\":\"CRITICAL\",\"anomaly_score\":0.92,\"confidence\":0.95,\"raw_telemetry\":{\"protocol\":\"TCP\",\"src_port\":80,\"dst_port\":80,\"packet_length\":128}}\n", MQTT_CLIENT_ID);
-  Serial.printf("ESP32_PREDICTION:{\"device_id\":\"%s\",\"inference_status\":\"ok\",\"inference_source\":\"esp32_gateway\",\"anomaly_score\":0.92,\"is_anomaly\":true,\"threat_type\":\"SYN_Flood_Anomaly\",\"confidence\":0.95,\"severity\":\"CRITICAL\",\"raw_telemetry\":{\"record_kind\":\"packet\",\"protocol\":\"TCP\",\"src_port\":80,\"dst_port\":80,\"frame_length\":128}}\n", MQTT_CLIENT_ID);
+  const char* alertPayload = "{\"device_id\":\"" MQTT_CLIENT_ID "\",\"threat_type\":\"SYN_Flood_Anomaly\",\"severity\":\"CRITICAL\",\"anomaly_score\":0.92,\"confidence\":0.95,\"raw_telemetry\":{\"protocol\":\"TCP\",\"src_port\":80,\"dst_port\":80,\"packet_length\":128}}";
+  const char* predPayload = "{\"device_id\":\"" MQTT_CLIENT_ID "\",\"inference_status\":\"ok\",\"inference_source\":\"esp32_gateway\",\"anomaly_score\":0.92,\"is_anomaly\":true,\"threat_type\":\"SYN_Flood_Anomaly\",\"confidence\":0.95,\"severity\":\"CRITICAL\",\"raw_telemetry\":{\"record_kind\":\"packet\",\"protocol\":\"TCP\",\"src_port\":80,\"dst_port\":80,\"frame_length\":128}}";
+  Serial.printf("ESP32_ALERT:%s\n", alertPayload);
+  Serial.printf("ESP32_PREDICTION:%s\n", predPayload);
+  publishGatewayAlert(alertPayload);
+  publishGatewayPrediction(predPayload);
   String html = F("<!DOCTYPE html><html><head><meta charset='utf-8'>"
     "<meta http-equiv='refresh' content='3;url=/'><meta name='viewport' content='width=device-width, initial-scale=1'>"
     "<body style='background:#0b1120;color:#f87171;font-family:sans-serif;text-align:center;padding:40px;'>"
@@ -149,15 +161,100 @@ static void setupGatewayServers() {
   Serial.println(F("[Gateway DNS] Da khoi chay DNS Server Captive tren cong 53."));
 }
 
+#ifndef ESP_IPADDR_TYPE_V4
+#define ESP_IPADDR_TYPE_V4 0
+#endif
+
+// Cấu hình DHCP Server của SoftAP cấp DNS Internet thực sự cho thiết bị Client
+static void configureSoftApDns(IPAddress dns1, IPAddress dns2) {
+  esp_netif_t *apNetif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+  if (!apNetif) return;
+
+  esp_netif_dns_info_t dnsMain;
+  dnsMain.ip.type = ESP_IPADDR_TYPE_V4;
+  dnsMain.ip.u_addr.ip4.addr = static_cast<uint32_t>(dns1);
+  esp_netif_set_dns_info(apNetif, ESP_NETIF_DNS_MAIN, &dnsMain);
+
+  esp_netif_dns_info_t dnsBackup;
+  dnsBackup.ip.type = ESP_IPADDR_TYPE_V4;
+  dnsBackup.ip.u_addr.ip4.addr = static_cast<uint32_t>(dns2);
+  esp_netif_set_dns_info(apNetif, ESP_NETIF_DNS_BACKUP, &dnsBackup);
+
+  Serial.printf("[Gateway DNS] Da cap nhat DHCP DNS cho Client: DNS1=%s, DNS2=%s\n",
+                dns1.toString().c_str(), dns2.toString().c_str());
+}
+
+// Khởi chạy bộ chuyển tiếp DNS Relay hai chiều ra Internet
+static void initDnsRelay() {
+  if (dnsRelayActive) return;
+  // Dừng Captive DNS để giải phóng cổng 53 cho DNS Relay
+  gatewayDnsServer.stop();
+  if (dnsServerUdp.begin(53)) {
+    dnsClientUdp.begin(0);
+    dnsRelayActive = true;
+    Serial.println(F("[Gateway DNS] Da khoi chay DNS Relay (Chuyen tiep ten mien Internet that tren cong 53)!"));
+  } else {
+    Serial.println(F("[Gateway DNS] Canh bao: Khong the khoi dong UDP socket tren cong 53."));
+  }
+}
+
+// Xử lý gói tin DNS từ client và chuyển tiếp ra Upstream DNS
+static void processDnsRelay() {
+  if (!dnsRelayActive) return;
+
+  int packetSize = dnsServerUdp.parsePacket();
+  if (packetSize > 0 && packetSize <= 512) {
+    uint8_t buffer[512];
+    int len = dnsServerUdp.read(buffer, sizeof(buffer));
+    if (len > 12) {
+      IPAddress clientIp = dnsServerUdp.remoteIP();
+      uint16_t clientPort = dnsServerUdp.remotePort();
+
+      // Ưu tiên DNS router STA cấp, nếu chưa có thì dùng Google Public DNS
+      IPAddress upstreamDns = (WiFi.status() == WL_CONNECTED) ? WiFi.dnsIP() : IPAddress(0, 0, 0, 0);
+      if (upstreamDns == IPAddress(0, 0, 0, 0)) {
+        upstreamDns = IPAddress(8, 8, 8, 8);
+      }
+
+      if (WiFi.status() == WL_CONNECTED) {
+        dnsClientUdp.beginPacket(upstreamDns, 53);
+        dnsClientUdp.write(buffer, len);
+        dnsClientUdp.endPacket();
+
+        // Chờ phản hồi trong tối đa 100ms
+        unsigned long startWait = millis();
+        while (millis() - startWait < 100) {
+          int respSize = dnsClientUdp.parsePacket();
+          if (respSize > 0 && respSize <= 512) {
+            uint8_t respBuffer[512];
+            int respLen = dnsClientUdp.read(respBuffer, sizeof(respBuffer));
+            if (respLen > 0) {
+              dnsServerUdp.beginPacket(clientIp, clientPort);
+              dnsServerUdp.write(respBuffer, respLen);
+              dnsServerUdp.endPacket();
+              break;
+            }
+          }
+          delay(1);
+        }
+      }
+    }
+  }
+}
+
 static void enableNaptRouter() {
   if (naptEnabled) return;
 
 #if HAS_LWIP_NAPT
+  ip_napt_init(512, 32);
   ip_napt_enable((uint32_t)WiFi.softAPIP(), 1);
   naptEnabled = true;
   Serial.printf("[Gateway NAPT] lwIP NAPT Router da KICH HOAT THANH CONG! Chuyen tiep: %s <-> %s\n",
                 WiFi.softAPIP().toString().c_str(), WiFi.localIP().toString().c_str());
 #else
+  if (ip_napt_init != nullptr) {
+    ip_napt_init(512, 32);
+  }
   if (ip_napt_enable != nullptr) {
     ip_napt_enable((uint32_t)WiFi.softAPIP(), 1);
     naptEnabled = true;
@@ -188,6 +285,14 @@ static void onWiFiEvent(WiFiEvent_t event) {
       Serial.printf("  * DNS Server : %s\n", WiFi.dnsIP().toString().c_str());
       Serial.println(F("========================================================\n"));
       enableNaptRouter();
+      {
+        IPAddress upstreamDns = WiFi.dnsIP();
+        if (upstreamDns == IPAddress(0, 0, 0, 0)) {
+          upstreamDns = IPAddress(8, 8, 8, 8);
+        }
+        configureSoftApDns(upstreamDns, IPAddress(1, 1, 1, 1));
+        initDnsRelay();
+      }
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       Serial.printf("[Gateway STA] Canh bao: Mat ket noi toi router '%s'. Dang cho tu dong thu lai...\n", WIFI_SSID);
@@ -303,12 +408,17 @@ void initGatewayMode() {
   // 7. Khởi chạy Captive Portal & DNS Server cho Client
   setupGatewayServers();
 
-  // 8. Bật tự động kết nối lại cho STA và thực hiện kết nối tới Router (Khoá chặt kênh sóng & BSSID để chống nhảy kênh làm rớt client)
+  // 8. Bật tự động kết nối lại cho STA và thực hiện kết nối tới Router
   WiFi.setAutoReconnect(true);
   if (strlen(WIFI_SSID) > 0 && strcmp(WIFI_SSID, "YOUR_WIFI_SSID") != 0) {
     const char* staPass = isUpstreamOpen ? NULL : ((strlen(WIFI_PASSWORD) > 0) ? WIFI_PASSWORD : NULL);
-    Serial.printf("[Gateway] Dang ket noi STA vao Router: '%s' (Khoa Kenh %d)...\n", WIFI_SSID, apChannel);
-    WiFi.begin(WIFI_SSID, staPass, apChannel, hasTargetStaBssid ? targetStaBssid : NULL);
+    if (hasTargetStaBssid && apChannel > 0) {
+      Serial.printf("[Gateway] Dang ket noi STA vao Router: '%s' (Kenh %d)...\n", WIFI_SSID, apChannel);
+      WiFi.begin(WIFI_SSID, staPass, apChannel, targetStaBssid);
+    } else {
+      Serial.printf("[Gateway] Dang ket noi STA vao Router: '%s' (Tu do quet toan bo kenh 1-13)...\n", WIFI_SSID);
+      WiFi.begin(WIFI_SSID, staPass);
+    }
   }
 
   // 9. Cài đặt Netif Hook vào Interface SoftAP để bắt trọn gói tin đã giải mã từ lwIP
@@ -336,8 +446,12 @@ uint8_t getGatewayClientCount() {
 void maintainGatewayLoop() {
   if (!gatewayActive) return;
 
-  // 1. Phục vụ các yêu cầu DNS Captive Portal và HTTP Client
-  gatewayDnsServer.processNextRequest();
+  // 1. Phục vụ DNS (Relay nếu đã có Internet STA, hoặc Captive Portal nếu chưa có STA)
+  if (dnsRelayActive) {
+    processDnsRelay();
+  } else {
+    gatewayDnsServer.processNextRequest();
+  }
   gatewayHttpServer.handleClient();
 
   unsigned long now = millis();
@@ -422,33 +536,43 @@ void inspectGatewayIpPacket(const uint8_t* ipData, size_t length) {
                     probs[maxClass] * 100.0f,
                     payloadEntropy);
 
-      // Phát bản tin ESP32_PREDICTION cho USB Bridge đồng bộ Dashboard
-      Serial.printf("ESP32_PREDICTION:{\"device_id\":\"%s\",\"inference_status\":\"ok\",\"inference_source\":\"esp32_gateway\",\"anomaly_score\":%.2f,\"is_anomaly\":%s,\"threat_type\":\"%s\",\"confidence\":%.2f,\"severity\":\"%s\",\"raw_telemetry\":{\"record_kind\":\"packet\",\"protocol\":\"%s\",\"src_port\":%u,\"dst_port\":%u,\"frame_length\":%u}}\n",
-                    MQTT_CLIENT_ID,
-                    anomScore,
-                    isAnomaly ? "true" : "false",
-                    threat,
-                    probs[maxClass],
-                    isAnomaly ? "CRITICAL" : "NORMAL",
-                    (proto == 6 ? "TCP" : (proto == 17 ? "UDP" : "ICMP")),
-                    (unsigned)srcPort,
-                    (unsigned)dstPort,
-                    (unsigned)length);
+      // Đóng gói bản tin ESP32_PREDICTION
+      char predPayload[512];
+      snprintf(predPayload, sizeof(predPayload),
+               "{\"device_id\":\"%s\",\"inference_status\":\"ok\",\"inference_source\":\"esp32_gateway\",\"anomaly_score\":%.2f,\"is_anomaly\":%s,\"threat_type\":\"%s\",\"confidence\":%.2f,\"severity\":\"%s\",\"raw_telemetry\":{\"record_kind\":\"packet\",\"protocol\":\"%s\",\"src_port\":%u,\"dst_port\":%u,\"frame_length\":%u}}",
+               MQTT_CLIENT_ID,
+               anomScore,
+               isAnomaly ? "true" : "false",
+               threat,
+               probs[maxClass],
+               isAnomaly ? "CRITICAL" : "NORMAL",
+               (proto == 6 ? "TCP" : (proto == 17 ? "UDP" : "ICMP")),
+               (unsigned)srcPort,
+               (unsigned)dstPort,
+               (unsigned)length);
+
+      // In Serial cho USB Bridge (khi cắm USB) và phát trực tiếp qua Wi-Fi MQTT (khi cắm nguồn ngoài)
+      Serial.printf("ESP32_PREDICTION:%s\n", predPayload);
+      publishGatewayPrediction(predPayload);
     }
 
     // Kích hoạt còi/LED và gửi Alert nếu phát hiện bất thường
     if (isAnomaly) {
       metrics.anomaly_detections++;
       setAlertState(true);
-      Serial.printf("ESP32_ALERT:{\"device_id\":\"%s\",\"threat_type\":\"%s\",\"severity\":\"CRITICAL\",\"anomaly_score\":%.2f,\"confidence\":%.2f,\"raw_telemetry\":{\"protocol\":\"%s\",\"src_port\":%u,\"dst_port\":%u,\"packet_length\":%u}}\n",
-                    MQTT_CLIENT_ID,
-                    threat,
-                    anomScore,
-                    probs[maxClass],
-                    (proto == 6 ? "TCP" : (proto == 17 ? "UDP" : "ICMP")),
-                    (unsigned)srcPort,
-                    (unsigned)dstPort,
-                    (unsigned)length);
+      char alertPayload[384];
+      snprintf(alertPayload, sizeof(alertPayload),
+               "{\"device_id\":\"%s\",\"threat_type\":\"%s\",\"severity\":\"CRITICAL\",\"anomaly_score\":%.2f,\"confidence\":%.2f,\"raw_telemetry\":{\"protocol\":\"%s\",\"src_port\":%u,\"dst_port\":%u,\"packet_length\":%u}}",
+               MQTT_CLIENT_ID,
+               threat,
+               anomScore,
+               probs[maxClass],
+               (proto == 6 ? "TCP" : (proto == 17 ? "UDP" : "ICMP")),
+               (unsigned)srcPort,
+               (unsigned)dstPort,
+               (unsigned)length);
+      Serial.printf("ESP32_ALERT:%s\n", alertPayload);
+      publishGatewayAlert(alertPayload);
     } else {
       setAlertState(false);
     }

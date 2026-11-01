@@ -118,3 +118,58 @@ void updateOledMetrics(
   display.display();
 #endif
 }
+
+void updateOledHostGateway(
+    float packet_rate,
+    float byte_rate,
+    bool is_alert,
+    const char* threat_name,
+    float anomaly_score
+) {
+#if ENABLE_OLED
+  if (!oledReady) return;
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+
+#if SCREEN_HEIGHT >= 64
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.print(F("HOST-GW | L7 DPI"));
+  display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
+
+  display.setCursor(0, 13);
+  display.printf("Pkts: %.0f /s", packet_rate);
+  display.setCursor(0, 23);
+  display.printf("Rate: %.1f KB/s", byte_rate / 1024.0);
+
+  display.drawLine(0, 34, 128, 34, SSD1306_WHITE);
+  display.setCursor(0, 38);
+  if (is_alert) {
+    display.print(F("THREAT: "));
+    display.print(threat_name ? threat_name : "Anomaly");
+    display.setCursor(0, 48);
+    display.printf("! ALERT (%.0f%%)", anomaly_score * 100.0f);
+  } else {
+    display.print(F("STATUS: ALL NORMAL"));
+    display.setCursor(0, 48);
+    display.print(F("[OK] Gateway Secure"));
+  }
+#else
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.printf("HOST-GW|%.0fp/s|DPI", packet_rate);
+  display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
+
+  display.setCursor(0, 12);
+  if (is_alert) {
+    display.printf("! %s (%.0f%%)", threat_name ? threat_name : "Alert", anomaly_score * 100.0f);
+  } else {
+    display.print(F("[OK] Gateway Secure"));
+  }
+  display.setCursor(0, 22);
+  display.printf("%.1f KB/s | Host L7", byte_rate / 1024.0);
+#endif
+
+  display.display();
+#endif
+}

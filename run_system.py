@@ -483,10 +483,28 @@ def main():
             parser.error(f"LAB_CAPTURE_INTERFACES: {error}")
         os.environ["HOST_PCAP_FILE"] = ""
 
+    # Xac dinh che do probe va loai hinh demo (Demo 1: Sniffer, Demo 2: ESP32 Gateway, Demo 3: Laptop Gateway)
+    is_gateway = getattr(args, "esp32_gateway", False) or (getattr(args, "demo_mode", "") == "gateway")
+
+    if args.no_sim:
+        probe_mode = "esp32"
+    elif is_gateway:
+        # Neu chon gateway, tu dong chuyen sang probe_mode esp32 ma nguoi dung khong can go --probe esp32
+        probe_mode = "esp32"
+    elif getattr(args, "demo_mode", "") == "sniffer":
+        probe_mode = "esp32"
+    elif args.probe == "sim":
+        print("\n[Luu y] Che do 'sim' (so lieu ao) da duoc thay the bang bo ban goi tin mang that 100%.")
+        print("        Tu dong chuyen sang: --probe host --attack-sim\n")
+        probe_mode = "host"
+        args.attack_sim = True
+    else:
+        probe_mode = args.probe
+
     # Thiết lập trạng thái remote push toàn cục
     if not args.twin_lab:
         os.environ.pop("HOST_TWIN_SERVICE_PORT", None)
-    if (args.probe == "host" and not args.no_sim and args.use_tshark
+    if (probe_mode == "host" and not args.no_sim and args.use_tshark
             and not args.twin_lab and not args.lab_capture and not os.getenv("HOST_PCAP_FILE")):
         from launcher.capture_setup import prepare_host_capture
         try:
@@ -502,22 +520,6 @@ def main():
 
     root_dir = os.path.dirname(os.path.abspath(__file__))
     python_exe = sys.executable
-
-    # Xac dinh che do probe va loai hinh demo (Demo 1: Sniffer, Demo 2: ESP32 Gateway, Demo 3: Laptop Gateway)
-    is_gateway = getattr(args, "esp32_gateway", False) or (getattr(args, "demo_mode", "") == "gateway")
-
-    if args.no_sim:
-        probe_mode = "esp32"
-    elif is_gateway:
-        # Neu chon gateway, tu dong chuyen sang probe_mode esp32 ma nguoi dung khong can go --probe esp32
-        probe_mode = "esp32"
-    elif args.probe == "sim":
-        print("\n[Luu y] Che do 'sim' (so lieu ao) da duoc thay the bang bo ban goi tin mang that 100%.")
-        print("        Tu dong chuyen sang: --probe host --attack-sim\n")
-        probe_mode = "host"
-        args.attack_sim = True
-    else:
-        probe_mode = args.probe
 
     if getattr(args, "demo_mode", None) == "laptop-gateway":
         print("\n" + "=" * 70)
@@ -583,8 +585,16 @@ def main():
         os.environ["MQTT_BROKER_PORT"] = str(args.broker_port)
         os.environ["MQTT_BROKER_HOST"] = args.broker_host
 
-    # Xac dinh traffic mode thuc te (auto: ESP32 -> encrypted, Host -> decrypted)
-    effective_traffic_mode = ("encrypted" if probe_mode == "esp32" else "decrypted") if args.traffic_mode == "auto" else args.traffic_mode
+    # Xac dinh traffic mode thuc te (auto: ESP32 Sniffer -> wireless, ESP32 Gateway -> encrypted, Host -> decrypted)
+    if args.traffic_mode == "auto":
+        if is_gateway:
+            effective_traffic_mode = "encrypted"
+        elif probe_mode == "esp32":
+            effective_traffic_mode = "wireless"
+        else:
+            effective_traffic_mode = "decrypted"
+    else:
+        effective_traffic_mode = args.traffic_mode
 
     # Tu dong xac dinh thu muc model va dong bo C Header TinyML sang firmware ESP32
     models_dir, models_source = resolve_models_dir(

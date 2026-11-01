@@ -1,0 +1,236 @@
+{
+  "timestamp": 1793507759,
+  "artifact_id": "c30b657192e1441b962ab3c6345dddd2",
+  "traffic_mode": "decrypted",
+  "profile": "edgeiiot-packet-v1",
+  "features_count": 56,
+  "features": [
+    "arp.opcode",
+    "arp.hw.size",
+    "icmp.checksum",
+    "icmp.seq_le",
+    "icmp.transmit_timestamp",
+    "icmp.unused",
+    "http.file_data",
+    "http.content_length",
+    "http.request.uri.query",
+    "http.request.method",
+    "http.referer",
+    "http.request.full_uri",
+    "http.request.version",
+    "http.response",
+    "http.tls_port",
+    "tcp.ack",
+    "tcp.ack_raw",
+    "tcp.checksum",
+    "tcp.connection.fin",
+    "tcp.connection.rst",
+    "tcp.connection.syn",
+    "tcp.connection.synack",
+    "tcp.dstport",
+    "tcp.flags",
+    "tcp.flags.ack",
+    "tcp.len",
+    "tcp.options",
+    "tcp.payload",
+    "tcp.seq",
+    "tcp.srcport",
+    "udp.port",
+    "udp.stream",
+    "udp.time_delta",
+    "dns.qry.name",
+    "dns.qry.name.len",
+    "dns.qry.qu",
+    "dns.qry.type",
+    "dns.retransmission",
+    "dns.retransmit_request",
+    "dns.retransmit_request_in",
+    "mqtt.conack.flags",
+    "mqtt.conflag.cleansess",
+    "mqtt.conflags",
+    "mqtt.hdrflags",
+    "mqtt.len",
+    "mqtt.msg_decoded_as",
+    "mqtt.msg",
+    "mqtt.msgtype",
+    "mqtt.proto_len",
+    "mqtt.protoname",
+    "mqtt.topic",
+    "mqtt.topic_len",
+    "mqtt.ver",
+    "mbtcp.len",
+    "mbtcp.trans_id",
+    "mbtcp.unit_id"
+  ],
+  "labels_count": 15,
+  "labels": [
+    "Backdoor",
+    "DDoS_HTTP",
+    "DDoS_ICMP",
+    "DDoS_TCP",
+    "DDoS_UDP",
+    "Fingerprinting",
+    "MITM",
+    "Normal",
+    "Password",
+    "Port_Scanning",
+    "Ransomware",
+    "SQL_injection",
+    "Uploading",
+    "Vulnerability_scanner",
+    "XSS"
+  ],
+  "classifier_type": "random_forest",
+  "anomaly_detector_type": "isolation_forest",
+  "data_source": "hybrid",
+  "dataset_quality": {
+    "source_file": "ML-EdgeIIoT-dataset.csv",
+    "source_rows": 157800,
+    "invalid_rows_policy": "drop",
+    "invalid_numeric_fields": {
+      "tcp.srcport": 367,
+      "dns.qry.name.len": 29
+    },
+    "malformed_rows_removed": 396,
+    "exact_duplicates_removed": 5411
+  },
+  "data_lake_records_used": 0,
+  "data_lake_labeled_records_used": 0,
+  "sample_ratio": 0.2,
+  "test_size": 0.2,
+  "refit_full": false,
+  "train_samples": 24319,
+  "test_samples": 6080,
+  "classifier_accuracy": 0.6477,
+  "classifier_accuracy_cv": 0.6522,
+  "classifier_accuracy_std": 0.0261,
+  "classifier_macro_f1": 0.6013,
+  "classifier_macro_f1_cv": 0.5574,
+  "classifier_macro_f1_std": 0.0386,
+  "classifier_weighted_f1": 0.6107,
+  "cv_strategy": "5-Fold Stratified CV",
+  "cv_folds": 5,
+  "classification_report": {
+    "Backdoor": {
+      "precision": 0.9972826086956522,
+      "recall": 0.9291139240506329,
+      "f1-score": 0.9619921363040629,
+      "support": 395.0
+    },
+    "DDoS_HTTP": {
+      "precision": 0.8961038961038961,
+      "recall": 0.16312056737588654,
+      "f1-score": 0.276,
+      "support": 423.0
+    },
+    "DDoS_ICMP": {
+      "precision": 0.9980879541108987,
+      "recall": 0.9961832061068703,
+      "f1-score": 0.997134670487106,
+      "support": 524.0
+    },
+    "DDoS_TCP": {
+      "precision": 0.9403669724770642,
+      "recall": 1.0,
+      "f1-score": 0.9692671394799054,
+      "support": 410.0
+    },
+    "DDoS_UDP": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 580.0
+    },
+    "Fingerprinting": {
+      "precision": 0.08743169398907104,
+      "recall": 0.9411764705882353,
+      "f1-score": 0.16,
+      "support": 34.0
+    },
+    "MITM": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Normal": {
+      "precision": 0.35428151414920983,
+      "recall": 0.9989637305699481,
+      "f1-score": 0.523060227889311,
+      "support": 965.0
+    },
+    "Password": {
+      "precision": 0.6363636363636364,
+      "recall": 0.017543859649122806,
+      "f1-score": 0.03414634146341464,
+      "support": 399.0
+    },
+    "Port_Scanning": {
+      "precision": 1.0,
+      "recall": 0.9971988795518207,
+      "f1-score": 0.9985974754558204,
+      "support": 357.0
+    },
+    "Ransomware": {
+      "precision": 1.0,
+      "recall": 0.22164948453608246,
+      "f1-score": 0.3628691983122363,
+      "support": 388.0
+    },
+    "SQL_injection": {
+      "precision": 0.8571428571428571,
+      "recall": 0.014598540145985401,
+      "f1-score": 0.028708133971291867,
+      "support": 411.0
+    },
+    "Uploading": {
+      "precision": 0.983739837398374,
+      "recall": 0.29584352078239606,
+      "f1-score": 0.4548872180451128,
+      "support": 409.0
+    },
+    "Vulnerability_scanner": {
+      "precision": 0.97953216374269,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.9005376344086021,
+      "support": 402.0
+    },
+    "XSS": {
+      "precision": 0.9879518072289156,
+      "recall": 0.21465968586387435,
+      "f1-score": 0.35268817204301073,
+      "support": 382.0
+    },
+    "accuracy": 0.6476973684210526,
+    "macro avg": {
+      "precision": 0.847885662760151,
+      "recall": 0.6415590135036128,
+      "f1-score": 0.601325889857325,
+      "support": 6080.0
+    },
+    "weighted avg": {
+      "precision": 0.8440946353261185,
+      "recall": 0.6476973684210526,
+      "f1-score": 0.6107457191114165,
+      "support": 6080.0
+    }
+  },
+  "anomaly_test_roc_auc": 0.5197,
+  "anomaly_test_f1": 0.5153,
+  "anomaly_evaluation_error": null,
+  "preprocessing_version": 2,
+  "feature_semantics": "edgeiiot-packet-v1",
+  "holdout_scope": "benchmark_packets_only; no field-data generalization claim",
+  "deployment_refit_uses_holdout": false,
+  "anomaly_threshold": -0.4826,
+  "isolation_score_min": -0.6062613919409866,
+  "isolation_score_max": -0.35893732494726266,
+  "loss_curve_path": null,
+  "feature_importance_path": "D:\\STT 2026\\ml_engine\\models\\decrypted\\random_forest_isolation_forest\\feature_importance.png",
+  "timeseries": false,
+  "window_size": null,
+  "best_params": {},
+  "best_anomaly_params": {},
+  "sqlite_storage": null,
+  "can_export_tinyml": true
+}

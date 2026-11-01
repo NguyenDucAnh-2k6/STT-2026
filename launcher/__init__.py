@@ -20,6 +20,7 @@ from .workers import (
     udp_broker_beacon_worker,
     network_roaming_watcher_worker,
     serial_telemetry_bridge_worker,
+    host_gateway_esp32_bridge_worker,
 )
 from .flasher import (
     find_arduino_cli,
@@ -38,6 +39,7 @@ __all__ = [
     "udp_broker_beacon_worker",
     "network_roaming_watcher_worker",
     "serial_telemetry_bridge_worker",
+    "host_gateway_esp32_bridge_worker",
     "find_arduino_cli",
     "find_esp32_com_port",
     "flash_esp32_cli",
