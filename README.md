@@ -205,6 +205,57 @@ flowchart TD
 
 ---
 
+### 3. Chế độ Laptop Gateway & ESP32 Hardware Dongle (Full L7 DPI + Còi/OLED Biên)
+Ở chế độ này, Laptop đóng vai trò là Trạm Gateway / Wi-Fi Mobile Hotspot chính:
+- **Hotspot Gateway**: Laptop bật tính năng Mobile Hotspot (hoặc Wi-Fi sharing), cấp IP cho các thiết bị di động kết nối vào. Mọi gói tin đi qua máy tính đều là gói tin L2-L7 unencrypted đối với OS của Laptop.
+- **Deep Packet Inspection (DPI) & TShark**: Máy tính trích xuất đầy đủ 56 đặc trưng Edge-IIoTset (HTTP, DNS, TCP Flags, IAT, Shannon Entropy).
+- **Phân loại AI Đa Lớp**: Chạy các mô hình phân loại tấn công (Random Forest, Extra Trees, XGBoost, Deep Neural Network) và cổng phát hiện bất thường Isolation Forest trên Host.
+- **ESP32 làm Hardware Security Dongle**: ESP32 cắm vào cổng USB của laptop, nhận các bản tin telemetry và cảnh báo từ luồng USB Serial Bridge (`HOST_ALERT:` / `HOST_STATS:`):
+  - Màn hình OLED hiển thị: `HOST-GW | L7 DPI`, lưu lượng gói/giây, băng thông KB/s và trạng thái an ninh mạng.
+  - Còi Buzzer và LED đỏ lập tức hú còi và chớp sáng khi phát hiện tấn công mạng, biến ESP32 thành một thiết bị bảo mật phần cứng vật lý chuyên dụng.
+
+```mermaid
+flowchart TD
+    subgraph Client_Devices["1. CÁC THIẾT BỊ CLIENT TRONG MẠNG"]
+        Client_Phone["Điện thoại thông minh (iOS / Android)"]
+        Client_Laptop["Laptop phụ / Máy tính bảng"]
+        IoT_Cam["Camera an ninh / Thiết bị IoT"]
+        
+        Client_Phone -->|"Kết nối Wi-Fi Hotspot"| Hotspot_NIC
+        Client_Laptop -->|"Kết nối Wi-Fi Hotspot"| Hotspot_NIC
+        IoT_Cam -->|"Kết nối Wi-Fi Hotspot"| Hotspot_NIC
+    end
+
+    subgraph Laptop_Gateway["2. LAPTOP GATEWAY & DPI ENGINE"]
+        Hotspot_NIC["Card mạng Mobile Hotspot<br/>(Windows Hotspot / Wi-Fi Sharing)"]
+        TShark_DPI["TShark L2-L7 Dissector Engine<br/>(Bóc tách 56 đặc trưng Edge-IIoTset)"]
+        Host_ML["Host ML Inference Engine<br/>(15 Attack Classes + Anomaly Gate)"]
+        Host_MQTT["Mosquitto MQTT Broker<br/>(edge/alerts, edge/prediction, edge/traffic)"]
+        Bridge_Worker["Host-Gateway Dongle Worker<br/>(launcher/workers.py -> USB Serial)"]
+        
+        Hotspot_NIC --> TShark_DPI --> Host_ML
+        Host_ML -->|"Publish Alerts & Prediction"| Host_MQTT
+        Host_MQTT --> Bridge_Worker
+    end
+
+    subgraph ESP32_Dongle["3. ESP32 HARDWARE SECURITY DONGLE (CẮM CỔNG USB)"]
+        Serial_In["Serial Parser (HOST_ALERT / HOST_STATS)"]
+        OLED_Screen["Màn hình OLED SSD1306<br/>(HOST-GW | L7 DPI | Pkts/s | KB/s)"]
+        Alarm_Buzzer["Còi Buzzer + LED Đỏ Báo Động Vật Lý"]
+        
+        Bridge_Worker -->|"Cáp USB COM (115200 baud)"| Serial_In
+        Serial_In --> OLED_Screen
+        Serial_In -->|"Nếu có cảnh báo tấn công"| Alarm_Buzzer
+    end
+
+    subgraph Internet_World["4. INTERNET VÀ CLOUD"]
+        External_Internet["Internet Toàn Cầu (Web / Cloud / Apps)"]
+        Hotspot_NIC -->|"NAT Forwarding"| External_Internet
+    end
+```
+
+---
+
 ### 2. Chế độ ESP32 Promiscuous Sniffer (Over-the-Air L2 WIDS)
 Ở chế độ này, ESP32 hoạt động như một cảm biến giám sát không dây thụ động (Passive WIDS Sensor):
 - **Không xâm nhập mạng**: Card Wi-Fi của ESP32 chuyển sang chế độ `promiscuous`, khóa vào kênh sóng (channel) của Router mục tiêu và bắt toàn bộ khung sóng 802.11 truyền trong không gian.
@@ -263,6 +314,108 @@ flowchart TD
         MQTT_Broker_Core --> FastAPI_Server
         FastAPI_Server --> Parquet_Store
         FastAPI_Server <-->|WebSocket| Dashboard_UI
+    end
+```
+
+---
+
+### 3. Chế độ Laptop Gateway & ESP32 Hardware Dongle (Full L7 DPI + Còi/OLED Biên)
+Ở chế độ này, Laptop đóng vai trò là Trạm Gateway / Wi-Fi Mobile Hotspot chính:
+- **Hotspot Gateway**: Laptop bật tính năng Mobile Hotspot (hoặc Wi-Fi sharing), cấp IP cho các thiết bị di động kết nối vào. Mọi gói tin đi qua máy tính đều là gói tin L2-L7 unencrypted đối với OS của Laptop.
+- **Deep Packet Inspection (DPI) & TShark**: Máy tính trích xuất đầy đủ 56 đặc trưng Edge-IIoTset (HTTP, DNS, TCP Flags, IAT, Shannon Entropy).
+- **Phân loại AI Đa Lớp**: Chạy các mô hình phân loại tấn công (Random Forest, Extra Trees, XGBoost, Deep Neural Network) và cổng phát hiện bất thường Isolation Forest trên Host.
+- **ESP32 làm Hardware Security Dongle**: ESP32 cắm vào cổng USB của laptop, nhận các bản tin telemetry và cảnh báo từ luồng USB Serial Bridge (`HOST_ALERT:` / `HOST_STATS:`):
+  - Màn hình OLED hiển thị: `HOST-GW | L7 DPI`, lưu lượng gói/giây, băng thông KB/s và trạng thái an ninh mạng.
+  - Còi Buzzer và LED đỏ lập tức hú còi và chớp sáng khi phát hiện tấn công mạng, biến ESP32 thành một thiết bị bảo mật phần cứng vật lý chuyên dụng.
+
+```mermaid
+flowchart TD
+    subgraph Client_Devices["1. CÁC THIẾT BỊ CLIENT TRONG MẠNG"]
+        Client_Phone["Điện thoại thông minh (iOS / Android)"]
+        Client_Laptop["Laptop phụ / Máy tính bảng"]
+        IoT_Cam["Camera an ninh / Thiết bị IoT"]
+        
+        Client_Phone -->|"Kết nối Wi-Fi Hotspot"| Hotspot_NIC
+        Client_Laptop -->|"Kết nối Wi-Fi Hotspot"| Hotspot_NIC
+        IoT_Cam -->|"Kết nối Wi-Fi Hotspot"| Hotspot_NIC
+    end
+
+    subgraph Laptop_Gateway["2. LAPTOP GATEWAY & DPI ENGINE"]
+        Hotspot_NIC["Card mạng Mobile Hotspot<br/>(Windows Hotspot / Wi-Fi Sharing)"]
+        TShark_DPI["TShark L2-L7 Dissector Engine<br/>(Bóc tách 56 đặc trưng Edge-IIoTset)"]
+        Host_ML["Host ML Inference Engine<br/>(15 Attack Classes + Anomaly Gate)"]
+        Host_MQTT["Mosquitto MQTT Broker<br/>(edge/alerts, edge/prediction, edge/traffic)"]
+        Bridge_Worker["Host-Gateway Dongle Worker<br/>(launcher/workers.py -> USB Serial)"]
+        
+        Hotspot_NIC --> TShark_DPI --> Host_ML
+        Host_ML -->|"Publish Alerts & Prediction"| Host_MQTT
+        Host_MQTT --> Bridge_Worker
+    end
+
+    subgraph ESP32_Dongle["3. ESP32 HARDWARE SECURITY DONGLE (CẮM CỔNG USB)"]
+        Serial_In["Serial Parser (HOST_ALERT / HOST_STATS)"]
+        OLED_Screen["Màn hình OLED SSD1306<br/>(HOST-GW | L7 DPI | Pkts/s | KB/s)"]
+        Alarm_Buzzer["Còi Buzzer + LED Đỏ Báo Động Vật Lý"]
+        
+        Bridge_Worker -->|"Cáp USB COM (115200 baud)"| Serial_In
+        Serial_In --> OLED_Screen
+        Serial_In -->|"Nếu có cảnh báo tấn công"| Alarm_Buzzer
+    end
+
+    subgraph Internet_World["4. INTERNET VÀ CLOUD"]
+        External_Internet["Internet Toàn Cầu (Web / Cloud / Apps)"]
+        Hotspot_NIC -->|"NAT Forwarding"| External_Internet
+    end
+```
+
+---
+
+### 3. Chế độ Laptop Gateway & ESP32 Hardware Dongle (Full L7 DPI + Còi/OLED Biên)
+Ở chế độ này, Laptop đóng vai trò là Trạm Gateway / Wi-Fi Mobile Hotspot chính:
+- **Hotspot Gateway**: Laptop bật tính năng Mobile Hotspot (hoặc Wi-Fi sharing), cấp IP cho các thiết bị di động kết nối vào. Mọi gói tin đi qua máy tính đều là gói tin L2-L7 unencrypted đối với OS của Laptop.
+- **Deep Packet Inspection (DPI) & TShark**: Máy tính trích xuất đầy đủ 56 đặc trưng Edge-IIoTset (HTTP, DNS, TCP Flags, IAT, Shannon Entropy).
+- **Phân loại AI Đa Lớp**: Chạy các mô hình phân loại tấn công (Random Forest, Extra Trees, XGBoost, Deep Neural Network) và cổng phát hiện bất thường Isolation Forest trên Host.
+- **ESP32 làm Hardware Security Dongle**: ESP32 cắm vào cổng USB của laptop, nhận các bản tin telemetry và cảnh báo từ luồng USB Serial Bridge (`HOST_ALERT:` / `HOST_STATS:`):
+  - Màn hình OLED hiển thị: `HOST-GW | L7 DPI`, lưu lượng gói/giây, băng thông KB/s và trạng thái an ninh mạng.
+  - Còi Buzzer và LED đỏ lập tức hú còi và chớp sáng khi phát hiện tấn công mạng, biến ESP32 thành một thiết bị bảo mật phần cứng vật lý chuyên dụng.
+
+```mermaid
+flowchart TD
+    subgraph Client_Devices["1. CÁC THIẾT BỊ CLIENT TRONG MẠNG"]
+        Client_Phone["Điện thoại thông minh (iOS / Android)"]
+        Client_Laptop["Laptop phụ / Máy tính bảng"]
+        IoT_Cam["Camera an ninh / Thiết bị IoT"]
+        
+        Client_Phone -->|"Kết nối Wi-Fi Hotspot"| Hotspot_NIC
+        Client_Laptop -->|"Kết nối Wi-Fi Hotspot"| Hotspot_NIC
+        IoT_Cam -->|"Kết nối Wi-Fi Hotspot"| Hotspot_NIC
+    end
+
+    subgraph Laptop_Gateway["2. LAPTOP GATEWAY & DPI ENGINE"]
+        Hotspot_NIC["Card mạng Mobile Hotspot<br/>(Windows Hotspot / Wi-Fi Sharing)"]
+        TShark_DPI["TShark L2-L7 Dissector Engine<br/>(Bóc tách 56 đặc trưng Edge-IIoTset)"]
+        Host_ML["Host ML Inference Engine<br/>(15 Attack Classes + Anomaly Gate)"]
+        Host_MQTT["Mosquitto MQTT Broker<br/>(edge/alerts, edge/prediction, edge/traffic)"]
+        Bridge_Worker["Host-Gateway Dongle Worker<br/>(launcher/workers.py -> USB Serial)"]
+        
+        Hotspot_NIC --> TShark_DPI --> Host_ML
+        Host_ML -->|"Publish Alerts & Prediction"| Host_MQTT
+        Host_MQTT --> Bridge_Worker
+    end
+
+    subgraph ESP32_Dongle["3. ESP32 HARDWARE SECURITY DONGLE (CẮM CỔNG USB)"]
+        Serial_In["Serial Parser (HOST_ALERT / HOST_STATS)"]
+        OLED_Screen["Màn hình OLED SSD1306<br/>(HOST-GW | L7 DPI | Pkts/s | KB/s)"]
+        Alarm_Buzzer["Còi Buzzer + LED Đỏ Báo Động Vật Lý"]
+        
+        Bridge_Worker -->|"Cáp USB COM (115200 baud)"| Serial_In
+        Serial_In --> OLED_Screen
+        Serial_In -->|"Nếu có cảnh báo tấn công"| Alarm_Buzzer
+    end
+
+    subgraph Internet_World["4. INTERNET VÀ CLOUD"]
+        External_Internet["Internet Toàn Cầu (Web / Cloud / Apps)"]
+        Hotspot_NIC -->|"NAT Forwarding"| External_Internet
     end
 ```
 
@@ -340,6 +493,13 @@ ESP32 Probe là hạt nhân giám sát biên thông minh, hỗ trợ **2 kiến 
 - **Cấu hình Flash**: Sử dụng phân vùng `PartitionScheme=huge_app` (3MB Flash), chiếm ~39% dung lượng Flash và 15% RAM của ESP32.
 - **Báo động tại chỗ (Edge Autonomy)**: Ngay cả khi mất kết nối mạng về máy chủ, ESP32 vẫn duy trì khả năng suy luận độc lập và kích hoạt còi Buzzer/LED/OLED cảnh báo khi phát hiện bất thường.
 
+### D. Khả năng hoạt động Độc lập Tự trị (Standalone Edge Autonomy)
+ESP32 hoàn toàn có thể **tách rời khỏi máy tính và hoạt động 100% độc lập** chỉ với một củ sạc điện thoại 5V hoặc pin dự phòng USB:
+1. **Trọng số và Cây quyết định đã nhúng sẵn vào Flash**: Toàn bộ thuật toán Random Forest (16 cây) và Isolation Forest được chuyển đổi sang mã C thuần (`tinyml_model.h` / `esp32_packet_model.h`), nạp cố định trong 3MB bộ nhớ Flash của ESP32 (`PartitionScheme=huge_app`).
+2. **CPU Xtensa tự thực thi**: Vi điều khiển lõi kép Xtensa LX6 240MHz tự xử lý tính toán số thực, trích xuất đặc trưng và đưa ra phán quyết an ninh trong vòng < 5ms mà không cần Python hay máy tính trợ giúp.
+3. **Ngoại vi tại chỗ hoàn chỉnh**: Màn hình OLED SSD1306, Còi Buzzer và LED cảnh báo gắn trực tiếp vào các chân GPIO của ESP32, cho phép chip tự hiển thị thông số và tự hú còi khi có xâm nhập kể cả khi đặt chip ở góc phòng hoặc gắn trên xe.
+4. **Cơ chế hoạt động khi mất kết nối mạng**: Nếu không có Broker MQTT, chip vẫn tiếp tục chu trình sniffing / gateway và suy luận nội bộ liên tục, không bị gián đoạn.
+
 ---
 
 ## 4. Hướng dẫn vận hành & Các lệnh chạy Demo
@@ -400,14 +560,39 @@ python run_system.py --esp32-gateway --demo-mode gateway --arduino-cli --flash -
 >    ```
 >    Trang **AERO Gateway Portal** sẽ hiện ra. Bạn có thể bấm nút **"Kiểm Tra Kết Nối (Normal Traffic)"** hoặc bấm **"Thử Nghiệm Cảnh Báo AI (Simulate Alert)"** để còi chip kêu và Web Dashboard lập tức hiển thị cảnh báo đỏ rực!
 
-#### DEMO 3: Giám sát lưu lượng Host (Card mạng máy tính thực tế)
+#### DEMO 3: Laptop làm Hotspot Gateway & ESP32 Hardware Security Dongle (Full L7 DPI)
+Laptop đóng vai trò làm Wi-Fi Mobile Hotspot / Router trung tâm, bóc tách toàn phần 56 đặc trưng L2-L7 bằng TShark; bo mạch ESP32 cắm qua USB làm thiết bị phần cứng báo động vật lý:
+
+```powershell
+python run_system.py --demo-mode laptop-gateway --classifier random_forest --anomaly-model isolation_forest
+```
+*(Hoặc dùng cờ tương đương: `python run_system.py --host-gateway ...`)*
+- **Hành vi**:
+  1. Bật **Mobile Hotspot** trên Windows (Settings -> Network & internet -> Mobile hotspot).
+  2. Các thiết bị khác (điện thoại, laptop) kết nối vào mạng Hotspot của laptop để lướt web bình thường.
+  3. TShark bóc tách gói tin L2-L7 không mã hóa đối với card mạng host, chạy suy luận 15 nhãn tấn công.
+  4. ESP32 nhận bản tin qua USB Serial, hiển thị lưu lượng lên màn hình OLED (`HOST-GW | L7 DPI`) và hú còi Buzzer/LED đỏ khi phát hiện bất thường.
+
+> [!TIP]
+> **Tùy chọn Portable Executable (Chạy trên Laptop B không cần cài Python):**
+> Nếu chiếc laptop cần giám sát (Laptop B) là máy lạ không có sẵn Python/thư viện, bạn chỉ cần copy duy nhất file thực thi độc lập đã được build sẵn:
+> ```text
+> dist/aero_gateway_probe.exe (dung lượng ~9.9 MB)
+> ```
+> Cắm ESP32 vào cổng USB Laptop B và mở Command Prompt chạy:
+> ```cmd
+> aero_gateway_probe.exe --broker <IP_CỦA_LAPTOP_A>
+> ```
+> File `.exe` sẽ tự động bóc tách gói tin, tính toán Shannon Entropy, tự tìm cổng COM điều khiển còi/OLED của ESP32 và bắn số liệu về Web Dashboard của Laptop A!
+
+#### DEMO 4: Giám sát lưu lượng Host nội bộ (Card mạng máy tính thực tế)
 Bóc tách toàn phần 56 đặc trưng canonical L2-L7 bằng TShark trên card mạng máy tính (Ethernet/Wi-Fi):
 
 ```powershell
 python run_system.py --probe host --classifier random_forest --anomaly-model isolation_forest
 ```
 
-#### DEMO 4: Thử nghiệm Digital Twin Lab (14 Kịch bản tấn công trên Loopback)
+#### DEMO 5: Thử nghiệm Digital Twin Lab (14 Kịch bản tấn công trên Loopback)
 Dành cho kiểm thử an toàn các kịch bản DoS, Scan, Injection, XSS, Ransomware, MITM trên loopback `127.0.0.1`:
 
 ```powershell

@@ -1,6 +1,6 @@
 {
-  "timestamp": 1792673816,
-  "artifact_id": "8ca514b8317941aca7ec1f582923e972",
+  "timestamp": 1793526256,
+  "artifact_id": "59ae58d4c5b448b48e8f8d2a358930c5",
   "traffic_mode": "wireless",
   "profile": "awid3-wifi-v1",
   "features_count": 14,
@@ -46,71 +46,71 @@
   "sample_ratio": 1.0,
   "test_size": 0.2,
   "refit_full": false,
-  "train_samples": 144112,
-  "test_samples": 36028,
-  "classifier_accuracy": 0.5299,
-  "classifier_accuracy_cv": 0.5339,
-  "classifier_accuracy_std": 0.008,
-  "classifier_macro_f1": 0.6363,
-  "classifier_macro_f1_cv": 0.6359,
-  "classifier_macro_f1_std": 0.0047,
-  "classifier_weighted_f1": 0.5268,
+  "train_samples": 21528,
+  "test_samples": 5382,
+  "classifier_accuracy": 0.7395,
+  "classifier_accuracy_cv": 0.7251,
+  "classifier_accuracy_std": 0.0046,
+  "classifier_macro_f1": 0.7846,
+  "classifier_macro_f1_cv": 0.7734,
+  "classifier_macro_f1_std": 0.0055,
+  "classifier_weighted_f1": 0.7514,
   "cv_strategy": "5-Fold Stratified CV",
   "cv_folds": 5,
   "classification_report": {
     "Botnet": {
-      "precision": 0.38075017692852087,
-      "recall": 0.538,
-      "f1-score": 0.4459179444674679,
-      "support": 2000.0
+      "precision": 0.7785977859778598,
+      "recall": 0.7033333333333334,
+      "f1-score": 0.7390542907180385,
+      "support": 300.0
     },
     "Deauth": {
-      "precision": 0.999,
-      "recall": 0.999,
-      "f1-score": 0.999,
-      "support": 2000.0
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 300.0
     },
     "Disass": {
-      "precision": 0.6193129062209842,
-      "recall": 0.667,
-      "f1-score": 0.6422725084256139,
-      "support": 2000.0
+      "precision": 0.9887640449438202,
+      "recall": 0.5866666666666667,
+      "f1-score": 0.7364016736401674,
+      "support": 300.0
     },
     "Evil_Twin": {
-      "precision": 0.999000499750125,
-      "recall": 0.9995,
-      "f1-score": 0.9992501874531368,
-      "support": 2000.0
+      "precision": 0.9900990099009901,
+      "recall": 1.0,
+      "f1-score": 0.9950248756218906,
+      "support": 300.0
     },
     "Kr00k": {
-      "precision": 0.6383324309691392,
-      "recall": 0.5895,
-      "f1-score": 0.6129451520665453,
-      "support": 2000.0
+      "precision": 0.7078384798099763,
+      "recall": 0.9933333333333333,
+      "f1-score": 0.826629680998613,
+      "support": 300.0
     },
     "Krack": {
-      "precision": 0.6495794953944733,
-      "recall": 0.811,
-      "f1-score": 0.7213698020902825,
-      "support": 2000.0
+      "precision": 0.9855595667870036,
+      "recall": 0.91,
+      "f1-score": 0.9462738301559792,
+      "support": 300.0
     },
     "Malware": {
-      "precision": 0.6145494028230185,
-      "recall": 0.566,
-      "f1-score": 0.5892764185320146,
-      "support": 2000.0
+      "precision": 0.796078431372549,
+      "recall": 0.6766666666666666,
+      "f1-score": 0.7315315315315315,
+      "support": 300.0
     },
     "Normal": {
-      "precision": 0.9355271994627267,
-      "recall": 0.21997631267272008,
-      "f1-score": 0.3561976602953398,
-      "support": 12665.0
+      "precision": 0.9372647427854455,
+      "recall": 0.49144736842105263,
+      "f1-score": 0.6447993094518775,
+      "support": 1520.0
     },
     "ReAssoc": {
-      "precision": 0.9990925589836661,
+      "precision": 1.0,
       "recall": 1.0,
-      "f1-score": 0.9995460735360872,
-      "support": 1101.0
+      "f1-score": 1.0,
+      "support": 300.0
     },
     "Rogue_AP": {
       "precision": 1.0,
@@ -119,53 +119,53 @@
       "support": 262.0
     },
     "SQL_Injection": {
-      "precision": 0.3242603550295858,
-      "recall": 0.685,
-      "f1-score": 0.44016064257028115,
-      "support": 2000.0
+      "precision": 0.5345268542199488,
+      "recall": 0.6966666666666667,
+      "f1-score": 0.6049204052098408,
+      "support": 300.0
     },
     "SSDP": {
-      "precision": 0.22050832602979842,
-      "recall": 0.629,
-      "f1-score": 0.3265412070084361,
-      "support": 2000.0
+      "precision": 0.35958395245170877,
+      "recall": 0.8066666666666666,
+      "f1-score": 0.49743062692702983,
+      "support": 300.0
     },
     "SSH": {
-      "precision": 0.4393305439330544,
-      "recall": 0.4725,
-      "f1-score": 0.45531197301854975,
-      "support": 2000.0
+      "precision": 0.8981481481481481,
+      "recall": 0.6466666666666666,
+      "f1-score": 0.751937984496124,
+      "support": 300.0
     },
     "Website_spoofing": {
-      "precision": 0.23231185218566922,
-      "recall": 0.5155,
-      "f1-score": 0.3202858030444237,
-      "support": 2000.0
+      "precision": 0.35907859078590787,
+      "recall": 0.8833333333333333,
+      "f1-score": 0.5105973025048169,
+      "support": 300.0
     },
-    "accuracy": 0.5299489286110802,
+    "accuracy": 0.73950204384987,
     "macro avg": {
-      "precision": 0.6465396962650544,
-      "recall": 0.6922840223337657,
-      "f1-score": 0.6362910980362985,
-      "support": 36028.0
+      "precision": 0.809681400513097,
+      "recall": 0.8139129072681704,
+      "f1-score": 0.7846143936611362,
+      "support": 5382.0
     },
     "weighted avg": {
-      "precision": 0.706237506027678,
-      "recall": 0.5299489286110802,
-      "f1-score": 0.5267682600187968,
-      "support": 36028.0
+      "precision": 0.8372584296457173,
+      "recall": 0.73950204384987,
+      "f1-score": 0.7514001506703946,
+      "support": 5382.0
     }
   },
-  "anomaly_test_roc_auc": 0.6828,
-  "anomaly_test_f1": 0.6375,
+  "anomaly_test_roc_auc": 0.7387,
+  "anomaly_test_f1": 0.7212,
   "anomaly_evaluation_error": null,
   "preprocessing_version": 1,
   "feature_semantics": "awid3-wifi-v1",
   "holdout_scope": "benchmark_packets_only; no field-data generalization claim",
   "deployment_refit_uses_holdout": false,
-  "anomaly_threshold": -0.5077,
-  "isolation_score_min": -0.6553808291828007,
-  "isolation_score_max": -0.3599474814672656,
+  "anomaly_threshold": -0.5124,
+  "isolation_score_min": -0.6548901142033824,
+  "isolation_score_max": -0.370001634453275,
   "loss_curve_path": null,
   "feature_importance_path": "D:\\STT 2026\\ml_engine\\models\\wireless\\random_forest_isolation_forest\\feature_importance.png",
   "timeseries": false,

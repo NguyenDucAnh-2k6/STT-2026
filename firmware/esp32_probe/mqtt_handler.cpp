@@ -140,6 +140,32 @@ static void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   }
 }
 
+void initMqttClientConfig() {
+  mqttClient.setServer(currentBrokerHost, MQTT_BROKER_PORT);
+  mqttClient.setCallback(onMqttMessage);
+  if (!mqttClient.setBufferSize(RADIO_FRAME_MAX_BYTES * 2 + 2432)) {
+    Serial.println(F("[MQTT] Buffer allocation failed"));
+  }
+  mqttClient.setSocketTimeout(1);
+
+  if (MQTT_AUTO_DISCOVERY) udpDiscovery.begin(UDP_DISCOVERY_PORT);
+  Serial.printf("[MQTT] Da cau hinh Broker den: %s:%d (Gateway Mode)\n", currentBrokerHost, MQTT_BROKER_PORT);
+}
+
+bool publishGatewayPrediction(const char* jsonBuffer) {
+  if (mqttClient.connected() && jsonBuffer) {
+    return mqttClient.publish("edge/telemetry/prediction", jsonBuffer);
+  }
+  return false;
+}
+
+bool publishGatewayAlert(const char* jsonBuffer) {
+  if (mqttClient.connected() && jsonBuffer) {
+    return mqttClient.publish(TOPIC_LOCAL_ALERT, jsonBuffer);
+  }
+  return false;
+}
+
 void initMqttAndWiFi(bool allNetworksMode) {
   if (allNetworksMode) {
     Serial.println(F("\n=================================================="));
@@ -161,13 +187,7 @@ void initMqttAndWiFi(bool allNetworksMode) {
   wifiMulti.addAP(BACKUP_WIFI_SSID, BACKUP_WIFI_PASSWORD);
 #endif
 
-  mqttClient.setServer(currentBrokerHost, MQTT_BROKER_PORT);
-  mqttClient.setCallback(onMqttMessage);
-  if (!mqttClient.setBufferSize(RADIO_FRAME_MAX_BYTES * 2 + 2432)) Serial.println(F("[MQTT] Buffer allocation failed"));
-  mqttClient.setSocketTimeout(1);
-
-  if (MQTT_AUTO_DISCOVERY) udpDiscovery.begin(UDP_DISCOVERY_PORT);
-  Serial.printf("[UDP Discovery] Lắng nghe Broker Beacon tren cong %d...\n", UDP_DISCOVERY_PORT);
+  initMqttClientConfig();
 }
 
 void checkUdpDiscovery() {
